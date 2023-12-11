@@ -17,7 +17,8 @@ if __name__ == "__main__":
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
     # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", use_dump=True)
-    # metadata_scraping("./data/processed/filtered-metadata.json", os.cpu_count())
+    # metadata_scraping("./data/processed/complete-filtered-metadata.json", os.cpu_count(),
+    #                   motivation="captcha-or-DOM", save_tmp=False, batch_size=25)
     metadata_stats("./data/processed/complete-filtered-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:

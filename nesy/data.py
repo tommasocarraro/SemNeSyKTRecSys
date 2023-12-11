@@ -221,7 +221,7 @@ def metadata_stats(metadata):
     print("Total is %d / %d" % (matched + err + captcha + ukn, len(m_data)))
 
 
-def metadata_scraping(metadata, n_cores, motivation="no-title"):
+def metadata_scraping(metadata, n_cores, motivation="no-title", save_tmp=True, batch_size=100):
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
     titles from the Amazon website.
@@ -238,13 +238,16 @@ def metadata_scraping(metadata, n_cores, motivation="no-title"):
         - 404-error: in the first scraping job, the title retrieval failed due to a 404 not found error, meaning the
         ASIN is not on Amazon anymore
         - exception-error: in the first scraping job, the title retrieval failed due to an exception
+    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
+    :param batch_size: number of ASINs that have to be processed for each batch. Keep this number under 100 to avoid
+    disk memory problems due to temporary files memorization by Selenium
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
     # take the ASINs for the products that have a missing title in the metadata file
     no_titles = [k for k, v in m_data.items() if v == motivation]
     # update the metadata with the scraped titles
-    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=100)
+    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
     # generate the new and complete metadata file
     with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
