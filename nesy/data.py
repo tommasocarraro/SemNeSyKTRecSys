@@ -76,7 +76,7 @@ def filter_metadata(metadata, rating_files):
         json.dump(new_file_dict, f, ensure_ascii=False, indent=4)
 
 
-def scrape_title(asins, n_cores, batch_size):
+def scrape_title(asins, n_cores, batch_size, save_tmp=True):
     """
     This function takes as input a list of Amazon ASINs and performs http requests with Selenium to get the title of
     the ASIN from the Amazon website.
@@ -84,6 +84,7 @@ def scrape_title(asins, n_cores, batch_size):
     :param asins: list of ASINs for which the title has to be retrieved
     :param n_cores: number of cores to be used for scraping
     :param batch_size: number of ASINs to be processed in each batch of parallel execution
+    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
     :return: new dictionary containing key-value pairs with ASIN-title
     """
     # get number of batches for printing information
@@ -177,9 +178,10 @@ def scrape_title(asins, n_cores, batch_size):
                     batch_dict[asin] = "exception-error"
                 print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
             driver.quit()
-            # save a json file dedicated to this specific batch
-            with open(tmp_path, 'w', encoding='utf-8') as f:
-                json.dump(batch_dict, f, ensure_ascii=False, indent=4)
+            if save_tmp:
+                # save a json file dedicated to this specific batch
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(batch_dict, f, ensure_ascii=False, indent=4)
         else:
             # load the file and update the parallel dict
             with open(tmp_path) as json_file:
@@ -194,7 +196,32 @@ def scrape_title(asins, n_cores, batch_size):
     return title_dict.copy()
 
 
-def metadata_scraping(metadata, n_cores):
+def metadata_stats(metadata):
+    """
+    This function produces some statistics for the provided metadata file. The statistics include the number of items
+    with a missing title due to a 404 error, a bot detection or DOM error, or an unknown error due to an exception in
+    the scraping procedure.
+
+    :param metadata: path to the metadata file for which the statistics have to be generated
+    """
+    with open(metadata) as json_file:
+        m_data = json.load(json_file)
+    err, captcha, ukn, matched = 0, 0, 0, 0
+    for _, v in m_data.items():
+        if v == "404-error":
+            err += 1
+        elif v == "captcha-or-DOM":
+            captcha += 1
+        elif v == "exception-error":
+            ukn += 1
+        else:
+            matched += 1
+
+    print("Matched titles %d - 404 err %d - captcha or DOM %d - exception %d" % (matched, err, captcha, ukn))
+    print("Total is %d / %d" % (matched + err + captcha + ukn, len(m_data)))
+
+
+def metadata_scraping(metadata, n_cores, motivation="no-title"):
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
     titles from the Amazon website.
@@ -203,11 +230,19 @@ def metadata_scraping(metadata, n_cores):
 
     :param metadata: file containing metadata for the items
     :param n_cores: number of cores to be used for scraping
+    :param motivation: motivation for which the title has to be scraped. It could be:
+        - no-title (default): in the first scraping job, no-title means that the metadata is missing the title for the
+        item
+        - captcha-or-DOM: in the first scraping job, the title retrieval for this item failed due to incorrect DOM or
+        bot detection from Amazon
+        - 404-error: in the first scraping job, the title retrieval failed due to a 404 not found error, meaning the
+        ASIN is not on Amazon anymore
+        - exception-error: in the first scraping job, the title retrieval failed due to an exception
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
     # take the ASINs for the products that have a missing title in the metadata file
-    no_titles = [k for k, v in m_data.items() if v == "no-title"]
+    no_titles = [k for k, v in m_data.items() if v == motivation]
     # update the metadata with the scraped titles
     m_data = m_data | scrape_title(no_titles, n_cores, batch_size=100)
     # generate the new and complete metadata file

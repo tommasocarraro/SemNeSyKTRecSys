@@ -1,7 +1,7 @@
 import os
 
-from nesy.data import create_asin_metadata_json, create_pandas_dataset, entity_linker_local, get_wid_title, \
-    get_wid_labels, entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata
+from nesy.data import create_asin_metadata_json, create_pandas_dataset,\
+    entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata, metadata_stats
 import json
 import pandas as pd
 
@@ -17,7 +17,8 @@ if __name__ == "__main__":
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
     # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", use_dump=True)
-    metadata_scraping("./data/processed/filtered-metadata.json", os.cpu_count())
+    # metadata_scraping("./data/processed/filtered-metadata.json", os.cpu_count())
+    metadata_stats("./data/processed/complete-filtered-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
     #     mapping = json.load(json_file)
