@@ -17,6 +17,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
 import time
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import NoSuchElementException
 import random
 
 
@@ -66,7 +67,7 @@ def filter_metadata(metadata, rating_files):
     """
     desired_asin = []
     for dataset in rating_files:
-        data = pd.read_csv("./data/processed/%s.csv" % (dataset, ))
+        data = pd.read_csv("./data/processed/%s.csv" % (dataset,))
         desired_asin.extend(data["itemId"].unique())
 
     with open(metadata) as json_file:
@@ -78,76 +79,124 @@ def filter_metadata(metadata, rating_files):
         json.dump(new_file_dict, f, ensure_ascii=False, indent=4)
 
 
-def scrape_title(asins, bs=100, selenium=True):
+def scrape_title(asins, n_cores, batch_size):
     """
-    This function takes as input a list of Amazon ASIN and performs an http request to get the title of the ASIN
-    from the Amazon website.
+    This function takes as input a list of Amazon ASINs and performs http requests with Selenium to get the title of
+    the ASIN from the Amazon website.
 
-    :param asins: list of ASIN for which the title has to be retrieved
-    :param bs: batch size denoting the number of asin that has to be processed for each scraping job. Ideally,
-    it should be len(asins) / #cpu
-    :param selenium: whether to use selenium for scraping or classic HTTP requests
+    :param asins: list of ASINs for which the title has to be retrieved
+    :param n_cores: number of cores to be used for scraping
+    :param batch_size: number of ASINs to be processed in each batch of parallel execution
     :return: new dictionary containing key-value pairs with ASIN-title
     """
-    managar = Manager()
-    title_dict = managar.dict()
-    if selenium:
-        # Set up the Chrome options for a headless browser
-        chrome_options = Options()
-        chrome_options.add_argument('--headless=new')
-        chrome_options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
-        chrome_options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
+    # get number of batches
+    n_batches = int(len(asins) / batch_size)
+    # define dictionary suitable for parallel storing of information
+    manager = Manager()
+    title_dict = manager.dict()
+    # Set up the Chrome options for a headless browser
+    chrome_options = Options()
+    # chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
+    chrome_options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
 
-    def single_request(asins, title_dict):
+    def single_request(batch_idx, asins, title_dict):
         """
-        This function performs a sigle HTTP request.
+        This function performs a batch of HTTP requests using Selenium.
 
-        :param asin: ASIN of the product for which the title has to be retrieved
+        :param batch_idx: index of the current batch
+        :param asins: list of ASINs of the products for which the title has to be retrieved
+        :param title_dict: dictionary for parallel storing of the retrieved data
         """
-        urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
-        # urls = [f'https://camelcamelcamel.com/product/{asin}' for asin in asins]
-        if selenium:
-            # Set up the Chrome driver (you'll need to have ChromeDriver installed)
+        # check if this batch has been already processed in another execution
+        # if the path does not exist, we process the batch
+        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx, )
+        if not os.path.exists(tmp_path):
+            # define dictionary for saving batch data
+            batch_dict = {}
+            urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
+            # define counter to have idea of the progress of the process
+            # Set up the Chrome driver for the current batch
             chrome_service = ChromeService(executable_path='./chromedriver')
             driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
-        for url in urls:
-            asin = url.split("/")[-1]
-            try:
-                if selenium:
+            # options for wayback machine
+            # timestamp = 20150101000001
+            # wayback_url = "http://archive.org/wayback/available"
+            # start the scraping loop
+            for counter, url in enumerate(urls):
+                asin = url.split("/")[-1]
+                try:
                     # Load the Amazon product page
                     driver.get(url)
-                    # Find the product title
-                    title_element = driver.find_element(By.ID, 'productTitle')
-                    if title_element:
-                        title_dict[asin] = title_element.text.strip()
-                    else:
-                        title_dict[asin] = "no-title"
-                    print(title_element.text.strip())
-                else:
-                    # Send a GET request to the Amazon product page
-                    headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                                             'Chrome/54.0.2840.90 Safari/537.36'}
-                    response = requests.get(url, headers=headers)
-                    response.raise_for_status()
+                    # get the page
+                    page = driver.page_source
                     # Parse the HTML content of the page
-                    soup = BeautifulSoup(response.text, 'html.parser')
+                    soup = BeautifulSoup(page, 'html.parser')
                     # Find the product title
-                    # title_element = soup.find('span', {'id': 'productTitle'})
-                    title_element = soup.find('p', {'id': 'lowerpimg'})
-                    print(title_element)
-                    pd.d()
-                    print(title_element.text.strip())
-            except Exception as e:
-                print(f"Error: {e}")
-                title_dict[asin] = "no-title"
+                    title_element = soup.find('span', {'id': 'productTitle'})
+                    if title_element:
+                        print_str = title_element.text.strip()
+                        batch_dict[asin] = title_element.text.strip()
+                    else:
+                        # if title element does not exist, it means the bot has been detected or the ASIN does not exist o
+                        # n Amazon
+                        # check if it is a 404 error
+                        title_element = soup.find('img', {'alt': "Sorry! We couldn't find that page. "
+                                                                 "Try searching or go to Amazon's home page."})
+                        if title_element:
+                            print_str = "404 error"
+                            # params = {"url": url}
+                            # response = requests.get(wayback_url, params=params)
+                            # data = response.json()
+                            # archived_snapshots = data.get("archived_snapshots")
+                            # if archived_snapshots:
+                            #     new_url = archived_snapshots.get("closest", {}).get("url")
+                            #     driver.get(new_url)
+                            #     # get the page
+                            #     page = driver.page_source
+                            #     # Parse the HTML content of the page
+                            #     soup = BeautifulSoup(page, 'html.parser')
+                            #     # Find the product title
+                            #     title_element = soup.find('span', {'id': 'productTitle'})
+                            #     if title_element:
+                            #         print("Found title in old version of the page - %s" % (title_element.text.strip()))
+                            #         title_dict[asin] = title_element.text.strip()
+                            #     else:
+                            #         print("no found title in old version of page")
+                            # else:
+                            #     print("404 error even in wayback")
+                            #     title_dict[asin] = "404-error"
+                            batch_dict[asin] = "404-error"
+                        else:
+                            # if it is not a 404 error, the bot has been detected
+                            print_str = "Bot detected - url %s" % (url,)
+                            # it could be because of a captcha from Amazon or also because it is note productTile
+                            # but another ID
+                            batch_dict[asin] = "captcha-or-DOM"
+                except Exception as e:
+                    print_str = "unknown error"
+                    # if an exception is thrown by the system I am interested in knowing which ASIN caused that
+                    batch_dict[asin] = "exception-error"
+                print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+            driver.quit()
+            # save a json file dedicated to this specific batch
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(batch_dict, f, ensure_ascii=False, indent=4)
+        else:
+            # load the file and update the parallel dict
+            with open(tmp_path) as json_file:
+                batch_dict = json.load(json_file)
+        # update parallel dict
+        title_dict.update(batch_dict)
 
-    Parallel(n_jobs=os.cpu_count())(delayed(single_request)(a, title_dict)
-                                    for a in [asins[i:(i + bs if i + bs < len(asins) else len(asins))]
-                                              for i in range(0, len(asins), bs)])
+    Parallel(n_jobs=n_cores)(delayed(single_request)(batch_idx, a, title_dict)
+                             for batch_idx, a in
+                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
+                                        for i in range(0, len(asins), batch_size)]))
     return title_dict.copy()
 
 
-def metadata_scraping(metadata):
+def metadata_scraping(metadata, n_cores):
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
     titles from the Amazon website.
@@ -155,13 +204,12 @@ def metadata_scraping(metadata):
     At the end, a new metadata file with complete information is generated.
 
     :param metadata: file containing metadata for the items
+    :param n_cores: number of cores to be used for scraping
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
     no_titles = [k for k, v in m_data.items() if v == "no-title"]
-    b = time.time()
-    m_data = m_data | scrape_title(no_titles[:300], 30, selenium=True)
-    print(time.time() - b)
+    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=100)
     with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
@@ -184,7 +232,7 @@ def create_pandas_dataset(data):
         the relevant information into the given dictionary.
 
         :param line: line of JSON file containing ratings
-        :param rating_dict: list containing ratings to be saved in the CSV file. Each rating is a dict.
+        :param rating_list: list containing ratings to be saved in the CSV file. Each rating is a dict.
         """
         if "large" not in data:
             row_dict = ast.literal_eval(line)
@@ -278,7 +326,7 @@ def get_wid_title(wids):
     with open(wids) as json_file:
         wids_ = json.load(json_file)
     wids_ = [v["value"].split("/")[-1] for obj in wids_["results"]["bindings"] for t, v in obj.items()]
-    w_links = ["https://www.wikidata.org/wiki/Special:EntityData/%s.json" % (id_, ) for id_ in wids_]
+    w_links = ["https://www.wikidata.org/wiki/Special:EntityData/%s.json" % (id_,) for id_ in wids_]
     headers = {'Accept': 'application/json'}
 
     def get_json(link, wid_title_dict):
@@ -288,16 +336,19 @@ def get_wid_title(wids):
 
         :param link: link to the JSON file
         """
-        json_file = requests.get("https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q459173%7CQ544%7CQ3241540%7CQ185969%7CQ715269%7CQ27527&languages=en&props=aliases&format=json", headers=headers).json()
+        json_file = requests.get(
+            "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q459173%7CQ544%7CQ3241540%7CQ185969%7CQ715269%7CQ27527&languages=en&props=aliases&format=json",
+            headers=headers).json()
         wid = link.split("/")[-1].split(".")[0]
         wid_title_dict[wid] = {"labels": json_file["entities"][wid]["labels"],
                                "aliases": json_file["entities"][wid]["aliases"]}
+
     # parallel computing
     manager = Manager()
     wid_title_dict = manager.dict()
     Parallel(n_jobs=1)(delayed(get_json)(link, wid_title_dict) for link in tqdm(w_links))
     wid_title_dict = wid_title_dict.copy()
-    with open('./data/processed/%s' % (wids.split("/")[-1], ), 'w', encoding='utf-8') as f:
+    with open('./data/processed/%s' % (wids.split("/")[-1],), 'w', encoding='utf-8') as f:
         json.dump(wid_title_dict, f, ensure_ascii=False, indent=4)
 
 
@@ -389,7 +440,7 @@ def entity_linker_local(amazon_ratings):
         :return: the similarity score between the two strings
         """
         if regex:
-            pattern = re.compile(r'%s' % (str1.replace(" ", ".*"), ), re.IGNORECASE)
+            pattern = re.compile(r'%s' % (str1.replace(" ", ".*"),), re.IGNORECASE)
             if pattern.search(str2):
                 return 1
             else:
@@ -435,7 +486,7 @@ def entity_linker_local(amazon_ratings):
     match_dict = manager.dict()
     Parallel(n_jobs=os.cpu_count())(delayed(entity_link)(asin, match_dict) for asin in tqdm(item_ids))
     match_dict = match_dict.copy()
-    with open('./data/processed/mapping-%s' % (amazon_ratings.split("/")[-1], ), 'w', encoding='utf-8') as f:
+    with open('./data/processed/mapping-%s' % (amazon_ratings.split("/")[-1],), 'w', encoding='utf-8') as f:
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
 
 
