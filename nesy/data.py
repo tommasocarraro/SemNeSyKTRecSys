@@ -13,6 +13,8 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
+import wayback
+import datetime
 
 
 def create_asin_metadata_json(metadata):
@@ -196,6 +198,101 @@ def scrape_title(asins, n_cores, batch_size, save_tmp=True):
     return title_dict.copy()
 
 
+def scrape_title_wayback(asins, n_cores, batch_size, save_tmp=True):
+    """
+    This function takes as input a list of Amazon ASINs and performs http requests with Wayback API to get the title of
+    the ASIN from the Wayback Machine website. This is used for the ASIN that during the first scraping job obtained
+    a 404 error on Amazon. This is an attempt of still retrieve the title despite the official page not
+    existing anymore.
+
+    :param asins: list of ASINs for which the title has to be retrieved
+    :param n_cores: number of cores to be used for scraping
+    :param batch_size: number of ASINs to be processed in each batch of parallel execution
+    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
+    :return: new dictionary containing key-value pairs with ASIN-title
+    """
+    # get number of batches for printing information
+    n_batches = int(len(asins) / batch_size)
+    # define dictionary suitable for parallel storing of information
+    manager = Manager()
+    title_dict = manager.dict()
+
+    def batch_request(batch_idx, asins, title_dict):
+        """
+        This function performs a batch of HTTP requests using the Wayback API.
+
+        :param batch_idx: index of the current batch
+        :param asins: list of ASINs of the products for which the title has to be retrieved in this batch
+        :param title_dict: dictionary for parallel storing of the retrieved data
+        """
+        # check if this batch has been already processed in another execution
+        # if the path does not exist, we process the batch
+        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx, )
+        if not os.path.exists(tmp_path):
+            # define dictionary for saving batch data
+            batch_dict = {}
+            urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
+            # define wayback API
+            client = wayback.WaybackClient()
+            # start the scraping loop
+            for counter, url in enumerate(urls):
+                asin = url.split("/")[-1]
+                found = False
+                try:
+                    for record in client.search(url):
+                        found = True
+                        page = client.get_memento(record).content
+                        soup = BeautifulSoup(page, 'html.parser')
+                        # check if the page is a captcha page and discard it from the search
+                        if soup.find("h4") is not None and soup.find("h4").get_text() == ("Enter the characters you "
+                                                                                          "see below"):
+                            batch_dict[asin] = "captcha"
+                            print_str = "captcha problem - ASIN %s" % (asin, )
+                            continue
+                        # if it is not a captcha page find this specific ID while parsing the web page
+                        title_element = soup.find('span', {'id': 'btAsinTitle'})
+                        if title_element is None:
+                            # if the ID does not exist, try with this ID
+                            title_element = soup.find('span', {'id': 'productTitle'})
+                            if title_element is not None:
+                                batch_dict[asin] = title_element.text.strip()
+                                print_str = title_element.text.strip()
+                                break
+                            else:
+                                # if neither this ID exists, we need to check manually for other IDs after the scraping
+                                # procedure came to an end
+                                batch_dict[asin] = "DOM"
+                                print_str = "DOM problem - ASIN %s" % (asin, )
+                        else:
+                            batch_dict[asin] = title_element.text.strip()
+                            print_str = title_element.text.strip()
+                            break
+                    if not found:
+                        print_str = "404 error - ASIN %s" % (asin, )
+                        batch_dict[asin] = "404-error"
+                except Exception as e:
+                    print_str = e
+                    # if an exception is thrown by the system, I am interested in knowing which ASIN caused that
+                    batch_dict[asin] = "exception-error"
+                print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+            if save_tmp:
+                # save a json file dedicated to this specific batch
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(batch_dict, f, ensure_ascii=False, indent=4)
+        else:
+            # load the file and update the parallel dict
+            with open(tmp_path) as json_file:
+                batch_dict = json.load(json_file)
+        # update parallel dict
+        title_dict.update(batch_dict)
+
+    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
+                             for batch_idx, a in
+                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
+                                        for i in range(0, len(asins), batch_size)]))
+    return title_dict.copy()
+
+
 def metadata_stats(metadata):
     """
     This function produces some statistics for the provided metadata file. The statistics include the number of items
@@ -221,7 +318,7 @@ def metadata_stats(metadata):
     print("Total is %d / %d" % (matched + err + captcha + ukn, len(m_data)))
 
 
-def metadata_scraping(metadata, n_cores, motivation="no-title", save_tmp=True, batch_size=100):
+def metadata_scraping(metadata, n_cores, motivation="no-title", save_tmp=True, batch_size=100, wayback=False):
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
     titles from the Amazon website.
@@ -241,13 +338,16 @@ def metadata_scraping(metadata, n_cores, motivation="no-title", save_tmp=True, b
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
     :param batch_size: number of ASINs that have to be processed for each batch. Keep this number under 100 to avoid
     disk memory problems due to temporary files memorization by Selenium
+    :param wayback: whether to use the wayback machine API (for items not found after first scraping loop) or
+    standard one (for first scraping loop)
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
     # take the ASINs for the products that have a missing title in the metadata file
     no_titles = [k for k, v in m_data.items() if v == motivation]
     # update the metadata with the scraped titles
-    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
+    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp) \
+        if not wayback else scrape_title_wayback(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
     # generate the new and complete metadata file
     with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
