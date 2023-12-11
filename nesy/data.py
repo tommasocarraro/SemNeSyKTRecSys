@@ -5,26 +5,20 @@ import json
 from multiprocessing import Manager
 import csv
 import pandas as pd
-from SPARQLWrapper import SPARQLWrapper, JSON
 import requests
 from tqdm import tqdm
-import Levenshtein
 import re
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.common.by import By
-import time
 from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import NoSuchElementException
-import random
 
 
 def create_asin_metadata_json(metadata):
     """
     This function takes as input the JSON file containing Amazon product metadata and produces a filtered version of
-    the same file, where for each ASIN we store information about the title.
+    the same file, where for each ASIN we store information about just the title.
 
     The new file is saved into the /processed folder.
 
@@ -48,6 +42,7 @@ def create_asin_metadata_json(metadata):
         try:
             md_dict[row_dict["asin"]] = row_dict["title"]
         except Exception as e:
+            print(e)
             md_dict[row_dict["asin"]] = "no-title"
 
     with open(metadata) as f:
@@ -60,6 +55,8 @@ def create_asin_metadata_json(metadata):
 def filter_metadata(metadata, rating_files):
     """
     This function filter the given metadata file using the item IDs found in the given rating files.
+    The filtering process just creates a new metadata file where only the items included in the provided rating files
+    are kept.
     It creates a new metadata file in the same location of metadata, called filtered-metadata.
 
     :param metadata: path to metadata file
@@ -89,23 +86,24 @@ def scrape_title(asins, n_cores, batch_size):
     :param batch_size: number of ASINs to be processed in each batch of parallel execution
     :return: new dictionary containing key-value pairs with ASIN-title
     """
-    # get number of batches
+    # get number of batches for printing information
     n_batches = int(len(asins) / batch_size)
     # define dictionary suitable for parallel storing of information
     manager = Manager()
     title_dict = manager.dict()
     # Set up the Chrome options for a headless browser
     chrome_options = Options()
+    # headless mode causes Amazon to detect the scraping tool
     # chrome_options.add_argument('--headless')
     chrome_options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
     chrome_options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
 
-    def single_request(batch_idx, asins, title_dict):
+    def batch_request(batch_idx, asins, title_dict):
         """
         This function performs a batch of HTTP requests using Selenium.
 
         :param batch_idx: index of the current batch
-        :param asins: list of ASINs of the products for which the title has to be retrieved
+        :param asins: list of ASINs of the products for which the title has to be retrieved in this batch
         :param title_dict: dictionary for parallel storing of the retrieved data
         """
         # check if this batch has been already processed in another execution
@@ -189,7 +187,7 @@ def scrape_title(asins, n_cores, batch_size):
         # update parallel dict
         title_dict.update(batch_dict)
 
-    Parallel(n_jobs=n_cores)(delayed(single_request)(batch_idx, a, title_dict)
+    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
                              for batch_idx, a in
                              enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
                                         for i in range(0, len(asins), batch_size)]))
@@ -208,8 +206,11 @@ def metadata_scraping(metadata, n_cores):
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
+    # take the ASINs for the products that have a missing title in the metadata file
     no_titles = [k for k, v in m_data.items() if v == "no-title"]
+    # update the metadata with the scraped titles
     m_data = m_data | scrape_title(no_titles, n_cores, batch_size=100)
+    # generate the new and complete metadata file
     with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
@@ -217,7 +218,7 @@ def metadata_scraping(metadata, n_cores):
 def create_pandas_dataset(data):
     """
     This function takes as input the JSON file containing Amazon reviews and produces a CSV file. Each record has
-    user ID, item ID, rating, timestamp.
+    user ID, item ID, rating, timestamp. In other words, it creates a rating file based on the given review file.
 
     The new file is saved into the /processed folder.
 
@@ -258,239 +259,6 @@ def create_pandas_dataset(data):
         writer.writerows(csv_list)
 
 
-# this function is too slow due to the filtering by title with the REGEX
-def entity_linker_sparql(dataset, metadata):
-    """
-    It creates a mapping between Amazon ASIN and Wikidata IDs
-
-    :param dataset: path to the processed Amazon dataset containing ratings for users on items
-    :param metadata: path to the processed Amazon metadata
-    :return: CSV file containing the mapping between the given dataset and wikidata
-    """
-    # read data
-    data = pd.read_csv(dataset)
-    # get item IDs
-    item_ids = data['itemId'].unique()
-    # read metadata
-    with open(metadata) as json_file:
-        m_data = json.load(json_file)
-
-    def entity_link(asin, category, match_dict):
-        """
-        It performs a sparql query over wikidata to retrieve the wikidata ID of the given item.
-
-        :param asin: asin of the Amazon item for which the ID is requested
-        :param category: whether the item is a movie, music, or book
-        :param match_dict: python dictionary containing the matches. It contains an empty string when no match is found
-        on wikidata or the query went out of time.
-        """
-        query = """
-                PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-                SELECT DISTINCT ?item
-                WHERE {
-                    ?item wdt:P31/wdt:P279* %s .
-                    ?item rdfs:label|skos:altLabel ?label .
-                    FILTER regex(?label, "%s", "i") . 
-                }
-        """ % (category, m_data[asin]["title"].replace(" ", ".*"))
-        sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
-        sparql.setReturnFormat(JSON)
-        sparql.setQuery(query)
-
-        try:
-            ret = sparql.queryAndConvert()
-            match_dict[asin] = [v for r in ret["results"]["bindings"] for item in r for t, v in item]
-            print("match")
-        except:
-            match_dict[asin] = []
-            print("no match")
-
-    # here the parallel computing of sparql queries
-    manager = Manager()
-    match_dict = manager.dict()
-    category = "wd:Q11424" if "Movies" in dataset else ("wd:Q7725634" if "Books" in dataset else "wd:Q482994")
-    Parallel(n_jobs=os.cpu_count())(delayed(entity_link)(asin, category, match_dict) for asin in item_ids)
-    match_dict = match_dict.copy()
-    return match_dict
-
-
-# too slow
-def get_wid_title(wids):
-    """
-    It takes as input a JSON file containing the URIs of some wikidata items and creates a JSON file containing
-    a mapping from Wikidata id to item title.
-
-    :param wids: path to JSON file
-    """
-    # read JSON
-    with open(wids) as json_file:
-        wids_ = json.load(json_file)
-    wids_ = [v["value"].split("/")[-1] for obj in wids_["results"]["bindings"] for t, v in obj.items()]
-    w_links = ["https://www.wikidata.org/wiki/Special:EntityData/%s.json" % (id_,) for id_ in wids_]
-    headers = {'Accept': 'application/json'}
-
-    def get_json(link, wid_title_dict):
-        """
-        It retrieves the JSON file at the given link using an HTTP request.
-        It also takes the entity title and aliases and save them in a dictionary.
-
-        :param link: link to the JSON file
-        """
-        json_file = requests.get(
-            "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q459173%7CQ544%7CQ3241540%7CQ185969%7CQ715269%7CQ27527&languages=en&props=aliases&format=json",
-            headers=headers).json()
-        wid = link.split("/")[-1].split(".")[0]
-        wid_title_dict[wid] = {"labels": json_file["entities"][wid]["labels"],
-                               "aliases": json_file["entities"][wid]["aliases"]}
-
-    # parallel computing
-    manager = Manager()
-    wid_title_dict = manager.dict()
-    Parallel(n_jobs=1)(delayed(get_json)(link, wid_title_dict) for link in tqdm(w_links))
-    wid_title_dict = wid_title_dict.copy()
-    with open('./data/processed/%s' % (wids.split("/")[-1],), 'w', encoding='utf-8') as f:
-        json.dump(wid_title_dict, f, ensure_ascii=False, indent=4)
-
-
-# questo e' stato abbastanza veloce
-def get_wid_labels(wids):
-    """
-    It takes as input a JSON file containing the URIs of some wikidata items and creates a JSON file containing
-    a mapping from Wikidata id to item labels and aliases.
-
-    :param wids: path to JSON file
-    """
-    # read JSON
-    with open(wids) as json_file:
-        wids_ = json.load(json_file)
-    wids_ = [v["value"].split("/")[-1] for obj in wids_["results"]["bindings"] for t, v in obj.items()]
-    headers = {'Accept': 'application/json'}
-
-    def get_json(idx, wid_title_dict):
-        """
-        It retrieves the JSON files for 50 items starting from the given index by using an HTTP request to the
-        wikidata API.
-        It also takes the labels and aliases for all the 50 entities and save them in a dictionary.
-
-        :param idx: idx of the first of 50 items for which the metadata has to be taken
-        :param wid_title_dict: dict where the information have to be stored
-        """
-        end_idx = min(idx + 50, len(wids_))
-        response = requests.get(
-            "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=%s&languages=en&props=labels|aliases&format=json" %
-            ("|".join(wids_[idx:end_idx]),),
-            headers=headers)
-        try:
-            response.raise_for_status()
-            json_file = response.json()
-            wid_title_dict.update({wid: {"aliases": json_file["entities"][wid]["aliases"],
-                                         "labels": json_file["entities"][wid]["labels"]}
-                                   for wid in json_file["entities"]
-                                   if "labels" in json_file["entities"][wid]
-                                   if "aliases" in json_file["entities"][wid]})
-        except Exception as e:
-            # this is printed for debugging
-            print(e)
-
-    # parallel computing
-    manager = Manager()
-    wid_title_dict = manager.dict()
-    Parallel(n_jobs=os.cpu_count())(delayed(get_json)(idx, wid_title_dict) for idx in tqdm(range(0, len(wids_), 50)))
-    with open('./data/processed/wikidata-%s' % (wids.split("/")[-1],), 'w', encoding='utf-8') as f:
-        json.dump(wid_title_dict.copy(), f, ensure_ascii=False, indent=4)
-
-
-# even in parallel, it is too slow, so it is not good
-def entity_linker_local(amazon_ratings):
-    """
-    This function is similar to the function entity_linker_sparql but it works locally, with a created dump of
-    wikidata entities for which labels are aliases are saved. The linking is purely based on string pattern matching
-    between the item's title saved on the Amazon metadata and the wikidata's labels and aliases saved locally.
-
-    The function creates a mapping and produces a file containing this mapping.
-
-    :param amazon_ratings: pandas dataframe containing rating on Amazon items
-    """
-    # read data
-    data = pd.read_csv(amazon_ratings)
-    # get item IDs
-    item_ids = data['itemId'].unique()
-    # read metadata
-    with open("./data/processed/metadata.json") as json_file:
-        m_data = json.load(json_file)
-    # get wikidata dump
-    wikidata_dump = ""
-    if "Movies" in amazon_ratings:
-        wikidata_dump = "./data/processed/wikidata-movies.json"
-    if "Books" in amazon_ratings:
-        wikidata_dump = ".data/processed/wikidata-books.json"
-    if "CD" in amazon_ratings:
-        wikidata_dump = "./data/processed/wikidata-music.json"
-    with open(wikidata_dump) as json_file:
-        wikidata_dump = json.load(json_file)
-
-    def sim(str1, str2, regex=False):
-        """
-        It computes the similarity between two given strings. It uses the Levenshtein distance to compute the similarity
-        between the strings.
-
-        :param str1: first string
-        :param str2: second string
-        :param regex: if True, pattern matching using regex is used in place of Levenshtein distance
-        :return: the similarity score between the two strings
-        """
-        if regex:
-            pattern = re.compile(r'%s' % (str1.replace(" ", ".*"),), re.IGNORECASE)
-            if pattern.search(str2):
-                return 1
-            else:
-                return 0
-        else:
-            distance = Levenshtein.distance(str1, str2)
-            return 1 - distance / max(len(str1), len(str2))
-
-    def entity_link(asin, match_dict):
-        """
-        It performs a search over the local wikidata to retrieve the wikidata ID of the given item ASIN.
-
-        :param asin: asin of the Amazon item for which the ID is requested
-        :param match_dict: python dictionary containing the matches. It contains an empty string when no match is found
-        on wikidata or the query went out of time.
-        """
-        amazon_title = m_data[asin]["title"]
-        for wid in wikidata_dump:
-            # see if it matches the label
-            try:
-                if "en" in wikidata_dump[wid]["labels"]:
-                    if sim(amazon_title, wikidata_dump[wid]["labels"]["en"]["value"], regex=True):
-                        if asin in match_dict:
-                            match_dict[asin].append(wid)
-                        else:
-                            match_dict[asin] = [wid]
-                    else:
-                        # see if it matches one alias
-                        if "en" in wikidata_dump[wid]["aliases"]:
-                            for alias in wikidata_dump[wid]["aliases"]["en"]:
-                                if sim(amazon_title, alias["value"]):
-                                    if asin in match_dict:
-                                        match_dict[asin].append(wid)
-                                    else:
-                                        match_dict[asin] = [wid]
-                                    break
-            except Exception as error:
-                print(error)
-                print(wikidata_dump[wid])
-
-    # here the parallel computing of sparql queries
-    manager = Manager()
-    match_dict = manager.dict()
-    Parallel(n_jobs=os.cpu_count())(delayed(entity_link)(asin, match_dict) for asin in tqdm(item_ids))
-    match_dict = match_dict.copy()
-    with open('./data/processed/mapping-%s' % (amazon_ratings.split("/")[-1],), 'w', encoding='utf-8') as f:
-        json.dump(match_dict, f, ensure_ascii=False, indent=4)
-
-
-# this works well
 def entity_linker_api(amazon_ratings, use_dump=True):
     """
     This function uses the Wikidata API to get the ID of wikidata items corresponding to the Amazon items. The API is
@@ -564,7 +332,6 @@ def entity_linker_api(amazon_ratings, use_dump=True):
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
 
 
-# this works well
 def entity_linker_api_query(amazon_ratings, use_dump=True):
     """
     This function uses the Wikidata API (action=query) to get the ID of wikidata items corresponding to the Amazon
