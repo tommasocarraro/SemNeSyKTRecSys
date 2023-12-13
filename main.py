@@ -1,7 +1,7 @@
 import os
 
 from nesy.data import create_asin_metadata_json, create_pandas_dataset,\
-    entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata, metadata_stats
+    entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata, metadata_stats, collect_wayback_links, scrape_title_wayback_api_2
 import json
 import pandas as pd
 
@@ -17,8 +17,8 @@ if __name__ == "__main__":
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
     # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", use_dump=True)
-    metadata_scraping("./data/processed/complete-filtered-metadata.json", os.cpu_count(),
-                      motivation="404-error", save_tmp=True, batch_size=1, wayback=True)
+    metadata_scraping("./data/processed/complete-filtered-metadata.json", 1,
+                      motivation="404-error", save_tmp=True, batch_size=20, wayback=True, api=2, delay=60)
     # metadata_stats("./data/processed/complete-filtered-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
@@ -27,6 +27,12 @@ if __name__ == "__main__":
     # print(p["itemId"].nunique())
     # print(len(mapping))
     # print((len([m for m in mapping if mapping[m] != ""])))
+    # with open("./data/processed/complete-filtered-metadata.json") as json_file:
+    #     m_data = json.load(json_file)
+    # # take the ASINs for the products that have a missing title in the metadata file
+    # no_titles = [k for k, v in m_data.items() if v == "404-error"]
+    # # collect_wayback_links(no_titles[:100], os.cpu_count(), 100)
+    # scrape_title_wayback_api_2(no_titles[:100], 1, 1, False)
 
 
 """
