@@ -1,8 +1,6 @@
 import ast
 import os
-import random
 import time
-
 from joblib import Parallel, delayed
 import json
 from multiprocessing import Manager
@@ -17,16 +15,19 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 import wayback
-import datetime
+
 
 def create_asin_metadata_json(metadata):
     """
-    This function takes as input the JSON file containing Amazon product metadata and produces a filtered version of
-    the same file, where for each ASIN we store information about just the title.
+    This function takes as input the raw JSON file containing Amazon product metadata and produces a filtered version of
+    the same file, where for each ASIN we store information about just the title. The title of the Amazon products is
+    used in this project to match the Amazon items into the Wikidata ontology. Wikidata provides a special search
+    service for which it is enough to provide the title of an item to get a list of possible Wikidata candidates.
 
-    The new file is saved into the /processed folder.
+    The new JSON file is saved into the /processed folder and it is called metadata.json. It is the same as
+    /raw/metadata.json but containing only the titles of the items.
 
-    :param metadata: path of JSON file containing Amazon product metadata
+    :param metadata: path of raw JSON file containing Amazon product metadata
     """
     manager = Manager()
     md_dict = manager.dict()
@@ -34,62 +35,78 @@ def create_asin_metadata_json(metadata):
     def process_line(line, md_dict):
         """
         Function used to process one line of the big Amazon metadata JSON file. It processes the line and saves only
-        the relevant information into the given dictionary. The dictionary is indexed by the ASIN of the products.
+        the relevant information (title in this case) into the given dictionary. The dictionary is indexed by the
+        ASIN of the products.
 
         When no information is available on the metadata file, it keeps track of it for then using scraping to scrape
-        relevant information from the web.
+        relevant information from the web. A "no-title" string is put in place of the title for each of these cases.
 
         :param line: line of JSON file containing metadata
-        :param md_dict: dictionary containing only relevant metadata
+        :param md_dict: dictionary containing only relevant metadata (title for each ASIN)
         """
         row_dict = ast.literal_eval(line)
         try:
             md_dict[row_dict["asin"]] = row_dict["title"]
         except Exception as e:
+            # when an exception occurs, it means the title is not available in the metadata file
             print(e)
             md_dict[row_dict["asin"]] = "no-title"
 
+    # process file and save relevant data
     with open(metadata) as f:
         Parallel(n_jobs=os.cpu_count())(delayed(process_line)(line, md_dict) for line in f)
 
+    # save the new file
     with open('./data/processed/%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(md_dict.copy(), f, ensure_ascii=False, indent=4)
 
 
 def filter_metadata(metadata, rating_files):
     """
-    This function filter the given metadata file using the item IDs found in the given rating files.
+    This function filters the given metadata file by only keeping the items included in the rating files provided in
+    input. The Amazon dataset comprises plentiful of rating files. In this project, we are interested in movies, music,
+    and books. For this reason, we are interested in filtering out all the remaining items from the metadata file.
+    This will make the next steps more efficient.
+
     The filtering process just creates a new metadata file where only the items included in the provided rating files
     are kept.
-    It creates a new metadata file in the same location of metadata, called filtered-metadata.
 
-    :param metadata: path to metadata file
-    :param rating_files: list of rating file names. Provide only the name (e.g., reviews_Movies_and_TV_5)
+    It creates a new metadata file in the same location of metadata (/processed), called filtered-metadata.json.
+
+    :param metadata: path to processed metadata file (containing only title for each ASIN)
+    :param rating_files: list of rating file names. Provide only the name (e.g., reviews_Movies_and_TV_5). No extension
+    or path is required. The path is supposed to be /processed.
     """
-    desired_asin = []
+    # create a list of interested ASINs
+    desired_asins = []
     for dataset in rating_files:
         data = pd.read_csv("./data/processed/%s.csv" % (dataset,))
-        desired_asin.extend(data["itemId"].unique())
+        desired_asins.extend(data["itemId"].unique())
 
     with open(metadata) as json_file:
         m_data = json.load(json_file)
 
-    new_file_dict = {k: m_data[k] for k in desired_asin}
+    # get the metadata for the desired ASINs
+    new_file_dict = {k: m_data[k] for k in desired_asins}
 
+    # create the new metadata file with only the relevant items
     with open('./data/processed/filtered-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(new_file_dict, f, ensure_ascii=False, indent=4)
 
 
 def scrape_title(asins, n_cores, batch_size, save_tmp=True):
     """
-    This function takes as input a list of Amazon ASINs and performs http requests with Selenium to get the title of
-    the ASIN from the Amazon website.
+    This function takes as input a list of Amazon ASINs and performs http requests with Selenium to get the title
+    corresponding to the ASIN from the Amazon website. Sometimes, the script is detected by Amazon and a captcha is
+    displayed in the page. In such cases, the script keeps track of the bot detection. This allows to execute the script
+    again only for those items that have been bot-detected during the first run.
 
     :param asins: list of ASINs for which the title has to be retrieved
     :param n_cores: number of cores to be used for scraping
     :param batch_size: number of ASINs to be processed in each batch of parallel execution
-    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
-    :return: new dictionary containing key-value pairs with ASIN-title
+    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished. This
+    allows saving everything in cases in which the script is interrupted by external forces.
+    :return: new dictionary containing key-value pairs with scraped ASIN-title
     """
     # get number of batches for printing information
     n_batches = int(len(asins) / batch_size)
@@ -98,8 +115,6 @@ def scrape_title(asins, n_cores, batch_size, save_tmp=True):
     title_dict = manager.dict()
     # Set up the Chrome options for a headless browser
     chrome_options = Options()
-    # headless mode causes Amazon to detect the scraping tool
-    # chrome_options.add_argument('--headless')
     chrome_options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
     chrome_options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
 
@@ -113,18 +128,15 @@ def scrape_title(asins, n_cores, batch_size, save_tmp=True):
         """
         # check if this batch has been already processed in another execution
         # if the path does not exist, we process the batch
-        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx, )
+        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx,)
         if not os.path.exists(tmp_path):
             # define dictionary for saving batch data
             batch_dict = {}
+            # create the URLs for scraping
             urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
-            # define counter to have idea of the progress of the process
             # Set up the Chrome driver for the current batch
             chrome_service = ChromeService(executable_path='./chromedriver')
             driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
-            # options for wayback machine
-            # timestamp = 20150101000001
-            # wayback_url = "http://archive.org/wayback/available"
             # start the scraping loop
             for counter, url in enumerate(urls):
                 asin = url.split("/")[-1]
@@ -138,28 +150,35 @@ def scrape_title(asins, n_cores, batch_size, save_tmp=True):
                     # Find the product title
                     title_element = soup.find('span', {'id': 'productTitle'})
                     if title_element:
+                        # the title has been found and we save it in the dictionary
                         print_str = title_element.text.strip()
                         batch_dict[asin] = title_element.text.strip()
                     else:
-                        # if title element does not exist, it means the bot has been detected or the ASIN does not exist o
-                        # n Amazon
-                        # check if it is a 404 error
-                        title_element = soup.find('img', {'alt': "Sorry! We couldn't find that page. "
-                                                                 "Try searching or go to Amazon's home page."})
-                        if title_element:
+                        # the title has not been found
+                        # check if it is due to a 404 error
+                        error = soup.find('img', {'alt': "Sorry! We couldn't find that page. "
+                                                         "Try searching or go to Amazon's home page."})
+                        if error:
+                            # if it is due to 404 error, keeps track of it
+                            # items not found will be processed in another scraping loop that uses Wayback Machine
                             print_str = "404 error"
                             batch_dict[asin] = "404-error"
                         else:
                             # if it is not a 404 error, the bot has been detected
                             print_str = "Bot detected - url %s" % (url,)
-                            # it could be because of a captcha from Amazon or also because it is note productTile
+                            # it could be because of a captcha from Amazon or also because there is not productTitle
                             # but another ID
+                            # items bot-detected will be processed in another scraping loop that tries again
+                            # if the problem is related to the DOM, the web page has to be investigated
                             batch_dict[asin] = "captcha-or-DOM"
                 except Exception as e:
+                    print(e)
                     print_str = "unknown error"
-                    # if an exception is thrown by the system I am interested in knowing which ASIN caused that
+                    # if an exception is thrown by the system, I am interested in knowing which ASIN caused that, so
+                    # I keep track of the exception in the dictionary
                     batch_dict[asin] = "exception-error"
                 print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+            # after each batch, the resources allocated by Selenium have to be realised
             driver.quit()
             if save_tmp:
                 # save a json file dedicated to this specific batch
@@ -172,6 +191,7 @@ def scrape_title(asins, n_cores, batch_size, save_tmp=True):
         # update parallel dict
         title_dict.update(batch_dict)
 
+    # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
     Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
                              for batch_idx, a in
                              enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
@@ -179,34 +199,34 @@ def scrape_title(asins, n_cores, batch_size, save_tmp=True):
     return title_dict.copy()
 
 
-def scrape_title_wayback_api_1(asins, n_cores, batch_size, save_tmp=True):
+def scrape_title_wayback(asins, batch_size=20, save_tmp=True, delay=60):
     """
-    This function takes as input a list of Amazon ASINs and performs http requests with Wayback Machine official API to
-    get the title of the ASIN from the Wayback Machine website. This is used for the ASINs that during the first
-    scraping job obtained a 404 error on Amazon. This is an attempt of still retrieve the title despite the official
-    page not existing anymore.
+    This function takes as input a list of Amazon ASINs and performs http requests with an unofficial Wayback API to get
+    the title of the ASIN from the Wayback Machine website. This is used for the ASINs that during the first scraping
+    job obtained a 404 error on Amazon. This is an attempt of still retrieve the title despite the official page of
+    the product not existing anymore. Note that parallel execution is not possible with Wayback Machine as they are
+    blocking for one minute every 20 HTTP requests.
 
     :param asins: list of ASINs for which the title has to be retrieved
-    :param n_cores: number of cores to be used for scraping
-    :param batch_size: number of ASINs to be processed in each batch of parallel execution
+    :param batch_size: number of ASINs to be processed in each batch. Default to 20 as adding ASINs to the batch will
+    cause a block from the Wayback API
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
+    :param delay: number of seconds to wait between one batch and another. Default to 60 seconds as we need to wait
+    one minute every 20 HTTP request to avoid being blocked
     :return: new dictionary containing key-value pairs with ASIN-title
     """
     # get number of batches for printing information
     n_batches = int(len(asins) / batch_size)
-    # define dictionary suitable for parallel storing of information
-    manager = Manager()
-    title_dict = manager.dict()
-    # define API entry point
-    wayback_url = "http://archive.org/wayback/available"
+    # define dictionary suitable for storing of information
+    title_dict = dict()
 
     def batch_request(batch_idx, asins, title_dict):
         """
-        This function performs a batch of HTTP requests using the Wayback API.
+        This function performs a batch of HTTP requests using an unofficial Wayback API.
 
         :param batch_idx: index of the current batch
         :param asins: list of ASINs of the products for which the title has to be retrieved in this batch
-        :param title_dict: dictionary for parallel storing of the retrieved data
+        :param title_dict: dictionary for storing of the retrieved data
         """
         # check if this batch has been already processed in another execution
         # if the path does not exist, we process the batch
@@ -214,126 +234,34 @@ def scrape_title_wayback_api_1(asins, n_cores, batch_size, save_tmp=True):
         if not os.path.exists(tmp_path):
             # define dictionary for saving batch data
             batch_dict = {}
-            urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
-            # start the scraping loop
-            for counter, url in enumerate(urls):
-                asin = url.split("/")[-1]
-                try:
-                    params = {"url": url}
-                    response = requests.get(wayback_url, params=params)
-                    data = response.json()
-                    archived_snapshots = data.get("archived_snapshots")
-                    if archived_snapshots:
-                        new_url = archived_snapshots.get("closest", {}).get("url")
-                        page = requests.get(new_url).text
-                        # Parse the HTML content of the page
-                        soup = BeautifulSoup(page, 'html.parser')
-                        # check if the page is a captcha page and discard it from the search
-                        if soup.find("h4") is not None and soup.find("h4").get_text() == ("Enter the characters you "
-                                                                                          "see below"):
-                            batch_dict[asin] = "captcha"
-                            print_str = "captcha problem - ASIN %s" % (asin,)
-                        else:
-                            # if it is not a captcha page find this specific ID while parsing the web page
-                            title_element = soup.find('span', {'id': 'btAsinTitle'})
-                            if title_element is None:
-                                # if the ID does not exist, try with this ID
-                                title_element = soup.find('span', {'id': 'productTitle'})
-                                if title_element is not None:
-                                    batch_dict[asin] = title_element.text.strip()
-                                    print_str = title_element.text.strip()
-                                    break
-                                else:
-                                    # if neither this ID exists, we need to check manually for other IDs after the
-                                    # scraping procedure came to an end
-                                    batch_dict[asin] = "DOM"
-                                    print_str = "DOM problem - ASIN %s" % (asin,)
-                            else:
-                                batch_dict[asin] = title_element.text.strip()
-                                print_str = title_element.text.strip()
-                    else:
-                        # if archived snapshot is empty, it means there are not snapshots available in Wayback Machine
-                        print_str = "404 error - ASIN %s" % (asin,)
-                        batch_dict[asin] = "404-error"
-                except Exception as e:
-                    print_str = e
-                    # if an exception is thrown by the system, I am interested in knowing which ASIN caused that
-                    batch_dict[asin] = "exception-error"
-                print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
-            if save_tmp:
-                # save a json file dedicated to this specific batch
-                with open(tmp_path, 'w', encoding='utf-8') as f:
-                    json.dump(batch_dict, f, ensure_ascii=False, indent=4)
-        else:
-            # load the file and update the parallel dict
-            with open(tmp_path) as json_file:
-                batch_dict = json.load(json_file)
-        # update parallel dict
-        title_dict.update(batch_dict)
-
-    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
-                             for batch_idx, a in
-                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
-                                        for i in range(0, len(asins), batch_size)]))
-    return title_dict.copy()
-
-
-def scrape_title_wayback_api_2(asins, n_cores, batch_size, save_tmp=True, delay=0):
-    """
-    This function takes as input a list of Amazon ASINs and performs http requests with an unofficial Wayback API to get
-    the title of the ASIN from the Wayback Machine website. This is used for the ASIN that during the first scraping job
-    obtained a 404 error on Amazon. This is an attempt of still retrieve the title despite the official page not
-    existing anymore.
-
-    :param asins: list of ASINs for which the title has to be retrieved
-    :param n_cores: number of cores to be used for scraping
-    :param batch_size: number of ASINs to be processed in each batch of parallel execution
-    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
-    :return: new dictionary containing key-value pairs with ASIN-title
-    :param delay: number of seconds to wait between one batch and another. Useful when n_cores is set to 1. For wayback
-    machine you can request maximum 20 http requests per minute.
-    """
-    # get number of batches for printing information
-    n_batches = int(len(asins) / batch_size)
-    # define dictionary suitable for parallel storing of information
-    manager = Manager()
-    title_dict = manager.dict()
-
-    def batch_request(batch_idx, asins, title_dict):
-        """
-        This function performs a batch of HTTP requests using the Wayback API.
-
-        :param batch_idx: index of the current batch
-        :param asins: list of ASINs of the products for which the title has to be retrieved in this batch
-        :param title_dict: dictionary for parallel storing of the retrieved data
-        """
-        # check if this batch has been already processed in another execution
-        # if the path does not exist, we process the batch
-        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx, )
-        if not os.path.exists(tmp_path):
-            # define dictionary for saving batch data
-            batch_dict = {}
+            # define the Amazon URLs that have to be searched in the Wayback Machine
             urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
             # define wayback API
             client = wayback.WaybackClient()
             # start the scraping loop
             for counter, url in enumerate(urls):
+                print_str = ""
                 asin = url.split("/")[-1]
                 found = False
-                # iterate over all the snapshots and block when you find the first that has some useful content
-                for record in client.search(url):
+                # iterate over all the snapshots and block when you find the first that has some useful content,
+                # for example, that it is not a captcha and has a meaningful title available
+                for snapshot in client.search(url):
                     try:
-                        page = client.get_memento(record).content
+                        # get the content of the snapshot
+                        page = client.get_memento(snapshot).content
+                        # if we arrive at this point without a MementoException, it means the link has been found
+                        # in Wayback Machine
                         found = True
+                        # parse the saved page content
                         soup = BeautifulSoup(page, 'html.parser')  # html.parser
                         # check if the page is a captcha page and discard it from the search
                         if soup.find("h4") is not None and soup.find("h4").get_text() == ("Enter the characters you "
                                                                                           "see below"):
                             batch_dict[asin] = "captcha"
-                            print_str = "captcha problem - ASIN %s" % (url, )
-                            # move to next record in the for loop
+                            print_str = "captcha problem - ASIN %s" % (url,)
+                            # move to next snapshot in the for loop
                             continue
-                        # if it is not a captcha page find this specific ID while parsing the web page
+                        # if it is not a captcha page, find this specific IDs (in order) while parsing the web page
                         id_alternatives = ["btAsinTitle", "productTitle", "ebooksProductTitle"]
                         title_element = soup.find('span', {'id': id_alternatives[0]})
                         i = 1
@@ -346,20 +274,23 @@ def scrape_title_wayback_api_2(asins, n_cores, batch_size, save_tmp=True, delay=
                             # one has been found, no need to continue the search
                             break
                         else:
-                            # if none of the IDs has been found, there is a DOM problem
+                            # if none of the IDs has been found, there is a DOM problem, meaning there could be another
+                            # possible ID or soup is not working as expected
                             batch_dict[asin] = "DOM"
-                            print_str = "DOM problem - ASIN %s" % (url, )
-                            # todo some DOM problems are not properly problems
+                            print_str = "DOM problem - ASIN %s" % (url,)
                     except Exception as e:
+                        # this occurs when there is a MementoException -> we are interested in knowing the exception
                         print_str = e
                 if not found:
-                    print_str = "404 error - ASIN %s" % (url, )
+                    # if we enter here, it means that no web page has been saved in Wayback Machine for the given URL
+                    print_str = "404 error - ASIN %s" % (url,)
                     batch_dict[asin] = "404-error"
                 print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
             if save_tmp:
                 # save a json file dedicated to this specific batch
                 with open(tmp_path, 'w', encoding='utf-8') as f:
                     json.dump(batch_dict, f, ensure_ascii=False, indent=4)
+            # wait some seconds between a batch and the other
             time.sleep(delay)
         else:
             # load the file and update the parallel dict
@@ -368,72 +299,54 @@ def scrape_title_wayback_api_2(asins, n_cores, batch_size, save_tmp=True, delay=
         # update parallel dict
         title_dict.update(batch_dict)
 
-    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
-                             for batch_idx, a in
-                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
-                                        for i in range(0, len(asins), batch_size)]))
+    # begin scraping loop
+    for batch_idx, batch_asins in enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
+                                             for i in range(0, len(asins), batch_size)]):
+        batch_request(batch_idx, batch_asins, title_dict)
     return title_dict.copy()
 
 
-def collect_wayback_links(asins_404, n_cores, batch_size):
+def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True, batch_size=100, wayback=False):
     """
-    This function takes as input a list of amazon ASINs that had a 404 error during the first scraping jop and collects
-    the Wayback machine links to get a previous version of the webpage. This will allow to get metadata for deleted
-    Amazon products that are still in the Amazon review dataset.
+    This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
+    titles from the Amazon website. It is possible to specify wayback=True to scrape titles from the Wayback Machine.
+    This process is very inefficient and is suggested only for items that produced a 404 error on Amazon.
 
-    It uses the Wayback Machine CDX API.
+    At the end, a new metadata file with complete information is generated. This metadata file is called
+    complete-<input-file-name>.json.
 
-    It creates a JSON containing multiple link for each item or an empty list in the case the item does not exist
-    even in the Wayback Machine server.
-
-    :param asins_404: list of ASINs for which a backup link has to be collected
+    :param metadata: file containing metadata for the items
+    :param n_cores: number of cores to be used for scraping. This has no effect when wayback=True.
+    :param motivation: motivation for which the title has to be scraped. It could be:
+        - no-title (default): no-title means that the metadata is missing the title for the item. Put
+        motivation="no-title" only for the first scraping job, to get the title using the Amazon website
+        - captcha-or-DOM: during the first scraping job, the title retrieval for this item failed due to incorrect DOM
+        or bot detection from Amazon. If this motivation is selected, the script will take all the ASINs related to this
+        error code and will perform another scraping loop on them
+        - 404-error: during the first scraping job, the title retrieval failed due to a 404 not found error, meaning the
+        ASIN is not on Amazon anymore. If this motivation is selected, the script will take all the ASINs related to
+        this error code and will perform a scraping loop using Wayback Machine. Remember to put wayback=True
+        - exception-error: in the first scraping job, the title retrieval failed due to an exception
+    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
+    :param batch_size: number of ASINs that have to be processed for each batch. Keep this number under 100 to avoid
+    disk memory problems due to temporary files memorization by Selenium. Keep this number equal to 20 when wayback=True
+    :param wayback: whether to use the wayback machine API (for items not found after first scraping loop) or
+    standard one (for first scraping loop)
     """
-    # create dict for parallel storing of links
-    manager = Manager()
-    link_dict = manager.dict()
-    # get number of batches for printing information
-    n_batches = int(len(asins_404) / batch_size)
-
-    def batch_request(batch_idx, batch_asins, link_dict):
-        """
-        This function takes as input a batch of Amazon ASINs and populates a dictionary containing Wayback machine URLs
-        for each of the given ASINs to be able to retrieve some metadata for the deleted Amazon products.
-
-        :param batch_idx: index of the current batch
-        :param batch_asins: asins in the current batch
-        :param link_dict: parallel dict where to store information
-        """
-        # create the urls for the cdx API
-        urls = [("https://web.archive.org/cdx/search/cdx?url=https://"
-                 "www.amazon.com/dp/%s&collapse=digest&output=json") % (asin, ) for asin in batch_asins]
-        # get the Wayback machine URLs for each ASIN in the batch
-        for asin_idx, (asin, url) in enumerate(zip(batch_asins, urls)):
-            try:
-                print("batch %d/%d - asin %d/%d" % (batch_idx, n_batches, asin_idx, len(urls)))
-                response = requests.get(url).json()
-                if response:
-                    for i in range(1, len(response)):
-                        # create this wayback link
-                        link = 'https://web.archive.org/web/%s' % ("/".join(response[i][1:3]), )
-                        if asin in link_dict:
-                            link_dict[asin].append(link)
-                        else:
-                            link_dict[asin] = [link]
-                else:
-                    link_dict[asin] = []
-            except Exception as e:
-                print(e)
-
-    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, link_dict)
-                             for batch_idx, a in
-                             enumerate([asins_404[i:(i + batch_size if i + batch_size < len(asins_404) else len(asins_404))]
-                                        for i in range(0, len(asins_404), batch_size)]))
-
+    with open(metadata) as json_file:
+        m_data = json.load(json_file)
+    # take the ASINs for the products that have a missing title in the metadata file
+    # only the items with the selected motivation will be picked
+    no_titles = [k for k, v in m_data.items() if v == motivation]
+    # update the metadata with the scraped titles
+    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp) \
+        if not wayback else scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp)
     # generate the new and complete metadata file
-    with open('./data/processed/wayback-404.json', 'w', encoding='utf-8') as f:
-        json.dump(link_dict.copy(), f, ensure_ascii=False, indent=4)
+    with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
+        json.dump(m_data, f, ensure_ascii=False, indent=4)
 
 
+# todo function that has to be checked
 def metadata_stats(metadata):
     """
     This function produces some statistics for the provided metadata file. The statistics include the number of items
@@ -459,86 +372,48 @@ def metadata_stats(metadata):
     print("Total is %d / %d" % (matched + err + captcha + ukn, len(m_data)))
 
 
-def metadata_scraping(metadata, n_cores, motivation="no-title", save_tmp=True, batch_size=100, wayback=False, api=1,
-                      delay=0):
-    """
-    This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
-    titles from the Amazon website.
-
-    At the end, a new metadata file with complete information is generated.
-
-    :param metadata: file containing metadata for the items
-    :param n_cores: number of cores to be used for scraping
-    :param motivation: motivation for which the title has to be scraped. It could be:
-        - no-title (default): in the first scraping job, no-title means that the metadata is missing the title for the
-        item
-        - captcha-or-DOM: in the first scraping job, the title retrieval for this item failed due to incorrect DOM or
-        bot detection from Amazon
-        - 404-error: in the first scraping job, the title retrieval failed due to a 404 not found error, meaning the
-        ASIN is not on Amazon anymore
-        - exception-error: in the first scraping job, the title retrieval failed due to an exception
-    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
-    :param batch_size: number of ASINs that have to be processed for each batch. Keep this number under 100 to avoid
-    disk memory problems due to temporary files memorization by Selenium
-    :param wayback: whether to use the wayback machine API (for items not found after first scraping loop) or
-    standard one (for first scraping loop)
-    :param api: whether to use the first or second API method. Default to 1. It makes sense only when wayback == True
-    :param delay: number of seconds to wait between one batch and another. Useful when n_cores is set to 1. For wayback
-    machine you can request maximum 20 http requests per minute.
-    """
-    with open(metadata) as json_file:
-        m_data = json.load(json_file)
-    # take the ASINs for the products that have a missing title in the metadata file
-    no_titles = [k for k, v in m_data.items() if v == motivation]
-    # update the metadata with the scraped titles
-    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp) \
-        if not wayback else \
-        (scrape_title_wayback_api_1(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
-         if api == 1 else scrape_title_wayback_api_2(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp,
-                                                     delay=delay))
-    # generate the new and complete metadata file
-    with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
-        json.dump(m_data, f, ensure_ascii=False, indent=4)
-
-
 def create_pandas_dataset(data):
     """
-    This function takes as input the JSON file containing Amazon reviews and produces a CSV file. Each record has
+    This function takes as input a JSON file containing Amazon reviews and produces a CSV file. Each record has
     user ID, item ID, rating, timestamp. In other words, it creates a rating file based on the given review file.
 
-    The new file is saved into the /processed folder.
+    This is a way of filtering out data that is not useful for this projects, for example, the review text. We just
+    need ratings on items and their metadata to link the items in the ontology.
 
-    :param data: path of JSON file containing Amazon reviews.
+    The new file is saved into the /processed folder, with the same name as the one of the original file.
+
+    :param data: path to the JSON file containing Amazon reviews
     """
+    # defining dictionary for parallel storing of ratings
     manager = Manager()
     csv_list = manager.list()
 
     def process_line(line, rating_list):
         """
         Function used to process one line of the Amazon review file. It processes the line and saves only
-        the relevant information into the given dictionary.
+        the relevant information into the given dictionary (in this case, user and item IDs, rating, and timestamp).
 
         :param line: line of JSON file containing ratings
         :param rating_list: list containing ratings to be saved in the CSV file. Each rating is a dict.
         """
-        if "large" not in data:
-            row_dict = ast.literal_eval(line)
-        else:
-            row_dict = json.loads(line)
+        # read line
+        row_dict = ast.literal_eval(line)
         try:
+            # save relevant data
             rating_list.append({"userId": row_dict["reviewerID"], "itemId": row_dict["asin"],
                                 "rating": row_dict["overall"], "timestamp": row_dict["unixReviewTime"]})
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
+    # parallel processing of the rating file
     with open(data) as f:
         Parallel(n_jobs=os.cpu_count())(delayed(process_line)(line, csv_list) for line in tqdm(f))
 
+    # save the stored information in a new CSV rating file
     file_path = data.split("/")
     file_path[-2] = "processed"
     file_path[-1] = file_path[-1][:-4] + "csv"
     file_path = "/".join(file_path)
-
     with open(file_path, 'w', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=["userId", "itemId", "rating", "timestamp"])
         writer.writeheader()
