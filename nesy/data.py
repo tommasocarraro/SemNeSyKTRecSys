@@ -261,7 +261,17 @@ def scrape_title_wayback(asins, batch_size=20, save_tmp=True, delay=60):
                             print_str = "captcha problem - ASIN %s" % (url,)
                             # move to next snapshot in the for loop
                             continue
-                        # if it is not a captcha page, find this specific IDs (in order) while parsing the web page
+                        # check if it is a saved page with 404 error
+                        if ((soup.find("b", {"class": "h1"}) is not None and
+                                "Looking for something?" in soup.find("b", {"class": "h1"}).get_text()) or
+                                soup.find('img', {'alt': "Sorry! We couldn't find that page. "
+                                                         "Try searching or go to Amazon's home page."}) is not None):
+                            batch_dict[asin] = "404-error"
+                            print_str = "404 error - ASIN %s" % (url, )
+                            # move to next snapshot in the for loop
+                            continue
+                        # if it is not a captcha page or 404 page, find this specific IDs (in order) while
+                        # parsing the web page
                         id_alternatives = ["btAsinTitle", "productTitle", "ebooksProductTitle"]
                         title_element = soup.find('span', {'id': id_alternatives[0]})
                         i = 1
@@ -274,10 +284,19 @@ def scrape_title_wayback(asins, batch_size=20, save_tmp=True, delay=60):
                             # one has been found, no need to continue the search
                             break
                         else:
-                            # if none of the IDs has been found, there is a DOM problem, meaning there could be another
-                            # possible ID or soup is not working as expected
-                            batch_dict[asin] = "DOM"
-                            print_str = "DOM problem - ASIN %s" % (url,)
+                            # if none of the IDs has been found, the page is very old and we need to search for
+                            # a "b" with class "sans"
+                            title_element = soup.find('b', {'class': "sans"})
+                            if title_element is not None:
+                                batch_dict[asin] = title_element.text.strip()
+                                print_str = title_element.text.strip()
+                                # one has been found, no need to continue the search
+                                break
+                            else:
+                                # if none of the IDs neither the b has been found, there is a DOM problem, meaning
+                                # there could be another possible ID or soup is not working as expected
+                                batch_dict[asin] = "DOM"
+                                print_str = "DOM problem - ASIN %s" % (url,)
                     except Exception as e:
                         # this occurs when there is a MementoException -> we are interested in knowing the exception
                         print_str = e
@@ -339,15 +358,14 @@ def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True,
     # only the items with the selected motivation will be picked
     no_titles = [k for k, v in m_data.items() if v == motivation]
     # update the metadata with the scraped titles
-    m_data = m_data | scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp) \
-        if not wayback else scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp)
+    m_data.update(scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
+                  if not wayback else scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp))
     # generate the new and complete metadata file
     with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
 
-# todo function that has to be checked
-def metadata_stats(metadata):
+def metadata_stats(metadata, errors):
     """
     This function produces some statistics for the provided metadata file. The statistics include the number of items
     with a missing title due to a 404 error, a bot detection or DOM error, or an unknown error due to an exception in
@@ -355,21 +373,20 @@ def metadata_stats(metadata):
 
     :param metadata: path to the metadata file for which the statistics have to be generated
     """
+    errors = {e: {"counter": 0, "asins": []} for e in errors}
     with open(metadata) as json_file:
         m_data = json.load(json_file)
-    err, captcha, ukn, matched = 0, 0, 0, 0
-    for _, v in m_data.items():
-        if v == "404-error":
-            err += 1
-        elif v == "captcha-or-DOM":
-            captcha += 1
-        elif v == "exception-error":
-            ukn += 1
+    for asin, title in m_data.items():
+        if title in errors:
+            errors[title]["counter"] += 1
+            errors[title]["asins"].append(asin)
         else:
-            matched += 1
+            if "matched" in errors:
+                errors["matched"] += 1
+            else:
+                errors["matched"] = 0
 
-    print("Matched titles %d - 404 err %d - captcha or DOM %d - exception %d" % (matched, err, captcha, ukn))
-    print("Total is %d / %d" % (matched + err + captcha + ukn, len(m_data)))
+    print(errors)
 
 
 def create_pandas_dataset(data):
