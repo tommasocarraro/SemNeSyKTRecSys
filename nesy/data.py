@@ -207,6 +207,12 @@ def scrape_title_wayback(asins, batch_size=20, save_tmp=True, delay=60):
     the product not existing anymore. Note that parallel execution is not possible with Wayback Machine as they are
     blocking for one minute every 20 HTTP requests.
 
+    If the script is able to find a title given the ASIN, the title is saved inside a dictionary. If a captcha or 404
+    error is detected even in the Wayback Machine, the script keeps track of it. Finally, if there is a DOM problem,
+    namely the title cannot be found due to an ID not found in the DOM of the web page, the script keeps track of it
+    and we suggest the user to manually put the match inside the final JSON file.
+    and we suggest the user to manually put the match inside the final JSON file.
+
     :param asins: list of ASINs for which the title has to be retrieved
     :param batch_size: number of ASINs to be processed in each batch. Default to 20 as adding ASINs to the batch will
     cause a block from the Wayback API
