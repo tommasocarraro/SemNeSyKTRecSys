@@ -17,9 +17,11 @@ if __name__ == "__main__":
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
     # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", use_dump=True)
-    # metadata_scraping("./data/processed/complete-complete-filtered-metadata.json", 1,
+    # todo completare e verificare che sia tutto ok e perche' non mi carica i problemi di DOM correttamente
+    # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
-    metadata_stats("./data/processed/complete-complete-filtered-metadata.json", errors=["404-error", "DOM", "captcha"])
+    metadata_stats("./data/processed/filtered-metadata.json", errors=["no-title"], save_asins=False)
+    metadata_stats("./data/processed/final-metadata.json", errors=["404-error", "DOM", "captcha"], save_asins=False)
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
     #     mapping = json.load(json_file)
@@ -33,6 +35,19 @@ if __name__ == "__main__":
     # no_titles = [k for k, v in m_data.items() if v == "404-error"]
     # # collect_wayback_links(no_titles[:100], os.cpu_count(), 100)
     # scrape_title_wayback_api_2(no_titles[:100], 1, 1, False)
+
+    # with open("./data/processed/complete-filtered-metadata.json") as json_file:
+    #     m_data = json.load(json_file)
+    # for filename in os.listdir("./data/processed"):
+    #     f = os.path.join("./data/processed", filename)
+    #     # checking if it is a file
+    #     if os.path.isfile(f) and f[-1].isdigit():
+    #         with open(f) as json_file:
+    #             content = json.load(json_file)
+    #             m_data.update(content)
+    # with open('./data/processed/final-metadata.json', 'w', encoding='utf-8') as f:
+    #     json.dump(m_data, f, ensure_ascii=False, indent=4)
+
 
 
 """

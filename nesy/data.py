@@ -371,13 +371,18 @@ def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True,
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
 
-def metadata_stats(metadata, errors):
+def metadata_stats(metadata, errors, save_asins=True):
     """
     This function produces some statistics for the provided metadata file. The statistics include the number of items
     with a missing title due to a 404 error, a bot detection or DOM error, or an unknown error due to an exception in
-    the scraping procedure.
+    the scraping procedure. The parameter errors allows to define which statistics to include in the output.
+    For each of these statistics, the output will contain the set of ASINs corresponding to each error, if save_asins
+    is set to True.
 
     :param metadata: path to the metadata file for which the statistics have to be generated
+    :param errors: list of strings containing the name of the errors that have to be included in the statistics. The
+    script will search for these specific names in the values of the metadata, for each of the ASINs
+    :param save_asins: whether to save the set of the ASINs for each statistic or just produce the statistic
     """
     errors = {e: {"counter": 0, "asins": []} for e in errors}
     with open(metadata) as json_file:
@@ -385,7 +390,8 @@ def metadata_stats(metadata, errors):
     for asin, title in m_data.items():
         if title in errors:
             errors[title]["counter"] += 1
-            errors[title]["asins"].append(asin)
+            if save_asins:
+                errors[title]["asins"].append(asin)
         else:
             if "matched" in errors:
                 errors["matched"] += 1
