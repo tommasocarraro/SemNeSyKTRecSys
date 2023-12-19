@@ -468,24 +468,29 @@ def create_pandas_dataset(data):
 def entity_linker_api(amazon_ratings, use_dump=True):
     """
     This function uses the Wikidata API to get the ID of wikidata items corresponding to the Amazon items. The API is
-    accessed using HTTP requests. It takes as input a CSV file containing ratings on Amazon items. Depending on the
+    accessed using HTTP requests. It takes as input a CSV file containing ratings on Amazon items. The items are
+    referred trough an ID, that is then used to take the corresponding title in the final metadata file. Then, the
+    title is used for producing the Wikidata query. Depending on the
     rating file (movies, music, or books), the function uses the correct JSON dump file to check the validity of the
-    found match.
+    found match. For example, if the query for the title Revolver produces the entity corresponding to the gun instead
+    of the Beatles' album, the match is not created and discarded. This happens until the retrieved Wikidata item is
+    of the correct category. If a match of the correct category is found, it is saved, otherwise no match is created.
 
     It creates a JSON file containing the mapping from Amazon ASIN to Wikidata ID.
 
     :param amazon_ratings: CSV file containing ratings on Amazon items
-    :param use_dump: whether a JSON dump has to be used to check that the retrieved ID is of the correct category
-    :param query: whether to use the action "query" of the wikidata API or not
+    :param use_dump: whether a JSON dump has to be used to check that the retrieved ID is of the correct category,
+    this relies in the completeness of the dump (it is not easy to produce a complete dump with the Wikidata
+    Query Service)
     """
-    # read data
+    # read rating file
     data = pd.read_csv(amazon_ratings)
     # get item IDs
     item_ids = data['itemId'].unique()
     # read metadata
-    with open("./data/processed/metadata.json") as json_file:
+    with open("./data/processed/final_metadata.json") as json_file:
         m_data = json.load(json_file)
-    # get wikidata dump
+    # get the correct wikidata dump based on the given rating file
     wikidata_dump = ""
     if "Movies" in amazon_ratings:
         wikidata_dump = "./data/processed/wikidata-movies.json"
@@ -493,6 +498,7 @@ def entity_linker_api(amazon_ratings, use_dump=True):
         wikidata_dump = ".data/processed/wikidata-books.json"
     if "CD" in amazon_ratings:
         wikidata_dump = "./data/processed/wikidata-music.json"
+    # read the dump
     with open(wikidata_dump) as json_file:
         wikidata_dump = json.load(json_file)
     # link to API
@@ -504,6 +510,7 @@ def entity_linker_api(amazon_ratings, use_dump=True):
 
         :param asin: asin of the Amazon item for which the ID is requested
         """
+        # get the title of the item without brackets (the brackets make the search more difficult for the Wikidata API)
         amazon_title = re.sub("[\(\[].*?[\)\]]", "", m_data[asin]["title"])
         # Define parameters for the Wikidata API search
         params = {
@@ -519,6 +526,7 @@ def entity_linker_api(amazon_ratings, use_dump=True):
         # Extract the Wikidata ID from the response
         if "search" in data and data["search"]:
             if use_dump:
+                # if the dump has to be used, we need to check the Wikidata ID is included in the corresponding dump
                 for item in data["search"]:
                     if item["id"] in wikidata_dump:
                         match_dict[asin] = item["id"]
@@ -528,7 +536,7 @@ def entity_linker_api(amazon_ratings, use_dump=True):
         else:
             match_dict[asin] = ""
 
-    # here the parallel computing
+    # launch multiple queries in parallel and save the matches in the dictionary
     manager = Manager()
     match_dict = manager.dict()
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
@@ -541,15 +549,21 @@ def entity_linker_api(amazon_ratings, use_dump=True):
 def entity_linker_api_query(amazon_ratings, use_dump=True):
     """
     This function uses the Wikidata API (action=query) to get the ID of wikidata items corresponding to the Amazon
-    items. The API is accessed using HTTP requests. It takes as input a CSV file containing ratings on Amazon items.
-    Depending on the rating file (movies, music, or books), the function uses the correct JSON dump file to check the
-    validity of the found match.
+    items. The API is
+    accessed using HTTP requests. It takes as input a CSV file containing ratings on Amazon items. The items are
+    referred trough an ID, that is then used to take the corresponding title in the final metadata file (all ASINs
+    have a matched title in this file). Then, the title is used for producing the Wikidata query. Depending on the
+    rating file (movies, music, or books), the function uses the correct JSON dump file to check the validity of the
+    found match. For example, if the query for the title Revolver produces the entity corresponding to the gun instead
+    of the Beatles' album, the match is not created and discarded. This happens until the retrieved Wikidata item is
+    of the correct category. If a match of the correct category is found, it is saved, otherwise no match is created.
 
     It creates a JSON file containing the mapping from Amazon ASIN to Wikidata ID.
 
     :param amazon_ratings: CSV file containing ratings on Amazon items
-    :param use_dump: whether a JSON dump has to be used to check that the retrieved IDs are of the correct category
-    (movies, music, or books)
+    :param use_dump: whether a JSON dump has to be used to check that the retrieved ID is of the correct category,
+    this relies in the completeness of the dump (it is not easy to produce a complete dump with the Wikidata
+    Query Service)
     """
     # read data
     data = pd.read_csv(amazon_ratings)
@@ -578,7 +592,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
         :param asin: asin of the Amazon item for which the ID is requested
         """
         try:
-            if m_data[asin] != "no-title":
+            if asin in m_data:
                 amazon_title = re.sub("[\(\[].*?[\)\]]", "", m_data[asin])
                 # Define parameters for the Wikidata API search
                 params = {
@@ -597,16 +611,16 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
                         for item in data["query"]["search"]:
                             if item["title"] in wikidata_dump:
                                 return asin, item["title"]
-                        return asin, "not-in-wikidata"  # not in wikidata because all found items are not of the correct category
+                        return asin, "not-in-dump"  # all found items are not of the correct category
                     else:
                         return asin, data["query"]["search"][0]["title"]
                 else:
-                    return asin, "not-in-wikidata"  # not in wikidata because there are no results for the query
+                    return asin, "not-found"  # there are no results for the query
             else:
-                return asin, "no-title"  # the item has not a corresponding title in the metadata file
+                return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
         except Exception as e:
             print(f"Error: {e}")
-            return asin, "no-metadata"  # the item is not in the metadata file provided by amazon
+            return asin, e  # the item is not in the metadata file provided by amazon
 
     # here the parallel computing
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
