@@ -401,6 +401,22 @@ def metadata_stats(metadata, errors, save_asins=True):
     print(errors)
 
 
+def metadata_cleaning(metadata):
+    """
+    This function takes as input a metadata file after all the scraping jobs have been completed (only 404 error and
+    matched titles should remain) and remove all the ASINs with 404 error.
+
+    The file is then overwritten.
+
+    :param metadata: metadata file that has to be cleaned
+    """
+    with open(metadata) as json_file:
+        m_data = json.load(json_file)
+    m_data = {k:v for k, v in m_data.items() if v != "404-error"}
+    with open(metadata, 'w', encoding='utf-8') as f:
+        json.dump(m_data, f, ensure_ascii=False, indent=4)
+
+
 def create_pandas_dataset(data):
     """
     This function takes as input a JSON file containing Amazon reviews and produces a CSV file. Each record has
