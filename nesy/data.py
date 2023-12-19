@@ -551,7 +551,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
     This function uses the Wikidata API (action=query) to get the ID of wikidata items corresponding to the Amazon
     items. The API is
     accessed using HTTP requests. It takes as input a CSV file containing ratings on Amazon items. The items are
-    referred trough an ID, that is then used to take the corresponding title in the final metadata file (all ASINs
+    referred through an ID, that is then used to take the corresponding title in the final metadata file (all ASINs
     have a matched title in this file). Then, the title is used for producing the Wikidata query. Depending on the
     rating file (movies, music, or books), the function uses the correct JSON dump file to check the validity of the
     found match. For example, if the query for the title Revolver produces the entity corresponding to the gun instead
@@ -610,16 +610,21 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
                     if use_dump:
                         for item in data["query"]["search"]:
                             if item["title"] in wikidata_dump:
+                                print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
                                 return asin, item["title"]
+                        print("%s not found in dump" % (asin, ))
                         return asin, "not-in-dump"  # all found items are not of the correct category
                     else:
+                        print("%s - %s - %s" % (asin, m_data[asin], data["query"]["search"][0]["title"]))
                         return asin, data["query"]["search"][0]["title"]
                 else:
+                    print("%s not found by query" % (asin, ))
                     return asin, "not-found"  # there are no results for the query
             else:
+                print("%s does not have a title" % (asin, ))
                 return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
         except Exception as e:
-            print(f"Error: {e}")
+            print("%s produced the exception %s" % (asin, e))
             return asin, e  # the item is not in the metadata file provided by amazon
 
     # here the parallel computing
