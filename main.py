@@ -8,7 +8,7 @@
 import os
 
 from nesy.data import create_asin_metadata_json, create_pandas_dataset,\
-    entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata, metadata_stats, metadata_cleaning
+    entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata, metadata_stats, metadata_cleaning, get_wid_per_cat
 import json
 import pandas as pd
 
@@ -19,17 +19,19 @@ if __name__ == "__main__":
     # create_asin_metadata_json("./data/raw/metadata.json")
     # metadata_scraping("./data/processed/metadata.json")
     # create_pandas_dataset("./data/raw/reviews_Movies_and_TV_5_large.json")
-    entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", True)
+    # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", True)
     # get_wid_labels("./data/raw/movies.json")
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
-    # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", use_dump=True)
+    # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", use_dump=True, retry=True)
     # todo completare e verificare che sia tutto ok e perche' non mi carica i problemi di DOM correttamente
     # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
     # metadata_stats("./data/processed/filtered-metadata.json", errors=["no-title"], save_asins=False)
     # metadata_stats("./data/processed/complete-filtered-metadata.json", errors=["captcha-or-DOM", "404-error"], save_asins=False)
     # metadata_stats("./data/processed/final-metadata.json", errors=["404-error", "DOM", "captcha"], save_asins=False)
+    metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump", "exception"], save_asins=False)
+    # get_wid_per_cat("movies")
     # metadata_cleaning("./data/processed/final-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
@@ -56,18 +58,3 @@ if __name__ == "__main__":
     #             m_data.update(content)
     # with open('./data/processed/final-metadata.json', 'w', encoding='utf-8') as f:
     #     json.dump(m_data, f, ensure_ascii=False, indent=4)
-
-
-
-"""
-SELECT DISTINCT ?item
-WHERE {
-  {
-    ?item wdt:P31/wdt:P279* wd:Q11424.
-  }
-  UNION
-  {
-    ?item wdt:P31/wdt:P279* wd:Q15416.
-  }
-}
-"""

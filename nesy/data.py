@@ -15,6 +15,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 import wayback
+import sys
+from SPARQLWrapper import SPARQLWrapper, JSON
+import string
 
 
 def create_asin_metadata_json(metadata):
@@ -546,7 +549,7 @@ def entity_linker_api(amazon_ratings, use_dump=True):
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
 
 
-def entity_linker_api_query(amazon_ratings, use_dump=True):
+def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
     """
     This function uses the Wikidata API (action=query) to get the ID of wikidata items corresponding to the Amazon
     items. The API is
@@ -562,15 +565,18 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
 
     :param amazon_ratings: CSV file containing ratings on Amazon items
     :param use_dump: whether a JSON dump has to be used to check that the retrieved ID is of the correct category,
-    this relies in the completeness of the dump (it is not easy to produce a complete dump with the Wikidata
+    this relies on in the completeness of the dump (it is not easy to produce a complete dump with the Wikidata
     Query Service)
+    :param retry: valid from second execution. If this is set to true, the script will retry to find matches for all
+    the items that during the first search got a not-in-dump error. This is useful if one wants to update the dump file
+    and retry the search.
     """
     # read data
     data = pd.read_csv(amazon_ratings)
     # get item IDs
     item_ids = data['itemId'].unique()
     # read metadata
-    with open("./data/processed/metadata.json") as json_file:
+    with open("./data/processed/final-metadata.json") as json_file:
         m_data = json.load(json_file)
     # get wikidata dump
     wikidata_dump = ""
@@ -584,6 +590,13 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
         wikidata_dump = json.load(json_file)
     # link to API
     wikidata_api_url = "https://www.wikidata.org/w/api.php"
+    # check if a mapping file for the given rating file already exists
+    temp_dict = {}
+    map_path = ("./data/processed/mapping-%s" % (amazon_ratings.split("/")[-1], )).replace("csv", "json")
+    if os.path.exists(map_path):
+        # if it exists, we load a temp dictionary containing the found matches
+        with open(map_path) as json_file:
+            temp_dict = json.load(json_file)
 
     def entity_link(asin):
         """
@@ -592,40 +605,51 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
         :param asin: asin of the Amazon item for which the ID is requested
         """
         try:
-            if asin in m_data:
-                amazon_title = re.sub("[\(\[].*?[\)\]]", "", m_data[asin])
-                # Define parameters for the Wikidata API search
-                params = {
-                    "action": "query",
-                    "format": "json",
-                    "list": "search",
-                    "srsearch": amazon_title
-                }
+            # check if the match has been already created
+            # check if it is a not in dump -> in this case, we retry the search again as we could update the dump file
+            # while manually checking if we missed some entities due to an incorrect query to the Wikidata Query Service
+            if asin not in temp_dict or ((temp_dict[asin] == "not-in-dump" or temp_dict[asin] == "not-found") and retry):
+                # check for a match if it has not been already created
+                if asin in m_data:
+                    # remove punctuation
+                    amazon_title = re.sub("[\(\[].*?[\)\]]", "", m_data[asin])
+                    amazon_title = amazon_title.replace(":", " ").replace("-", "").replace("/", "")
+                    # Define parameters for the Wikidata API search
+                    params = {
+                        "action": "query",
+                        "format": "json",
+                        "list": "search",
+                        "srsearch": amazon_title
+                    }
 
-                response = requests.get(wikidata_api_url, params=params)
-                response.raise_for_status()
+                    response = requests.get(wikidata_api_url, params=params)
+                    response.raise_for_status()
 
-                data = response.json()
-                if "search" in data["query"] and data["query"]["search"]:
-                    if use_dump:
-                        for item in data["query"]["search"]:
-                            if item["title"] in wikidata_dump:
-                                print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
-                                return asin, item["title"]
-                        print("%s not found in dump" % (asin, ))
-                        return asin, "not-in-dump"  # all found items are not of the correct category
+                    data = response.json()
+                    if "search" in data["query"] and data["query"]["search"]:
+                        if use_dump:
+                            for item in data["query"]["search"]:
+                                if item["title"] in wikidata_dump["wids"]:
+                                    print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
+                                    return asin, item["title"]
+                            # print("%s not found in dump" % (asin, ))
+                            return asin, "not-in-dump"  # all found items are not of the correct category
+                        else:
+                            print("%s - %s - %s" % (asin, m_data[asin], data["query"]["search"][0]["title"]))
+                            return asin, data["query"]["search"][0]["title"]
                     else:
-                        print("%s - %s - %s" % (asin, m_data[asin], data["query"]["search"][0]["title"]))
-                        return asin, data["query"]["search"][0]["title"]
+                        # print("%s not found by query" % (asin, ))
+                        return asin, "not-found"  # there are no results for the query
                 else:
-                    print("%s not found by query" % (asin, ))
-                    return asin, "not-found"  # there are no results for the query
+                    # print("%s does not have a title" % (asin, ))
+                    return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
             else:
-                print("%s does not have a title" % (asin, ))
-                return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
+                # if the match has been already created, simply load the match
+                # print("%s already matched in the mapping file" % (asin, ))
+                return asin, temp_dict[asin]
         except Exception as e:
             print("%s produced the exception %s" % (asin, e))
-            return asin, e  # the item is not in the metadata file provided by amazon
+            return asin, "exception"  # the item is not in the metadata file provided by amazon
 
     # here the parallel computing
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
@@ -634,3 +658,68 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
     with open('./data/processed/mapping-%s.json' % (amazon_ratings.split("/")[-1].split(".")[0],), 'w',
               encoding='utf-8') as f:
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
+
+
+def get_wid_per_cat(category):
+    """
+    This function executes a SPARQL query on the Wikidata Query Service to get the Wikidata ID of all the entities that
+    are instance of subclasses of the given category.
+
+    It creates a JSON file containing the list of Wikidata ID retrieved with the query.
+
+    :param category: string representing a category name among movies, music, or books
+    """
+    # set the URL to the Wikidata Query Service
+    endpoint_url = "https://query.wikidata.org/sparql"
+
+    # create the correct query based on the given category
+    if category == "movies":
+        query = """SELECT DISTINCT ?item
+        WHERE {
+          {
+            ?item wdt:P31/wdt:P279* wd:Q11424.
+          }
+          UNION
+          {
+            ?item wdt:P31/wdt:P279* wd:Q506240.
+          }
+        UNION
+          {
+            ?item wdt:P31/wdt:P279* wd:Q21191270.
+          }
+        UNION
+          {
+            ?item wdt:P31/wdt:P279* wd:Q24856.
+          }
+        UNION
+          {
+            ?item wdt:P31/wdt:P279* wd:Q5398426.
+          }
+        }"""
+    elif category == "music":
+        query = """SELECT DISTINCT ?item
+                    WHERE {
+                        ?item wdt:P31/wdt:P279* wd:Q106043376.
+                    }"""
+    else:
+        query = """SELECT DISTINCT ?item
+                    WHERE {
+                        ?item wdt:P31/wdt:P279* wd:Q47461344.
+                    }"""
+
+    # execute the query
+    user_agent = "WDQS-example Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
+    sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    results = sparql.query().convert()
+
+    dump_dict = {"wids": []}
+
+    for result in results["results"]["bindings"]:
+        dump_dict["wids"].append(result["item"]["value"].split("/")[-1])
+
+    # save Wikidata IDs to file
+    with open('./data/processed/wikidata-%s.json' % (category, ), 'w',
+              encoding='utf-8') as f:
+        json.dump(dump_dict, f, ensure_ascii=False, indent=4)
