@@ -631,16 +631,16 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                                 if item["title"] in wikidata_dump["wids"]:
                                     print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
                                     return asin, item["title"]
-                            # print("%s not found in dump" % (asin, ))
+                            print("%s not found in dump" % (asin, ))
                             return asin, "not-in-dump"  # all found items are not of the correct category
                         else:
                             print("%s - %s - %s" % (asin, m_data[asin], data["query"]["search"][0]["title"]))
                             return asin, data["query"]["search"][0]["title"]
                     else:
-                        # print("%s not found by query" % (asin, ))
+                        print("%s not found by query" % (asin, ))
                         return asin, "not-found"  # there are no results for the query
                 else:
-                    # print("%s does not have a title" % (asin, ))
+                    print("%s does not have a title" % (asin, ))
                     return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
             else:
                 # if the match has been already created, simply load the match
