@@ -17,7 +17,6 @@ from selenium.webdriver.chrome.options import Options
 import wayback
 import sys
 from SPARQLWrapper import SPARQLWrapper, JSON
-import string
 
 
 def create_asin_metadata_json(metadata):
@@ -723,3 +722,20 @@ def get_wid_per_cat(category):
     with open('./data/processed/wikidata-%s.json' % (category, ), 'w',
               encoding='utf-8') as f:
         json.dump(dump_dict, f, ensure_ascii=False, indent=4)
+
+
+def get_no_found(metadata):
+    """
+    This function takes the final metadata file as input (JSON file containing an ASIN to title mapping) and produce a
+    list of ASINs for which the title has not been found on Amazon neither Wayback machine.
+
+    It creates a CSV file containing the list of ASINs without an associated title.
+
+    :param metadata: metadata file on which we need to find the ASIN without an associated title
+    """
+    with open(metadata) as json_file:
+        data = json.load(json_file)
+    # get the list of ASINs without a title
+    no_titles = [k for k, v in data.items() if v == "404-error"]
+    df = pd.DataFrame(no_titles, columns=["ASINs"])
+    df.to_csv("./data/processed/item-no-titles.csv", index=False)
