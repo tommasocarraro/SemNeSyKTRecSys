@@ -18,7 +18,7 @@ if __name__ == "__main__":
     #                                                    "reviews_CDs_and_Vinyl_5"])
     # create_asin_metadata_json("./data/raw/metadata.json")
     # metadata_scraping("./data/processed/metadata.json")
-    # create_pandas_dataset("./data/raw/reviews_Movies_and_TV_5_large.json")
+    create_pandas_dataset("./data/raw/reviews_CDs_and_Vinyl_5.json")
     # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", True)
     # get_wid_labels("./data/raw/movies.json")
     # get_wid_labels("./data/raw/music.json")
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # metadata_stats("./data/processed/filtered-metadata.json", errors=["no-title"], save_asins=False)
     # metadata_stats("./data/processed/complete-filtered-metadata.json", errors=["captcha-or-DOM", "404-error"], save_asins=False)
     # metadata_stats("./data/processed/final-metadata.json", errors=["404-error", "DOM", "captcha"], save_asins=False)
-    metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump", "exception"], save_asins=False)
+    # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump", "exception"], save_asins=False)
     # get_wid_per_cat("movies")
     # metadata_cleaning("./data/processed/final-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
