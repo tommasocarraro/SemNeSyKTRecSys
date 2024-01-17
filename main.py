@@ -18,12 +18,13 @@ if __name__ == "__main__":
     #                                                    "reviews_CDs_and_Vinyl_5"])
     # create_asin_metadata_json("./data/raw/metadata.json")
     # metadata_scraping("./data/processed/metadata.json")
-    create_pandas_dataset("./data/raw/reviews_CDs_and_Vinyl_5.json")
+    # create_pandas_dataset("./data/raw/reviews_CDs_and_Vinyl_5.json")
     # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", True)
     # get_wid_labels("./data/raw/movies.json")
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
-    # entity_linker_api_query("./data/processed/reviews_Movies_and_TV_5.csv", use_dump=True, retry=True)
+    # get_wid_per_cat("music")
+    entity_linker_api_query("./data/processed/reviews_CDs_and_Vinyl_5.csv", use_dump=True, retry=False)
     # todo completare e verificare che sia tutto ok e perche' non mi carica i problemi di DOM correttamente
     # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
