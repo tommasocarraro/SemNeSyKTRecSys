@@ -412,7 +412,7 @@ def metadata_cleaning(metadata):
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
-    m_data = {k: v for k, v in m_data.items() if v != "404-error"}
+    m_data = {k:v for k, v in m_data.items() if v != "404-error"}
     with open(metadata, 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
