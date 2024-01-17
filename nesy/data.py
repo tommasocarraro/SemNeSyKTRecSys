@@ -412,7 +412,7 @@ def metadata_cleaning(metadata):
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
-    m_data = {k:v for k, v in m_data.items() if v != "404-error"}
+    m_data = {k: v for k, v in m_data.items() if v != "404-error"}
     with open(metadata, 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
@@ -593,6 +593,9 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
         """
         try:
             if asin in m_data:
+                # remove everything in between brackets in the string representing the title (e.g., [VHS])
+                # this strings inside brackets make it difficult for the Wikidata engine to find the corresponding
+                # matches
                 amazon_title = re.sub("[\(\[].*?[\)\]]", "", m_data[asin])
                 # Define parameters for the Wikidata API search
                 params = {
@@ -634,3 +637,20 @@ def entity_linker_api_query(amazon_ratings, use_dump=True):
     with open('./data/processed/mapping-%s.json' % (amazon_ratings.split("/")[-1].split(".")[0],), 'w',
               encoding='utf-8') as f:
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
+
+
+def get_no_found(metadata):
+    """
+    This function takes the final metadata file as input (JSON file containing an ASIN to title mapping) and produce a
+    list of ASINs for which the title has not been found on Amazon neither Wayback machine.
+
+    It creates a CSV file containing the list of ASINs without an associated title.
+
+    :param metadata: metadata file on which we need to find the ASIN without an associated title
+    """
+    with open(metadata) as json_file:
+        data = json.load(json_file)
+    # get the list of ASINs without a title
+    no_titles = [k for k, v in data.items() if v == "404-error"]
+    df = pd.DataFrame(no_titles, columns=["ASINs"])
+    df.to_csv("./data/processed/item-no-titles.csv", index=False)
