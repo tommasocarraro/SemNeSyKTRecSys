@@ -578,13 +578,20 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
     with open("./data/processed/final-metadata.json") as json_file:
         m_data = json.load(json_file)
     # get wikidata dump
-    wikidata_dump = ""
+    wikidata_dump, additional_dump = "", ""
     if "Movies" in amazon_ratings:
         wikidata_dump = "./data/processed/wikidata-movies.json"
     if "Books" in amazon_ratings:
         wikidata_dump = ".data/processed/wikidata-books.json"
     if "CD" in amazon_ratings:
         wikidata_dump = "./data/processed/wikidata-music.json"
+        # this additional dump is just the same as the movie dump. It is used only for CDs and Vinyls, as some DVDs are
+        # erroneously included in the CDs_and_Vinyls dataset and treated as CDs
+        additional_dump = "./data/processed/wikidata-movies.json"
+    # load the dump file
+    if "music" in wikidata_dump:
+        with open(additional_dump) as json_file:
+            additional_dump = json.load(json_file)
     with open(wikidata_dump) as json_file:
         wikidata_dump = json.load(json_file)
     # link to API
@@ -631,6 +638,16 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                                 if item["title"] in wikidata_dump["wids"]:
                                     print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
                                     return asin, item["title"]
+                            # second loop on the alternate dump (only when processing CDs and Vinyls dataset)
+                            if "CDs" in amazon_ratings:
+                                # only for the CDs and Vinyls dataset, it could happen that animated movies are included
+                                # in the dataset as (erroneously) treated as CDs
+                                # if no entries are found in the music dump (as they should be DVDs and not CDs), we
+                                # look for them in the movie dump, which contains DVDs and animated movies
+                                for item in data["query"]["search"]:
+                                    if item["title"] in additional_dump["wids"]:
+                                        print("[alternate dump] %s - %s - %s" % (asin, m_data[asin], item["title"]))
+                                        return asin, item["title"]
                             print("%s not found in dump" % (asin, ))
                             return asin, "not-in-dump"  # all found items are not of the correct category
                         else:
@@ -698,7 +715,7 @@ def get_wid_per_cat(category):
     elif category == "music":
         query = """SELECT DISTINCT ?item
                     WHERE {
-                        ?item wdt:P31/wdt:P279* wd:Q106043376.
+                        ?item wdt:P31/wdt:P279* wd:Q16887380.
                     }"""
     else:
         query = """SELECT DISTINCT ?item
