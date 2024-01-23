@@ -14,6 +14,9 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import wayback
 import sys
 from SPARQLWrapper import SPARQLWrapper, JSON
@@ -271,11 +274,11 @@ def scrape_title_wayback(asins, batch_size=20, save_tmp=True, delay=60):
                             continue
                         # check if it is a saved page with 404 error
                         if ((soup.find("b", {"class": "h1"}) is not None and
-                                "Looking for something?" in soup.find("b", {"class": "h1"}).get_text()) or
+                             "Looking for something?" in soup.find("b", {"class": "h1"}).get_text()) or
                                 soup.find('img', {'alt': "Sorry! We couldn't find that page. "
                                                          "Try searching or go to Amazon's home page."}) is not None):
                             batch_dict[asin] = "404-error"
-                            print_str = "404 error - ASIN %s" % (url, )
+                            print_str = "404 error - ASIN %s" % (url,)
                             # move to next snapshot in the for loop
                             continue
                         # if it is not a captcha page or 404 page, find this specific IDs (in order) while
@@ -333,7 +336,121 @@ def scrape_title_wayback(asins, batch_size=20, save_tmp=True, delay=60):
     return title_dict.copy()
 
 
-def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True, batch_size=100, wayback=False):
+def scrape_title_captcha(asins, batch_size=100, save_tmp=True, delay=180):
+    """
+    This function takes as input a list of Amazon ASINs and performs http requests to the Rocket Source knowledge base
+    to get the title of the ASIN. This is used for the ASINs that during the second scraping job (Wayback machine)
+    obtained a 404 error on the Wayback machine. This is an attempt of still retrieve the title despite the official
+    page of the product not existing anymore even on the Wayback Machine.
+
+    If the script is able to find a title given the ASIN, the title is saved inside a dictionary. If the ASIN is not
+    included in the database, the script keeps track of it.
+
+    :param asins: list of ASINs for which the title has to be retrieved
+    :param batch_size: number of ASINs to be processed in each batch
+    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
+    :param delay: number of seconds to wait for solving captchas. It is possible the tool requires a lot of time for
+    solving a CAPTCHA, depending on how much challenging it is.
+    :return: new dictionary containing key-value pairs with ASIN-title
+    """
+    # get number of batches for printing information
+    n_batches = int(len(asins) / batch_size)
+    # define dictionary suitable for parallel storing of information
+    manager = Manager()
+    title_dict = manager.dict()
+    # Set up the Chrome options for a headless browser
+    options = Options()
+    options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
+    options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-infobars')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_experimental_option('excludeSwitches', ['enable-automation'])
+    options.add_experimental_option('useAutomationExtension', False)
+    options.add_extension("./captcha_solver.crx")
+    # define Rocket Source entry point
+    url = 'https://www.rocketsource.io/asin-to-ean'
+
+    def batch_request(batch_idx, asins, title_dict):
+        """
+        This function performs a batch of HTTP requests to the Rocket Source knowledge base.
+
+        :param batch_idx: index of the current batch
+        :param asins: list of ASINs of the products for which the title has to be retrieved in this batch
+        :param title_dict: dictionary for storing of the retrieved data
+        """
+        # check if this batch has been already processed in another execution
+        # if the path does not exist, we process the batch
+        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx,)
+        if not os.path.exists(tmp_path):
+            # define dictionary for saving batch data
+            batch_dict = {}
+            # Set up the Chrome driver for the current batch
+            chrome_service = ChromeService(executable_path='./chromedriver')
+            driver = webdriver.Chrome(service=chrome_service, options=options)
+            # open the webpage
+            driver.get(url)
+            # Find the input element where the ASIN has to be inserted
+            input_element = driver.find_element(By.TAG_NAME, "input")
+            # start the scraping loop
+            for counter, asin in enumerate(asins):
+                print_str = ""
+                # Input the ASIN into the input element
+                input_element.clear()
+                input_element.send_keys(asin)
+                # wait until the button becomes clickable - we have to wait for the captcha to be solved
+                try:
+                    wait = WebDriverWait(driver, delay)
+                    button = wait.until(EC.presence_of_element_located((By.XPATH,
+                                                                        '//*[@id="__next"]/div/div[2]/div/div/div[3]/div[1]/div[1]/div[3]/div[2]/div[contains(@class, "cursor-pointer")]')))
+                except Exception as e:
+                    # if we enter here, it means that the timeout run out of time and the captcha has not be solved by
+                    # the tool
+                    print_str = "captcha not solved - ASIN %s" % (asin,)
+                    batch_dict[asin] = "captcha"
+                    print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                    # continue to the next ASIN
+                    continue
+                # if we arrive here, the captcha has been solved
+                # click on the button to generate the title on the Rocket Source site
+                button.click()
+                try:
+                    # wait for the title to appear
+                    wait = WebDriverWait(driver, 10)
+                    title = wait.until(EC.presence_of_element_located(
+                        (By.XPATH, '//*[@id="__next"]/div/div[2]/div/div/div[3]/div[1]/div[2]/b')))
+                except Exception as e:
+                    print_str = "not found - ASIN %s" % (asin,)
+                    print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                    batch_dict[asin] = "404-error"
+                    continue
+                # if we arrive here, the title has been correctly displayed
+                print_str = "%s - %s" % (asin, title.text)
+                print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                batch_dict[asin] = title.text
+            # Close the browser window
+            driver.quit()
+            if save_tmp:
+                # save a json file dedicated to this specific batch
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(batch_dict, f, ensure_ascii=False, indent=4)
+        else:
+            # load the file and update the parallel dict
+            with open(tmp_path) as json_file:
+                batch_dict = json.load(json_file)
+        # update parallel dict
+        title_dict.update(batch_dict)
+
+    # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
+    Parallel(n_jobs=os.cpu_count())(delayed(batch_request)(batch_idx, a, title_dict)
+                                    for batch_idx, a in
+                                    enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
+                                               for i in range(0, len(asins), batch_size)]))
+    return title_dict.copy()
+
+
+def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True, batch_size=100, mode=None):
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
     titles from the Amazon website. It is possible to specify wayback=True to scrape titles from the Wayback Machine.
@@ -357,8 +474,12 @@ def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True,
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
     :param batch_size: number of ASINs that have to be processed for each batch. Keep this number under 100 to avoid
     disk memory problems due to temporary files memorization by Selenium. Keep this number equal to 20 when wayback=True
-    :param wayback: whether to use the wayback machine API (for items not found after first scraping loop) or
-    standard one (for first scraping loop)
+    :param mode: - "wayback" uses the wayback machine API (for items not found after first scraping loop)
+                 - "standard" uses the standard one (for first scraping loop)
+                 - "captcha" uses the version that scrapes titles from the Rocket Source knowledge base (to be used
+                 after the wayback mode. If even with the Wayback Machine is not possible to get the titles, it is
+                 possible to get them from this knowledge base. It is the slowest mode as it requires solving difficult
+                 captchas automatically)
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
@@ -366,8 +487,14 @@ def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True,
     # only the items with the selected motivation will be picked
     no_titles = [k for k, v in m_data.items() if v == motivation]
     # update the metadata with the scraped titles
-    m_data.update(scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
-                  if not wayback else scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp))
+    if mode is None or mode == "standard":
+        updated_dict = scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
+    elif mode == "wayback":
+        updated_dict = scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp)
+    else:
+        updated_dict = scrape_title_captcha(no_titles, batch_size=batch_size, save_tmp=save_tmp)
+    # update of the metadata
+    m_data.update(updated_dict)
     # generate the new and complete metadata file
     with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
@@ -414,7 +541,7 @@ def metadata_cleaning(metadata):
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
-    m_data = {k:v for k, v in m_data.items() if v != "404-error"}
+    m_data = {k: v for k, v in m_data.items() if v != "404-error"}
     with open(metadata, 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
@@ -598,7 +725,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
     wikidata_api_url = "https://www.wikidata.org/w/api.php"
     # check if a mapping file for the given rating file already exists
     temp_dict = {}
-    map_path = ("./data/processed/mapping-%s" % (amazon_ratings.split("/")[-1], )).replace("csv", "json")
+    map_path = ("./data/processed/mapping-%s" % (amazon_ratings.split("/")[-1],)).replace("csv", "json")
     if os.path.exists(map_path):
         # if it exists, we load a temp dictionary containing the found matches
         with open(map_path) as json_file:
@@ -614,7 +741,8 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
             # check if the match has been already created
             # check if it is a not in dump -> in this case, we retry the search again as we could update the dump file
             # while manually checking if we missed some entities due to an incorrect query to the Wikidata Query Service
-            if asin not in temp_dict or ((temp_dict[asin] == "not-in-dump" or temp_dict[asin] == "not-found") and retry):
+            if asin not in temp_dict or (
+                    (temp_dict[asin] == "not-in-dump" or temp_dict[asin] == "not-found") and retry):
                 # check for a match if it has not been already created
                 if asin in m_data:
                     # remove punctuation
@@ -648,16 +776,16 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                                     if item["title"] in additional_dump["wids"]:
                                         print("[alternate dump] %s - %s - %s" % (asin, m_data[asin], item["title"]))
                                         return asin, item["title"]
-                            print("%s not found in dump" % (asin, ))
+                            print("%s not found in dump" % (asin,))
                             return asin, "not-in-dump"  # all found items are not of the correct category
                         else:
                             print("%s - %s - %s" % (asin, m_data[asin], data["query"]["search"][0]["title"]))
                             return asin, data["query"]["search"][0]["title"]
                     else:
-                        print("%s not found by query" % (asin, ))
+                        print("%s not found by query" % (asin,))
                         return asin, "not-found"  # there are no results for the query
                 else:
-                    print("%s does not have a title" % (asin, ))
+                    print("%s does not have a title" % (asin,))
                     return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
             else:
                 # if the match has been already created, simply load the match
@@ -736,7 +864,7 @@ def get_wid_per_cat(category):
         dump_dict["wids"].append(result["item"]["value"].split("/")[-1])
 
     # save Wikidata IDs to file
-    with open('./data/processed/wikidata-%s.json' % (category, ), 'w',
+    with open('./data/processed/wikidata-%s.json' % (category,), 'w',
               encoding='utf-8') as f:
         json.dump(dump_dict, f, ensure_ascii=False, indent=4)
 
@@ -748,10 +876,14 @@ def get_no_found(metadata):
 
     It creates a CSV file containing the list of ASINs without an associated title.
 
-    :param metadata: metadata file on which we need to find the ASIN without an associated title
+    :param metadata: metadata file on which we need to find the ASINs without an associated title. It could be the path
+    to the metadata file or a dictionary containing the metadata
     """
-    with open(metadata) as json_file:
-        data = json.load(json_file)
+    if not isinstance(metadata, dict):
+        with open(metadata) as json_file:
+            data = json.load(json_file)
+    else:
+        data = metadata
     # get the list of ASINs without a title
     no_titles = [k for k, v in data.items() if v == "404-error"]
     df = pd.DataFrame(no_titles, columns=["ASINs"])

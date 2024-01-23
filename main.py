@@ -24,8 +24,9 @@ if __name__ == "__main__":
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
     # get_wid_per_cat("music")
-    entity_linker_api_query("./data/processed/reviews_CDs_and_Vinyl_5.csv", use_dump=True, retry=False)
-    # todo completare e verificare che sia tutto ok e perche' non mi carica i problemi di DOM correttamente
+    metadata_scraping("./data/processed/complete-filtered-metadata.json", motivation="404-error", save_tmp=True,
+                      batch_size=100, mode="captcha")
+    # entity_linker_api_query("./data/processed/reviews_CDs_and_Vinyl_5.csv", use_dump=True, retry=False)
     # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
     # metadata_stats("./data/processed/filtered-metadata.json", errors=["no-title"], save_asins=False)
