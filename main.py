@@ -4,7 +4,10 @@
 # end: 467833 matched and 11723 are 404 error and 479 are captcha in wayback -> captcha are more because some of the
 # 404 error before became a captcha after Wayback Machine. Note also that about 70 items with a DOM problem have to be
 # manually inserted in the file because Soup was not finding an ID that was actually there
-
+# ALCUNE STATISTICHE
+# metadati: 95% completi di titolo, 4.5% non hanno il titolo (404 error), 1% problemi di DOM o captcha
+# musica: 72% item matchati su wikidata, 22% non trovati, 6% non nel dump giusto
+# movies: 60% item matchati su wikidata, 33% non trovati, 7% non nel dump giusto
 
 import os
 
@@ -19,22 +22,23 @@ if __name__ == "__main__":
     #                                                    "reviews_CDs_and_Vinyl_5"])
     # create_asin_metadata_json("./data/raw/metadata.json")
     # metadata_scraping("./data/processed/metadata.json")
-    create_pandas_dataset("./data/raw/reviews_Books_5.json")
-    # entity_linker_api_query("./data/processed/reviews_CDs_and_Vinyl_5.csv", True)
+    # create_pandas_dataset("./data/raw/reviews_Books_5.json")
+    entity_linker_api_query("./data/processed/reviews_Books_5.csv", use_dump=True)
     # get_wid_labels("./data/raw/movies.json")
     # get_wid_labels("./data/raw/music.json")
     # get_wid_labels("./data/raw/books.json")
     # get_wid_per_cat("music")
     # metadata_scraping("./data/processed/complete-filtered-metadata.json", motivation="404-error", save_tmp=True,
-    #                   batch_size=100, mode="captcha")
-    # entity_linker_api_query("./data/processed/reviews_CDs_and_Vinyl_5.csv", use_dump=True, retry=False)
+    #                   batch_size=100, mode="search")
+    # entity_linker_api_query("./data/processed/reviews_Books_5.csv", use_dump=True, retry=False)
     # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
     # metadata_stats("./data/processed/filtered-metadata.json", errors=["no-title"], save_asins=False)
     # metadata_stats("./data/processed/complete-filtered-metadata.json", errors=["captcha-or-DOM", "404-error"], save_asins=False)
     # metadata_stats("./data/processed/final-metadata.json", errors=["404-error", "DOM", "captcha"], save_asins=False)
-    # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump", "exception"], save_asins=False)
-    # get_wid_per_cat("movies")
+    # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump"], save_asins=False)
+
+    # get_wid_per_cat("books")
     # metadata_cleaning("./data/processed/final-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
