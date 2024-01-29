@@ -17,9 +17,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 import wayback
 import sys
 from SPARQLWrapper import SPARQLWrapper, JSON
+import math
 
 
 def create_asin_metadata_json(metadata):
@@ -368,9 +370,11 @@ def scrape_title_captcha(asins, batch_size=100, save_tmp=True, delay=180):
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_experimental_option('excludeSwitches', ['enable-automation'])
     options.add_experimental_option('useAutomationExtension', False)
-    options.add_extension("./captcha_solver.crx")
-    # define Rocket Source entry point
-    url = 'https://www.rocketsource.io/asin-to-ean'
+    options.add_extension("./nocaptcha/noCaptchaAi-chrome-v1.3.crx")
+    # url for configuring the extension for captchas
+    url_api = "https://newconfig.nocaptchaai.com/?APIKEY=bmxitalia-5f6ff273-aa2e-2ffb-fff7-c0388051fe71&PLANTYPE=pro&customEndpoint=&hCaptchaEnabled=true&reCaptchaEnabled=true&dataDomeEnabled=true&ocrEnabled=true&ocrToastEnabled=true&extensionEnabled=true&logsEnabled=false&fastAnimationMode=true&debugMode=false&hCaptchaAutoOpen=true&hCaptchaAutoSolve=true&hCaptchaAlwaysSolve=true&englishLanguage=true&hCaptchaGridSolveTime=7&hCaptchaMultiSolveTime=5&hCaptchaBoundingBoxSolveTime=5&reCaptchaAutoOpen=true&reCaptchaAutoSolve=true&reCaptchaAlwaysSolve=true&reCaptchaClickDelay=400&reCaptchaSubmitDelay=1&reCaptchaSolveType=null"
+    # url of the webpage of Rocket Source knowledge base
+    url = "https://www.rocketsource.io/asin-to-ean"
 
     def batch_request(batch_idx, asins, title_dict):
         """
@@ -389,6 +393,8 @@ def scrape_title_captcha(asins, batch_size=100, save_tmp=True, delay=180):
             # Set up the Chrome driver for the current batch
             chrome_service = ChromeService(executable_path='./chromedriver')
             driver = webdriver.Chrome(service=chrome_service, options=options)
+            # config the extension
+            driver.get(url_api)
             # open the webpage
             driver.get(url)
             # Find the input element where the ASIN has to be inserted
@@ -450,6 +456,103 @@ def scrape_title_captcha(asins, batch_size=100, save_tmp=True, delay=180):
     return title_dict.copy()
 
 
+def scrape_title_google_search(asins, batch_size=100, save_tmp=True):
+    """
+    This function takes as input a list of Amazon ASINs and performs http requests to the Google Search
+    to get the title of the ASIN. It simply searches on the Google Search text area and iterates over the results to get
+    the title of the searched ASIN. This is used for the ASINs that during the second scraping job (Wayback machine)
+    obtained a 404 error on the Wayback machine. This is an attempt of still retrieve the title despite the official
+    page of the product not existing anymore even on the Wayback Machine.
+
+    If the script is able to find a title given the ASIN, the title is saved inside a dictionary. If the search does not
+    produce any results, the script keeps track of it.
+
+    :param asins: list of ASINs for which the title has to be retrieved
+    :param batch_size: number of ASINs to be processed in each batch
+    :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
+    :return: new dictionary containing key-value pairs with ASIN-title
+    """
+    # get number of batches for printing information
+    n_batches = int(len(asins) / batch_size)
+    # define dictionary suitable for parallel storing of information
+    manager = Manager()
+    title_dict = manager.dict()
+    # Set up the Chrome options for a headless browser
+    options = Options()
+    options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
+    options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-infobars')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+
+    def batch_request(batch_idx, asins, title_dict):
+        """
+        This function performs a batch of HTTP requests to the Google Search.
+
+        :param batch_idx: index of the current batch
+        :param asins: list of ASINs of the products for which the title has to be retrieved in this batch
+        :param title_dict: dictionary for storing of the retrieved data
+        """
+        # check if this batch has been already processed in another execution
+        # if the path does not exist, we process the batch
+        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx,)
+        if not os.path.exists(tmp_path):
+            # define dictionary for saving batch data
+            batch_dict = {}
+            # Set up the Chrome driver for the current batch
+            chrome_service = ChromeService(executable_path='./chromedriver')
+            driver = webdriver.Chrome(service=chrome_service, options=options)
+            # start the scraping loop
+            for counter, asin in enumerate(asins):
+                print_str = ""
+                # search for ASIN in Google Search
+                url = "http://www.google.com/search?as_q=" + asin
+                driver.get(url)
+                # get page source
+                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                # check if Google changed my search
+                a = soup.find('a', class_='spell_orig')
+                if a is not None:
+                    # get the link and go to the correct search
+                    url = a.get('href')
+                    driver.get('http://www.google.com' + url)
+                    # get new page source
+                    soup = BeautifulSoup(driver.page_source, 'html.parser')
+                # iterate over the links of the page
+                divs = soup.find_all('div', class_="yuRUbf")
+                link_list = []
+                for div in divs:
+                    link_list.append(div.h3.text)
+                print("%s - %s" % (asin, link_list))
+                # try:
+                #     title = link_list[0]
+                #     print(title)
+                # except Exception as e:
+                #     print("--------- NOT FOUND --------")
+                #     print(link_list)
+
+            # Close the browser window
+            driver.quit()
+            if save_tmp:
+                # save a json file dedicated to this specific batch
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(batch_dict, f, ensure_ascii=False, indent=4)
+        else:
+            # load the file and update the parallel dict
+            with open(tmp_path) as json_file:
+                batch_dict = json.load(json_file)
+        # update parallel dict
+        title_dict.update(batch_dict)
+
+    # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
+    Parallel(n_jobs=os.cpu_count())(delayed(batch_request)(batch_idx, a, title_dict)
+                                    for batch_idx, a in
+                                    enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
+                                               for i in range(0, len(asins), batch_size)]))
+    return title_dict.copy()
+
+
 def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True, batch_size=100, mode=None):
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
@@ -480,6 +583,7 @@ def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True,
                  after the wayback mode. If even with the Wayback Machine is not possible to get the titles, it is
                  possible to get them from this knowledge base. It is the slowest mode as it requires solving difficult
                  captchas automatically)
+                 - "search" uses the Google Search to get the titles corresponding to the given ASINs
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
@@ -491,8 +595,10 @@ def metadata_scraping(metadata, n_cores=1, motivation="no-title", save_tmp=True,
         updated_dict = scrape_title(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
     elif mode == "wayback":
         updated_dict = scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp)
-    else:
+    elif mode == "captcha":
         updated_dict = scrape_title_captcha(no_titles, batch_size=batch_size, save_tmp=save_tmp)
+    else:
+        updated_dict = scrape_title_google_search(no_titles, batch_size=batch_size, save_tmp=save_tmp)
     # update of the metadata
     m_data.update(updated_dict)
     # generate the new and complete metadata file
@@ -506,7 +612,8 @@ def metadata_stats(metadata, errors, save_asins=True):
     with a missing title due to a 404 error, a bot detection or DOM error, or an unknown error due to an exception in
     the scraping procedure. The parameter errors allows to define which statistics to include in the output.
     For each of these statistics, the output will contain the set of ASINs corresponding to each error, if save_asins
-    is set to True.
+    is set to True. The output will also contain the percentage of items included in each statistics given the total
+    number of items in the given file.
 
     :param metadata: path to the metadata file for which the statistics have to be generated
     :param errors: list of strings containing the name of the errors that have to be included in the statistics. The
@@ -523,10 +630,13 @@ def metadata_stats(metadata, errors, save_asins=True):
                 errors[title]["asins"].append(asin)
         else:
             if "matched" in errors:
-                errors["matched"] += 1
+                errors["matched"]["counter"] += 1
             else:
-                errors["matched"] = 0
-
+                errors["matched"] = {"counter": 1}
+    # compute percentages
+    total = sum([errors[e]["counter"] for e in errors])
+    for e in errors:
+        errors[e]["percentage"] = errors[e]["counter"] / total * 100
     print(errors)
 
 
@@ -709,7 +819,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
     if "Movies" in amazon_ratings:
         wikidata_dump = "./data/processed/wikidata-movies.json"
     if "Books" in amazon_ratings:
-        wikidata_dump = ".data/processed/wikidata-books.json"
+        wikidata_dump = "./data/processed/wikidata-books.json"
     if "CD" in amazon_ratings:
         wikidata_dump = "./data/processed/wikidata-music.json"
         # this additional dump is just the same as the movie dump. It is used only for CDs and Vinyls, as some DVDs are
@@ -848,7 +958,13 @@ def get_wid_per_cat(category):
     else:
         query = """SELECT DISTINCT ?item
                     WHERE {
-                        ?item wdt:P31/wdt:P279* wd:Q47461344.
+                        {
+                        ?item wdt:P31 wd:Q47461344.
+                        }
+                        UNION
+                        {
+                        ?item wdt:P31/wdt:P279* wd:Q7725634.
+                        }
                     }"""
 
     # execute the query
