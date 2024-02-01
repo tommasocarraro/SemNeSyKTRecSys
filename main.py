@@ -20,6 +20,9 @@ import json
 import pandas as pd
 
 if __name__ == "__main__":
+    # todo prendere descrizione film, libri e musica -> segnale semantico + segnale latente -> si possono vedere le varie visioni
+    # todo ASIN dei libri coincide con ISBN, ma tanto non abbiamo neanche quello
+    # todo esperimenti sia su globale che solo su quelli matchati
     # filter_metadata("./data/processed/metadata.json", ["reviews_Movies_and_TV_5",
     #                                                    "reviews_Books_5",
     #                                                    "reviews_CDs_and_Vinyl_5"])

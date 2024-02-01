@@ -21,6 +21,7 @@ from selenium.webdriver.common.keys import Keys
 import wayback
 import sys
 from SPARQLWrapper import SPARQLWrapper, JSON
+import logging
 import math
 
 
@@ -840,6 +841,13 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
         # if it exists, we load a temp dictionary containing the found matches
         with open(map_path) as json_file:
             temp_dict = json.load(json_file)
+    # create logger for logging everything to file in case the long executions are interrupted
+    # Configure the logger
+    logging.basicConfig(level=logging.INFO)  # Set the desired log level
+    # Create a FileHandler to write log messages to a file
+    file_handler = logging.FileHandler('output.log')
+    # Add the file handler to the logger
+    logging.getLogger().addHandler(file_handler)
 
     def entity_link(asin):
         """
@@ -875,6 +883,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                             for item in data["query"]["search"]:
                                 if item["title"] in wikidata_dump["wids"]:
                                     print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
+                                    logging.info("%s - %s" % (asin, item["title"]))
                                     return asin, item["title"]
                             # second loop on the alternate dump (only when processing CDs and Vinyls dataset)
                             if "CDs" in amazon_ratings:
@@ -885,17 +894,22 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                                 for item in data["query"]["search"]:
                                     if item["title"] in additional_dump["wids"]:
                                         print("[alternate dump] %s - %s - %s" % (asin, m_data[asin], item["title"]))
+                                        logging.info("%s - %s" % (asin, item["title"]))
                                         return asin, item["title"]
                             print("%s not found in dump" % (asin,))
+                            logging.info("%s - not-in-dump" % (asin, ))
                             return asin, "not-in-dump"  # all found items are not of the correct category
                         else:
                             print("%s - %s - %s" % (asin, m_data[asin], data["query"]["search"][0]["title"]))
+                            logging.info("%s - %s" % (asin, data["query"]["search"][0]["title"]))
                             return asin, data["query"]["search"][0]["title"]
                     else:
                         print("%s not found by query" % (asin,))
+                        logging.info("%s - not-found-query" % (asin, ))
                         return asin, "not-found"  # there are no results for the query
                 else:
                     print("%s does not have a title" % (asin,))
+                    logging.info("%s - not-title", (asin, ))
                     return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
             else:
                 # if the match has been already created, simply load the match
@@ -903,11 +917,14 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                 return asin, temp_dict[asin]
         except Exception as e:
             print("%s produced the exception %s" % (asin, e))
+            logging.info("%s - exception", (asin, ))
             return asin, "exception"  # the item is not in the metadata file provided by amazon
 
     # here the parallel computing
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
         matches = list(executor.map(entity_link, item_ids))
+    # close the file handler
+    file_handler.close()
     match_dict = {k: v for k, v in matches}
     with open('./data/processed/mapping-%s.json' % (amazon_ratings.split("/")[-1].split(".")[0],), 'w',
               encoding='utf-8') as f:
