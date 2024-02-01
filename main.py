@@ -8,6 +8,9 @@
 # metadati: 95% completi di titolo, 4.5% non hanno il titolo (404 error), 1% problemi di DOM o captcha
 # musica: 72% item matchati su wikidata, 22% non trovati, 6% non nel dump giusto
 # movies: 60% item matchati su wikidata, 33% non trovati, 7% non nel dump giusto
+# todo vedere discorso delle descrizioni dei film, libri ecc in altri database, per calcolare similarita' tra loro
+# todo capire come creare i percorsi su wikidata con i 1000 pacchetti disponibili
+# todo se riesco a lavorare su un dump o un sotto dump potrei sfruttare quel pacchetto che avevo trovato per fare le ricerche per label e alias
 
 import os
 
