@@ -457,7 +457,7 @@ def scrape_title_captcha(asins, batch_size=100, save_tmp=True, delay=180):
     return title_dict.copy()
 
 
-def scrape_title_google_search(asins, batch_size=100, save_tmp=True):
+def scrape_title_google_search(asins, batch_size=100, save_tmp=True, just_first=True):
     """
     This function takes as input a list of Amazon ASINs and performs http requests to the Google Search
     to get the title of the ASIN. It simply searches on the Google Search text area and iterates over the results to get
@@ -471,10 +471,10 @@ def scrape_title_google_search(asins, batch_size=100, save_tmp=True):
     :param asins: list of ASINs for which the title has to be retrieved
     :param batch_size: number of ASINs to be processed in each batch
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
+    :param just_first: whether to save just the title of the first link of the search or all the titles that are found
+    by Google for this specific search
     :return: new dictionary containing key-value pairs with ASIN-title
     """
-    # get number of batches for printing information
-    n_batches = int(len(asins) / batch_size)
     # define dictionary suitable for parallel storing of information
     manager = Manager()
     title_dict = manager.dict()
@@ -525,14 +525,12 @@ def scrape_title_google_search(asins, batch_size=100, save_tmp=True):
                 link_list = []
                 for div in divs:
                     link_list.append(div.h3.text)
+                if link_list and just_first:
+                    link_list = link_list[0]
                 print("%s - %s" % (asin, link_list))
-                # try:
-                #     title = link_list[0]
-                #     print(title)
-                # except Exception as e:
-                #     print("--------- NOT FOUND --------")
-                #     print(link_list)
-
+                if not link_list:
+                    link_list = "not-title"
+                batch_dict[asin] = link_list
             # Close the browser window
             driver.quit()
             if save_tmp:
