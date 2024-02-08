@@ -786,7 +786,7 @@ def entity_linker_api(amazon_ratings, use_dump=True):
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
 
 
-def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
+def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False, retry_reason=None):
     """
     This function uses the Wikidata API (action=query) to get the ID of wikidata items corresponding to the Amazon
     items. The API is
@@ -807,6 +807,9 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
     :param retry: valid from second execution. If this is set to true, the script will retry to find matches for all
     the items that during the first search got a not-in-dump error. This is useful if one wants to update the dump file
     and retry the search.
+    :param retry_reason: string indicating for which items the search has to be computed again. For example, indicate
+    "exception" for the items that gave an exception during the first mapping loop. The procedure will repeat the loop
+    only for these items.
     """
     # read data
     data = pd.read_csv(amazon_ratings)
@@ -859,8 +862,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
             # check if the match has been already created
             # check if it is a not in dump -> in this case, we retry the search again as we could update the dump file
             # while manually checking if we missed some entities due to an incorrect query to the Wikidata Query Service
-            if asin not in temp_dict or (
-                    (temp_dict[asin] == "not-in-dump" or temp_dict[asin] == "not-found") and retry):
+            if asin not in temp_dict or (temp_dict[asin] == retry_reason and retry):
                 # check for a match if it has not been already created
                 if asin in m_data:
                     # remove punctuation
@@ -909,7 +911,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                         return asin, "not-found"  # there are no results for the query
                 else:
                     print("%s does not have a title" % (asin,))
-                    logging.info("%s - not-title", (asin, ))
+                    logging.info("%s - not-title" % (asin, ))
                     return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
             else:
                 # if the match has been already created, simply load the match
@@ -917,7 +919,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False):
                 return asin, temp_dict[asin]
         except Exception as e:
             print("%s produced the exception %s" % (asin, e))
-            logging.info("%s - exception", (asin, ))
+            logging.info("%s - exception" % (asin, ))
             return asin, "exception"  # the item is not in the metadata file provided by amazon
 
     # here the parallel computing
