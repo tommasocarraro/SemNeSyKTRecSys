@@ -39,18 +39,18 @@ if __name__ == "__main__":
     # entity_linker_api_query("./data/processed/reviews_Books_5.csv", use_dump=True, retry=True, retry_reason="exception")
     # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
-    metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json",
-                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
-    metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
-                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
-    metadata_stats("./data/processed/mapping-reviews_Books_5.json",
-                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json",
+    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    # metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
+    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    # metadata_stats("./data/processed/mapping-reviews_Books_5.json",
+    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
     # metadata_stats("./data/processed/complete-filtered-metadata.json", errors=["captcha-or-DOM", "404-error"], save_asins=False)
     # metadata_stats("./data/processed/final-metadata.json", errors=["404-error", "DOM", "captcha"], save_asins=False)
     # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump"], save_asins=False)
 
     # get_wid_per_cat("books")
-    # metadata_cleaning("./data/processed/final-metadata.json")
+    metadata_cleaning("./data/processed/complete-filtered-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
     #     mapping = json.load(json_file)
