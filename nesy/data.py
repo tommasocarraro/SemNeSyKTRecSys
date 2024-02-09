@@ -906,11 +906,11 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False, retry_re
                     else:
                         print("%s not found by query" % (asin,))
                         logging.info("%s - not-found-query" % (asin, ))
-                        return asin, "not-found"  # there are no results for the query
+                        return asin, "not-found-query"  # there are no results for the query
                 else:
                     print("%s does not have a title" % (asin,))
                     logging.info("%s - not-title" % (asin, ))
-                    return asin, "no-metadata"  # the item has not a corresponding title in the metadata file
+                    return asin, "not-title"  # the item has not a corresponding title in the metadata file
             else:
                 # if the match has been already created, simply load the match
                 # print("%s already matched in the mapping file" % (asin, ))
