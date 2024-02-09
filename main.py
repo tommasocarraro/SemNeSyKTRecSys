@@ -6,8 +6,10 @@
 # manually inserted in the file because Soup was not finding an ID that was actually there
 # ALCUNE STATISTICHE
 # metadati: 95% completi di titolo, 4.5% non hanno il titolo (404 error), 1% problemi di DOM o captcha
-# musica: 72% item matchati su wikidata, 22% non trovati, 6% non nel dump giusto
-# movies: 60% item matchati su wikidata, 33% non trovati, 7% non nel dump giusto
+# musica: 72% (46238) item matchati su wikidata
+# movies: 60% (30101) item matchati su wikidata
+# books: 16% (57946) item matchati su wikidata
+# interessante perche' nonostante i libri siano solo il 16%, il dataset e' comunque piu' completo degli altri due, quindi nessun problema, possiamo utilizzarlo
 # todo vedere discorso delle descrizioni dei film, libri ecc in altri database, per calcolare similarita' tra loro
 # todo capire come creare i percorsi su wikidata con i 1000 pacchetti disponibili
 # todo se riesco a lavorare su un dump o un sotto dump potrei sfruttare quel pacchetto che avevo trovato per fare le ricerche per label e alias
@@ -36,21 +38,21 @@ if __name__ == "__main__":
     # get_wid_per_cat("music")
     # metadata_scraping("./data/processed/complete-filtered-metadata.json", motivation="404-error", save_tmp=True,
     #                   batch_size=100, mode="search")
-    # entity_linker_api_query("./data/processed/reviews_Books_5.csv", use_dump=True, retry=True, retry_reason="exception")
+    # entity_linker_api_query("./data/processed/reviews_CDs_and_Vinyl_5.csv", use_dump=True, retry=True, retry_reason="not-title")
     # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
-    # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json",
-    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
-    # metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
-    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
-    # metadata_stats("./data/processed/mapping-reviews_Books_5.json",
-    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json",
+                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
+                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    metadata_stats("./data/processed/mapping-reviews_Books_5.json",
+                   errors=["not-in-dump", "not-found-query", "not-title", "exception"], save_asins=False)
     # metadata_stats("./data/processed/complete-filtered-metadata.json", errors=["captcha-or-DOM", "404-error"], save_asins=False)
     # metadata_stats("./data/processed/final-metadata.json", errors=["404-error", "DOM", "captcha"], save_asins=False)
     # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump"], save_asins=False)
 
     # get_wid_per_cat("books")
-    metadata_cleaning("./data/processed/complete-filtered-metadata.json")
+    # metadata_cleaning("./data/processed/complete-filtered-metadata.json")
     # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
     #     mapping = json.load(json_file)
