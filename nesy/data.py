@@ -25,6 +25,7 @@ import math
 from tqdm import tqdm
 import subprocess
 import sqlite3
+import pprint
 
 
 def create_asin_metadata_json(metadata):
@@ -1092,9 +1093,10 @@ def convert_ids_to_labels(wiki_paths_file):
         return label
 
     res = df.map(lambda x: get_label(x) if isinstance(x, str) or not math.isnan(x) else "").values
-    out_str = ""
+    out = {"standard": [], "inverse": []}
     for i, path in enumerate(res):
-        out_str += "path %d: " % (i + 1, )
+        out_str = ""
+        # out_str += "path %d: " % (i + 1, )
         for item in path:
             if item != "":
                 out_str = out_str + item + " ---> "
@@ -1102,6 +1104,9 @@ def convert_ids_to_labels(wiki_paths_file):
                 out_str = out_str.rstrip(" ---> ")
                 break
         out_str = out_str.rstrip(" ---> ")
-        out_str += "\n"
-    print(out_str)
+        if "inverse" in out_str:
+            out["inverse"].append(out_str)
+        else:
+            out["standard"].append(out_str)
+    pprint.pprint(out, width=300)
     conn.close()
