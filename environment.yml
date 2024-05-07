@@ -1,0 +1,15 @@
+name: SemNeSyKTRecSys
+dependencies:
+  - python=3.9
+  - conda-forge::graph-tool
+  - conda-forge::jupyterlab
+  - pip
+  - pip:
+    - kgtk==1.5.4
+    - joblib==1.4.2
+    - pandas==2.2.2
+    - beautifulsoup4==4.12.2
+    - selenium==4.20.0
+    - SPARQLWrapper==2.0.0
+    - tqdm==4.66.4
+    - wayback==0.4.5
