@@ -7,7 +7,6 @@ from multiprocessing import Manager
 import csv
 import pandas as pd
 import requests
-from tqdm import tqdm
 import re
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
@@ -23,6 +22,9 @@ import sys
 from SPARQLWrapper import SPARQLWrapper, JSON
 import logging
 import math
+from tqdm import tqdm
+import subprocess
+import sqlite3
 
 
 def create_asin_metadata_json(metadata):
@@ -1021,3 +1023,85 @@ def get_no_found(metadata):
     no_titles = [k for k, v in data.items() if v == "404-error"]
     df = pd.DataFrame(no_titles, columns=["ASINs"])
     df.to_csv("./data/processed/item-no-titles.csv", index=False)
+
+
+def count_lines(file_path):
+    """
+    This function efficiently counts the number of lines in a given file.
+
+    :param file_path: path to the file
+    :return: number of lines of the given file
+    """
+    try:
+        result = subprocess.run(['wc', '-l', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                check=True)
+        output = result.stdout.decode().strip()
+        line_count = int(output.split()[0])
+        return line_count
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+        return -1
+
+
+def create_wikidata_labels_sqlite(raw_labels):
+    """
+    This function creates a SQLITE file containing the labels of wikidata entities.
+
+    :param raw_labels: path to raw wikidata labels file
+    """
+    conn = sqlite3.connect("./data/wikidata/labels.db")
+    c = conn.cursor()
+
+    c.execute('''CREATE TABLE labels (wikidata_id TEXT PRIMARY KEY, label TEXT)''')
+    with open(raw_labels, 'r') as f:
+        for i, line in enumerate(tqdm(f, total=count_lines(raw_labels))):
+            if i != 0:
+                split_line = line.split("\t")
+                c.execute("INSERT INTO labels VALUES (?, ?)", (split_line[1], split_line[3]))
+
+    conn.commit()
+    conn.close()
+
+
+def convert_ids_to_labels(wiki_paths_file):
+    """
+    This function takes a tsv file containing paths between wikidata entities and converts the IDs into actual wikidata
+    labels. Note each row represents a different path.
+
+    It creates a new tsv file containing labels instead of IDs.
+
+    :param wiki_paths_file: path to the tsv file containing wikidata paths
+    """
+    df = pd.read_csv(wiki_paths_file, sep="\t")
+    conn = sqlite3.connect("./data/wikidata/labels.db")
+    c = conn.cursor()
+
+    def get_label(x):
+        suffix = ""
+        if x.startswith("P") and x.endswith("_"):
+            x = x[:-1]
+            suffix = " (inverse)"
+        label = c.execute("SELECT label FROM labels WHERE wikidata_id=?", (x,)).fetchone()[0]
+        # remove language specification
+        if "@" in label:
+            label = label.split("@")[0]
+        # remove ' in front and tail
+        if label.startswith("'") and label.endswith("'"):
+            label = label.strip("'")
+        label = label + suffix
+        return label
+
+    res = df.map(lambda x: get_label(x) if isinstance(x, str) or not math.isnan(x) else "").values
+    out_str = ""
+    for i, path in enumerate(res):
+        out_str += "path %d: " % (i + 1, )
+        for item in path:
+            if item != "":
+                out_str = out_str + item + " ---> "
+            else:
+                out_str = out_str.rstrip(" ---> ")
+                break
+        out_str = out_str.rstrip(" ---> ")
+        out_str += "\n"
+    print(out_str)
+    conn.close()
