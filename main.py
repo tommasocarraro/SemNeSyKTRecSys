@@ -14,14 +14,84 @@
 # todo capire come creare i percorsi su wikidata con i 1000 pacchetti disponibili
 # todo se riesco a lavorare su un dump o un sotto dump potrei sfruttare quel pacchetto che avevo trovato per fare le ricerche per label e alias
 
+
+# todo INTERESSANTE
+# due concetti:
+# 1: trovare uno score di similarita' per capire se utilizzare quel cross-domain path per fare raccomandazione o meno.
+# avra' uno score tra 0 e 1 da inserire nella regola logica
+# come calcolare lo score per questa coppia di item cross-domain? numero di path, lunghezza dei path, embedding dei singoli item all'interno del path e cosi via
+# 2: fare ranking dei path in fase di inferenza per decidere quale path utilizzare per la explanation finale
+
+# ogni scalino quando arriva.
+# 1 BASELINE: potrebbe essere di semplicemente non utilizzare nessun approccio e fare cross-domain recommendation basata solo sul cammino
+# utile sia in fase si training per fare regolarizzazione in caso di dati sparsi sul target domain, ma anche in fase di inferenza per risolvere i casi di cold-start, perche' possiamo usare direttamente i cammini
+# una prova versione potrebbe utilizzare solamente item che sono stati matchati su wikidata, una seconda versione potrebbe comprendere tutti gli item del dataset, e utilizzare quelli matchati per trasferire informazione
+# vogliamo spiegare principalmente il cold-start e li diventa essenziale sfruttare la informazione che lega i due domini
+
+# todo appunti di Alessio
+# Evaluating the reliability of LLMs is complex. Works such as https://arxiv.org/abs/2401.00761 and https://www.sciencedirect.com/science/article/pii/S266734522300024X clearly show that using LLMs as knowledge bases is
+# dangerous. Most of question answering results reported in literature are probably over estimated due to data contamination, and LLMs are known to be prone to hallucinations, especially for specific domain knowledge.
+# I'm not sure whether accessing existing books protected by copyright is ethical (or should even be legal). Just because ChatGPT is able to do so, that doesn't mean users should be allowed to or reuse the content
+# for (possibly) commercial content.
+# https://obsidian.md/
+# https://segment-anything.com/
+
+# todo cose interessanti e gia' disponibili
+# kgtk user interface for knowledge graph embeddings: https://kgtk.isi.edu/similarity/
+# kgtk code for path finding in Wikidata: find under similarity module (kgtk-similarity repo) -> we need to understand why it is deprecated
+# chatGPT or LLMs in general to compansate for errors in the KG (KG completion problem) -> hallucinations, ethical issues? Find papers
+# https://github.com/RManLuo/Awesome-LLM-KG
+# https://arxiv.org/abs/2310.06671
+
+# todo conversazione con Nicolo'
+# OFF-TOPIC ci serve un sistema di raccomandazione super personalizzato, ad esempio, e se volessi solo film che hanno un voto maggiore di X su iMDB? Come faccio a chiedere una cosa simile?
+# per avere spiegazioni veramente personalizzate per gli utenti, qualcosa bisogna apprendere sugli utenti, bisogna apprendere come effettuare le spiegazioni. Ci sono degli aspetti che agli utenti interessano e degli aspetti che non interessano. Noi dobbiamo cercare di capire quali questi aspetti siano e spiegare
+# quali sono i pro di post-hoc o intrinsic? Sono le post-hoc più personalizzate anche se non riflettono le decisioni del modello?
+# Anche feature-based potrebbe essere interessante. Alla fine questa cosa di iMDB potrebbe essere una latent feature
+# mapping tra datasets e KGs https://github.com/RUCDM/KB4Rec -> vedere anche il paper
+# E' figo perche' si puo' direttamente scaricare il dump che ci interessa a noi date le triple
+# Tuttavia, i loro dataset non ci sono utili perché non hanno utenti in comune, ma l'approccio che hanno utilizzato potrebbe esserci molto utile per cercare di fare una cosa simile
+# il mapping è comunque minimo come nel nostro caso, quindi possiamo citare in caso e dire che comunque è challenging fare questi mappings
+
+# https://drive.google.com/drive/folders/18pEKcUSWt0uFGqDukk6pcP0RASxuexYr?usp=drive_link tutorial su KG recommendation
+# come ti dicevo, nessuno controlla se i match sono validi -> controllarli sarebbe un contributo
+# paper sul mapping https://direct.mit.edu/dint/article/1/2/121/27497/KB4Rec-A-Data-Set-for-Linking-Knowledge-Bases-with
+# If no KB entity with the exact same title was returned, we say the RS item is rejected in the linkage process. -> il loro funziona solo se il match e' esatto
+# il nostro funziona anche con match non esatti e lingue diverse, grazie all'algoritmo intelligente di Wikidata Special Search
+# We have found only a small number (about 1,000 for each domain) of RS items cannot be accurately linked or rejected via the above procedure, and we simply discard them.
+# interessante che solo 1000 item in ogni dominio sono stati scartati, quindi significa che funziona benone, o forse sono domini piccoli e 1000 item sono molti
+# We find that most of the linkage in LFM-1b and Amazon book data sets can be determined accurately (either linked or non-linked) in this way.
+# interessante anche questa osservazione
+# Per spiegare, possiamo anche fornire i path ad un LLM, che deve basare il testo sul Path. Così sappiamo che la spiegazione è giusta, ma è fornita in un una maniera tale che diventa più enjoyable per l'utente
+# Pearlm and PGPR mapper??
+
+# INTERESSANTE -> Sto pensando magari potrebbe essere interessante esplorare quali relazioni ci siano tra le preferenze degli utenti e i rating della critica. Secondo me ci sono utenti a cui piacciono proprio i film snobbati dalla critica
+# Allucinazioni: e se sei attratto dalla descrizione del film prodotta dal modello e poi ti accorgi che il film parla di tutt'altro?
+# Seconda: quanto figo sarebbe parlare di group recommendation o context aware recommendation con gli LLM?
+
+# Quindi dato un utente nel target domain, consideriamo gli item a cui l'utente non ha dato rating. Per tutti questi item andiamo a cercare cammini che li collegano ad item che sappiamo l'utente apprezza nel source domain. Infine se i due item hanno una scarsa similarità allora scartiamo i cammini e facciamo inferenza col modello del target, altrimenti raccomandiamo gli item che matchano
+# Bisogna trovare il prompt giusto e la maniera giusta di interpretarlo
+# Sicuramente serve imporre una struttura nelle risposte, altrimenti serve un modello di NLP solo per estrarre i dati. Poi non so quanto questa venga rispettata
+# Questo può funzionare, però penso che oltre alle allucinazioni l'ostacolo maggiore sia che può tirare fuori di tutto
+
+# todo verbale dell'ultima call
+# chatGPT sembra essere diventato promettente, grazie a dei prompt ingiegnerizzati
+# kgtk abbiamo inizato l'installazione e abbiamo fatto partire i primi job
+# discorso path sembra esserci tutto direttamente su kgtk con le API da terminale -> capire se sono meglio queste o quelle dentro kgtk-similarity
+# discorso componenti connesse ma forse piu' semplice fare con reachable-nodes API
+# PoC -> troviamo i path e se esiste usiamo chatGPT per capire la plausibilita', doppio checker, similarity di KGTK (metrica migliore e' la complex) + chatGPT
+
 import os
 
 from nesy.data import create_asin_metadata_json, create_pandas_dataset,\
     entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata, metadata_stats, metadata_cleaning, get_wid_per_cat
 import json
 import pandas as pd
+from nesy.data import convert_ids_to_labels, create_wikidata_labels_sqlite
 
 if __name__ == "__main__":
+    # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
+    convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
     # todo prendere descrizione film, libri e musica -> segnale semantico + segnale latente -> si possono vedere le varie visioni
     # todo ASIN dei libri coincide con ISBN, ma tanto non abbiamo neanche quello
     # todo esperimenti sia su globale che solo su quelli matchati
@@ -41,12 +111,12 @@ if __name__ == "__main__":
     # entity_linker_api_query("./data/processed/reviews_CDs_and_Vinyl_5.csv", use_dump=True, retry=True, retry_reason="not-title")
     # metadata_scraping("./data/processed/final-metadata.json", 1,
     #                   motivation="DOM", save_tmp=True, batch_size=20, wayback=True)
-    metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json",
-                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
-    metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
-                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
-    metadata_stats("./data/processed/mapping-reviews_Books_5.json",
-                   errors=["not-in-dump", "not-found-query", "not-title", "exception"], save_asins=False)
+    # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json",
+    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    # metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
+    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    # metadata_stats("./data/processed/mapping-reviews_Books_5.json",
+    #                errors=["not-in-dump", "not-found-query", "not-title", "exception"], save_asins=False)
     # metadata_stats("./data/processed/complete-filtered-metadata.json", errors=["captcha-or-DOM", "404-error"], save_asins=False)
     # metadata_stats("./data/processed/final-metadata.json", errors=["404-error", "DOM", "captcha"], save_asins=False)
     # metadata_stats("./data/processed/mapping-reviews_Movies_and_TV_5.json", errors=["not-found", "not-in-dump"], save_asins=False)
