@@ -1,4 +1,4 @@
-from utils import preprocess_opts
+from .preprocess_opts import preprocess_opts
 from kgtk.cli_entry import cli_entry
 
 

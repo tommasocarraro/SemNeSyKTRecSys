@@ -1,5 +1,5 @@
 import shutil
-from kgtk_wrappers import (
+from .kgtk_wrappers import (
     kgtk_query,
     kgtk_add_id,
     kgtk_cat,
@@ -8,7 +8,7 @@ from kgtk_wrappers import (
 )
 from os.path import dirname, join, basename
 from os import makedirs
-from utils import remove_ext, compute_graph_extension
+from .utils import remove_ext, compute_graph_extension
 
 
 def preprocess_kg(
@@ -104,4 +104,3 @@ def preprocess_kg(
 # kg = "data/wikidata/claims.wikibase-item.tsv.gz"
 # cache = "data/wikidata/graph-cache.sqlite3.db"
 # preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=True, debug=True)
-# kgtk_build_cache(input_graph=kg, graph_cache=cache, debug=True)
