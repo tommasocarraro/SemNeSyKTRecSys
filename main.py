@@ -98,11 +98,23 @@ import json
 import pandas as pd
 from nesy.data import convert_ids_to_labels, create_wikidata_labels_sqlite
 from nesy.preprocess_kg import preprocess_kg
+from nesy.paths import get_paths
 
 if __name__ == "__main__":
-    kg = "data/wikidata/claims.wikibase-item.tsv.gz"
-    cache = "data/wikidata/graph-cache2.sqlite3.db"
-    preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True)
+    kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
+    cache = "data/wikidata/graph-cache.sqlite3.db"
+    # preprocess_kg(
+    #     input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True
+    # )
+    get_paths(
+        input_graph=kg,
+        graph_cache=cache,
+        output_dir="data/paths",
+        source="Q103474",
+        target="Q482621",
+        max_hops=3,
+        debug=True,
+    )
     # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
     # convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
     # todo prendere descrizione film, libri e musica -> segnale semantico + segnale latente -> si possono vedere le varie visioni
