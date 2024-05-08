@@ -101,7 +101,7 @@ def preprocess_kg(
 
 
 # Example usage
-kg = "data/wikidata/claims.wikibase-item.tsv.gz"
-cache = "data/wikidata/graph-cache2.sqlite3.db"
+# kg = "data/wikidata/claims.wikibase-item.tsv.gz"
+# cache = "data/wikidata/graph-cache.sqlite3.db"
 # preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=True, debug=True)
-kgtk_build_cache(input_graph=kg, graph_cache=cache, debug=True)
+# kgtk_build_cache(input_graph=kg, graph_cache=cache, debug=True)
