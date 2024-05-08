@@ -83,15 +83,28 @@
 
 import os
 
-from nesy.data import create_asin_metadata_json, create_pandas_dataset,\
-    entity_linker_api, entity_linker_api_query, metadata_scraping, filter_metadata, metadata_stats, metadata_cleaning, get_wid_per_cat
+from nesy.data import (
+    create_asin_metadata_json,
+    create_pandas_dataset,
+    entity_linker_api,
+    entity_linker_api_query,
+    metadata_scraping,
+    filter_metadata,
+    metadata_stats,
+    metadata_cleaning,
+    get_wid_per_cat,
+)
 import json
 import pandas as pd
 from nesy.data import convert_ids_to_labels, create_wikidata_labels_sqlite
+from nesy.preprocess_kg import preprocess_kg
 
 if __name__ == "__main__":
+    kg = "data/wikidata/claims.wikibase-item.tsv.gz"
+    cache = "data/wikidata/graph-cache2.sqlite3.db"
+    preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True)
     # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
-    convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
+    # convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
     # todo prendere descrizione film, libri e musica -> segnale semantico + segnale latente -> si possono vedere le varie visioni
     # todo ASIN dei libri coincide con ISBN, ma tanto non abbiamo neanche quello
     # todo esperimenti sia su globale che solo su quelli matchati
