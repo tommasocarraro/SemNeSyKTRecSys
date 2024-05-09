@@ -1,66 +1,12 @@
-from .kgtk_wrappers import kgtk_query
-import pandas as pd
+from typing import Sequence, Union
+from ..kgtk_wrappers import kgtk_query
 from os import makedirs
 from joblib import delayed, Parallel
 from multiprocessing import cpu_count
 import os
 import pandas as pd
-
-
-# Function to read TSV files from a directory and return a DataFrame with the longest header
-def read_longest_header_from_directory(directory: str) -> pd.DataFrame:
-    # Initialize variables to store longest header and its corresponding DataFrame
-    max_columns = 0
-    longest_header_df: pd.DataFrame
-
-    # Iterate through each file in the directory
-    for filename in os.listdir(directory):
-        if filename.endswith(".tsv") and not filename.endswith("all.tsv"):
-            # Read the file
-            file_path = os.path.join(directory, filename)
-            df = pd.read_csv(file_path, sep="\t")
-
-            # Check if the number of columns in the current file is greater than the maximum
-            if len(df.columns) > max_columns:
-                max_columns = len(df.columns)
-                longest_header_df = df
-
-    return longest_header_df
-
-
-# Function to merge TSV files from a directory while aligning columns
-def merge_tsv_from_directory(directory: str, output_path: str) -> pd.DataFrame:
-    # Read the DataFrame with the longest header
-    merged_df = read_longest_header_from_directory(directory)
-
-    # Initialize an empty list to store DataFrames to concatenate
-    dfs_to_concat = []
-
-    # Iterate through each file in the directory again
-    for filename in os.listdir(directory):
-        if filename.endswith(".tsv"):
-            # Read the file
-            file_path = os.path.join(directory, filename)
-            df = pd.read_csv(file_path, sep="\t")
-
-            # Align columns
-            for column in merged_df.columns:
-                # If column is missing in the current DataFrame, insert a new column filled with tabs
-                if column not in df.columns:
-                    df[column] = float("nan") * len(df)
-                    # df[column] = ["\t"] * len(df)
-
-            # Reorder columns to match the longest header DataFrame
-            df = df.reindex(columns=merged_df.columns)
-
-            # Append current DataFrame to the list
-            dfs_to_concat.append(df)
-
-    # Concatenate all DataFrames in the list
-    merged_df = pd.concat(dfs_to_concat, ignore_index=True)
-    merged_df.to_csv(output_path, sep="\t", index=False)
-
-    return merged_df
+from .merge_tsv_files import merge_tsv_from_directory
+from tqdm.auto import tqdm
 
 
 def make_where_clause(hops: int) -> str:
@@ -127,6 +73,7 @@ def get_paths(
     target: str,
     max_hops: int = 3,
     debug: bool = False,
+    sequential: bool = False,
 ) -> pd.DataFrame:
     output_dir_pair = os.path.join(output_dir, f"{source}-{target}")
     makedirs(output_dir_pair, exist_ok=True)
@@ -136,13 +83,50 @@ def get_paths(
     ]
 
     clauses_hops = get_clauses(source, target, max_hops)
-    Parallel(n_jobs=min(cpu_count(), max_hops), backend="loky")(
-        delayed(run_query_job)(
-            input_graph, graph_cache, output_dir_pair, clauses, i, debug
+
+    if sequential:
+        for i, clauses in enumerate(clauses_hops):
+            run_query_job(
+                input_graph=input_graph,
+                graph_cache=graph_cache,
+                output_dir_pair=output_dir_pair,
+                clauses=clauses,
+                hops=i,
+                debug=debug,
+            )
+    else:
+        Parallel(n_jobs=min(cpu_count(), max_hops), backend="loky")(
+            delayed(run_query_job)(
+                input_graph, graph_cache, output_dir_pair, clauses, i, debug
+            )
+            for i, clauses in enumerate(clauses_hops)
         )
-        for i, clauses in enumerate(clauses_hops)
-    )
 
     return merge_tsv_from_directory(
         output_dir_pair, os.path.join(output_dir_pair, "paths_all.tsv")
     )
+
+
+def get_multiple_paths(
+    input_graph: str,
+    graph_cache: str,
+    output_dir: str,
+    pairs: Sequence[tuple[str, str]],
+    max_hops: int = 3,
+    debug: bool = False,
+    n_jobs: int = 1,
+) -> None:
+    with Parallel(n_jobs=n_jobs, backend="loky") as pool:
+        pool(
+            delayed(get_paths)(
+                input_graph,
+                graph_cache,
+                output_dir,
+                source,
+                target,
+                max_hops,
+                debug,
+                True,
+            )
+            for source, target in tqdm(pairs)
+        )
