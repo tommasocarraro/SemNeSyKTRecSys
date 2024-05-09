@@ -119,34 +119,32 @@ if __name__ == "__main__":
     #     debug=True,
     # )
     pairs = [
-        ("Q103474", "Q482621"),  # 2001: A Space Odyssey -> The Blue Danube
-        ("Q7961534", "Q103474"),  # Waldmeister -> 2001: A Space Odyssey
-        ("Q18463992", "Q23572"),  # The Rains of Castamere -> Game of Thrones
-        (
-            "Q605249",
-            "Q21500755",
-        ),  # Do Androids Dream of Electric Sheep? -> Blade Runner 2049
-        (
-            "Q3906523",
-            "Q22000542",
-        ),  # Ready Player One (book) -> Ready Player One (film)
-        (
-            "Q164963",
-            "Q74287",
-        ),  # The Lord of the Rings: The Two Towers -> The Hobbit (book)
-        (
-            "Q261044",
-            "Q3501212",
-        ),  # American Pie Presents: Band Camp -> The Anthem
-        ("Q19985", "Q171453"),  # New Divide -> Transformers
-        ("Q909063", "Q734624"),  # Halloween -> Dragula
-        ("Q732060", "Q167726"),  # Timeline -> Jurassic Park
-        ("Q155577", "Q25188"),  # My Heart Will Go On -> Inception
-        ("Q47703", "Q960155"),  # The Godfather -> The Sicilian
-        (
-            "Q116783360",
-            "Q1137369",
-        ),  # The Girl with the Dragon Tattoo (podcast episode) - > The Girl Who Played with Fire (book)
+        # 2001: A Space Odyssey -> The Blue Danube
+        ("Q103474", "Q482621"),
+        # Waldmeister -> 2001: A Space Odyssey
+        ("Q7961534", "Q103474"),
+        # The Rains of Castamere -> Game of Thrones
+        ("Q18463992", "Q23572"),
+        # Do Androids Dream of Electric Sheep? -> Blade Runner 2049
+        ("Q605249", "Q21500755"),
+        # Ready Player One (book) -> Ready Player One (film)
+        ("Q3906523", "Q22000542"),
+        # The Lord of the Rings: The Two Towers -> The Hobbit (book)
+        ("Q164963", "Q74287"),
+        # American Pie Presents: Band Camp -> The Anthem
+        ("Q261044", "Q3501212"),
+        # New Divide -> Transformers
+        ("Q19985", "Q171453"),
+        # Halloween -> Dragula
+        ("Q909063", "Q734624"),
+        # Timeline -> Jurassic Park
+        ("Q732060", "Q167726"),
+        # My Heart Will Go On -> Inception
+        ("Q155577", "Q25188"),
+        # The Godfather -> The Sicilian
+        ("Q47703", "Q960155"),
+        # The Girl with the Dragon Tattoo (podcast episode) - > The Girl Who Played with Fire (book)
+        ("Q116783360", "Q1137369"),
     ]
     get_multiple_paths(
         input_graph=kg,
