@@ -98,7 +98,7 @@ import json
 import pandas as pd
 from nesy.data import convert_ids_to_labels, create_wikidata_labels_sqlite
 from nesy.preprocess_kg import preprocess_kg
-from nesy.paths import get_paths
+from nesy.paths import get_paths, get_multiple_paths
 
 if __name__ == "__main__":
     kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
@@ -106,14 +106,46 @@ if __name__ == "__main__":
     # preprocess_kg(
     #     input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True
     # )
-    get_paths(
+    # get_paths(
+    #     input_graph=kg,
+    #     graph_cache=cache,
+    #     output_dir="data/paths",
+    #     source="Q103474",
+    #     target="Q482621",
+    #     max_hops=3,
+    #     debug=True,
+    # )
+    pairs = [
+        ("Q103474", "Q482621"),  # 2001: A Space Odyssey -> The Blue Danube
+        ("Q7961534", "Q103474"),  # Waldmeister -> 2001: A Space Odyssey
+        ("Q18463992", "Q23572"),  # The Rains of Castamere -> Game of Thrones
+        (
+            "Q605249",
+            "Q21500755",
+        ),  # Do Androids Dream of Electric Sheep? -> Blade Runner 2049
+        (
+            "Q116176543",
+            "Q22000542",
+        ),  # Ready Player One (audiobook) -> Ready Player One (film)
+        (
+            "Q164963",
+            "Q74287",
+        ),  # The Lord of the Rings: The Two Towers -> The Hobbit (book)
+        ("Q261044", "Q3501212"),  # American Pie Presents: Band Camp -> The Anthem
+        ("Q19985", "Q171453"),  # New Divide -> Transformers
+        ("Q909063", "Q734624"),  # Halloween -> Dragula
+        ("Q732060", "Q167726"),  # Timeline -> Jurassic Park
+        ("Q155577", "Q25188"),  # My Heart Will Go On -> Inception
+        ("Q47703", "Q960155"),  # The Godfather -> The Sicilian
+    ]
+    get_multiple_paths(
         input_graph=kg,
         graph_cache=cache,
         output_dir="data/paths",
-        source="Q103474",
-        target="Q482621",
+        pairs=pairs,
         max_hops=3,
-        debug=True,
+        debug=False,
+        n_jobs=6,
     )
     # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
     # convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
