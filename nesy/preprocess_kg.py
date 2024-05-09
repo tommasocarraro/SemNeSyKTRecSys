@@ -1,14 +1,16 @@
+import os
 import shutil
-from .kgtk_wrappers import (
-    kgtk_query,
-    kgtk_add_id,
-    kgtk_cat,
-    kgtk_build_cache,
-    kgtk_filter,
-)
-from os.path import dirname, join, basename
 from os import makedirs
-from .utils import remove_ext, compute_graph_extension
+from os.path import basename, dirname, join
+
+from .kgtk_wrappers import (
+    kgtk_add_id,
+    kgtk_build_cache,
+    kgtk_cat,
+    # kgtk_filter,
+    kgtk_query,
+)
+from .utils import compute_graph_extension, remove_ext
 
 
 def preprocess_kg(
@@ -17,6 +19,7 @@ def preprocess_kg(
     debug: bool,
     index_mode: str = "mode:graph",
     compress_inter_steps: bool = False,
+    save_space: bool = True,
 ):
     """
     Preprocesses the knowledge graph by performing the following steps:
@@ -33,6 +36,7 @@ def preprocess_kg(
         debug (bool): Flag indicating whether to enable debug mode.
         index_mode (str, optional): Index mode for building the graph cache. Defaults to "mode:graph".
         compress_inter_steps (bool, optional): Flag indicating whether to compress temporary files during intermediate. Defaults to False.
+        save_space (bool, optional): Flag indicating whether to delete the temporary files as soon as they are not needed. Defaults to True
     """
     graph_name = remove_ext(basename(input_graph))
     base_temp_dir = join(dirname(input_graph), "tmp")
@@ -69,6 +73,8 @@ def preprocess_kg(
         debug=debug,
         graph_cache=temp_graph_cache,
     )
+    if save_space:
+        os.remove(temp_graph_cache)
 
     print("Generating IDs for the inversed properties")
     output_inverse_ids_graph = join(
@@ -78,6 +84,8 @@ def preprocess_kg(
         + compute_graph_extension(compress_inter_steps),
     )
     kgtk_add_id(input_graph=output_inverse_graph, output_path=output_inverse_ids_graph)
+    if save_space:
+        os.remove(output_inverse_graph)
 
     print("Concatenating the original and the inversed properties")
     concatenated_graph = join(dirname(input_graph), graph_name + "_preprocessed.tsv.gz")
@@ -85,6 +93,8 @@ def preprocess_kg(
         input_graphs=[input_graph, output_inverse_ids_graph],
         output_path=concatenated_graph,
     )
+    if save_space:
+        os.remove(output_inverse_ids_graph)
 
     print("Building the graph cache")
     kgtk_build_cache(
@@ -94,7 +104,7 @@ def preprocess_kg(
         debug=debug,
     )
 
-    print("Cleaning up temporary files")
+    # removing temp directory
     shutil.rmtree(base_temp_dir)
 
     print(f"Final knowledge graph saved at {concatenated_graph}")
