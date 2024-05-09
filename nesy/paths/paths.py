@@ -1,50 +1,18 @@
-from typing import Sequence, Union
-from ..kgtk_wrappers import kgtk_query
-from os import makedirs
-from joblib import delayed, Parallel
-from multiprocessing import cpu_count
 import os
+import time
+from multiprocessing import cpu_count
+from typing import Sequence
+
 import pandas as pd
-from .merge_tsv_files import merge_tsv_from_directory
+from joblib import delayed, Parallel
 from tqdm.auto import tqdm
 
-
-def make_where_clause(hops: int) -> str:
-    where_clause = ""
-    start = 1
-    end = start + hops
-    for current_node in range(start, end):
-        for successor in range(current_node + 1, end):
-            where_clause += (
-                f"{' and ' if len(where_clause) > 0 else ''}"
-                + f"n{current_node} != n{successor}"
-            )
-    return where_clause
+from ..kgtk_wrappers import kgtk_query
+from .clauses import get_clauses
+from .merge_tsv_files import merge_tsv_from_directory
 
 
-def get_clauses(source: str, target: str, max_hops: int) -> list[tuple[str, str, str]]:
-    res = []
-    for i in range(1, max_hops + 1):
-        node_counter = 2
-        rel_counter = 1
-        match_clause = f"(n1:{source})"
-        where_clause = make_where_clause(i)
-        return_clause = "n1 as source, "
-        for hop in range(1, i + 1):
-            match_clause += f"-[r{rel_counter}]->(n{node_counter}{f':{target}' if hop == i else ''})"
-            return_clause += (
-                f"r{rel_counter}.label as label{rel_counter}, "
-                + f"{f'n{node_counter} as intermediate{node_counter-1}, ' if hop != i else ''}"
-            )
-            if hop != i:
-                node_counter += 1
-            rel_counter += 1
-        return_clause += f"n{node_counter} as target"
-        res.append((match_clause, where_clause, return_clause))
-    return res
-
-
-def run_query_job(
+def _run_query_job(
     input_graph: str,
     graph_cache: str,
     output_dir_pair: str,
@@ -52,6 +20,9 @@ def run_query_job(
     hops: int,
     debug: bool = False,
 ):
+    """
+    Wrapper function, required by joblib
+    """
     match_clause, where_clause, return_clause = clauses
     kgtk_query(
         input_graph=input_graph,
@@ -74,9 +45,22 @@ def get_paths(
     max_hops: int = 3,
     debug: bool = False,
     sequential: bool = False,
-) -> pd.DataFrame:
+) -> None:
+    """
+    Retrieve paths between a source and target node in a graph.
+
+    Args:
+        input_graph (str): Path to the input graph file.
+        graph_cache (str): Path to the graph cache directory.
+        output_dir (str): Path to the output directory.
+        source (str): Source node.
+        target (str): Target node.
+        max_hops (int, optional): Maximum number of hops to consider. Defaults to 3.
+        debug (bool, optional): Enable debug mode. Defaults to False.
+        sequential (bool, optional): Run queries sequentially. Defaults to False.
+    """
     output_dir_pair = os.path.join(output_dir, f"{source}-{target}")
-    makedirs(output_dir_pair, exist_ok=True)
+    os.makedirs(output_dir_pair, exist_ok=True)
     [
         os.remove(os.path.join(output_dir_pair, item))
         for item in os.listdir(output_dir_pair)
@@ -86,7 +70,7 @@ def get_paths(
 
     if sequential:
         for i, clauses in enumerate(clauses_hops):
-            run_query_job(
+            _run_query_job(
                 input_graph=input_graph,
                 graph_cache=graph_cache,
                 output_dir_pair=output_dir_pair,
@@ -96,13 +80,13 @@ def get_paths(
             )
     else:
         Parallel(n_jobs=min(cpu_count(), max_hops), backend="loky")(
-            delayed(run_query_job)(
+            delayed(_run_query_job)(
                 input_graph, graph_cache, output_dir_pair, clauses, i, debug
             )
             for i, clauses in enumerate(clauses_hops)
         )
 
-    return merge_tsv_from_directory(
+    merge_tsv_from_directory(
         output_dir_pair, os.path.join(output_dir_pair, "paths_all.tsv")
     )
 
@@ -116,6 +100,18 @@ def get_multiple_paths(
     debug: bool = False,
     n_jobs: int = 1,
 ) -> None:
+    """
+    Given a list of pairs (source, target), generate all paths between pairs.
+
+    Args:
+        input_graph (str): The path to the input graph file.
+        graph_cache (str): The path to the graph cache file.
+        output_dir (str): The directory to store the generated paths.
+        pairs (Sequence[tuple[str, str]]): A sequence of node pairs for which paths need to be generated.
+        max_hops (int, optional): The maximum number of hops allowed in a path. Defaults to 3.
+        debug (bool, optional): Whether to enable debug mode. Defaults to False.
+        n_jobs (int, optional): The number of parallel jobs to run. Defaults to 1.
+    """
     with Parallel(n_jobs=n_jobs, backend="loky") as pool:
         pool(
             delayed(get_paths)(

@@ -1,4 +1,5 @@
 import os
+
 from .kgtk_query import kgtk_query
 
 

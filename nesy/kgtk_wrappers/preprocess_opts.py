@@ -1,8 +1,8 @@
-from typing import Union
+from typing import Sequence, Union
 
 
 def preprocess_opts(
-    opts: list[Union[str, tuple[str, Union[str, bool, list[str]]]]]
+    opts: Sequence[Union[str, tuple[str, Union[str, bool, list[str]]]]]
 ) -> list[str]:
     """
     Preprocesses the given options and returns a list of arguments.
