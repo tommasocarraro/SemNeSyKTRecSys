@@ -81,24 +81,27 @@
 # discorso componenti connesse ma forse piu' semplice fare con reachable-nodes API
 # PoC -> troviamo i path e se esiste usiamo chatGPT per capire la plausibilita', doppio checker, similarity di KGTK (metrica migliore e' la complex) + chatGPT
 
+import json
 import os
 
+import pandas as pd
+
 from nesy.data import (
+    convert_ids_to_labels,
     create_asin_metadata_json,
     create_pandas_dataset,
+    create_wikidata_labels_sqlite,
     entity_linker_api,
     entity_linker_api_query,
-    metadata_scraping,
     filter_metadata,
-    metadata_stats,
-    metadata_cleaning,
     get_wid_per_cat,
+    metadata_cleaning,
+    metadata_scraping,
+    metadata_stats,
 )
-import json
-import pandas as pd
-from nesy.data import convert_ids_to_labels, create_wikidata_labels_sqlite
-from nesy.preprocess_kg import preprocess_kg
-from nesy.paths import get_paths, get_multiple_paths
+from nesy.paths import get_multiple_paths, get_paths
+
+# from nesy.preprocess_kg import preprocess_kg
 
 if __name__ == "__main__":
     kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
@@ -110,8 +113,8 @@ if __name__ == "__main__":
     #     input_graph=kg,
     #     graph_cache=cache,
     #     output_dir="data/paths",
-    #     source="Q103474",
-    #     target="Q482621",
+    #     source="Q3906523",
+    #     target="Q22000542",
     #     max_hops=3,
     #     debug=True,
     # )
@@ -124,26 +127,33 @@ if __name__ == "__main__":
             "Q21500755",
         ),  # Do Androids Dream of Electric Sheep? -> Blade Runner 2049
         (
-            "Q116176543",
+            "Q3906523",
             "Q22000542",
-        ),  # Ready Player One (audiobook) -> Ready Player One (film)
+        ),  # Ready Player One (book) -> Ready Player One (film)
         (
             "Q164963",
             "Q74287",
         ),  # The Lord of the Rings: The Two Towers -> The Hobbit (book)
-        ("Q261044", "Q3501212"),  # American Pie Presents: Band Camp -> The Anthem
+        (
+            "Q261044",
+            "Q3501212",
+        ),  # American Pie Presents: Band Camp -> The Anthem
         ("Q19985", "Q171453"),  # New Divide -> Transformers
         ("Q909063", "Q734624"),  # Halloween -> Dragula
         ("Q732060", "Q167726"),  # Timeline -> Jurassic Park
         ("Q155577", "Q25188"),  # My Heart Will Go On -> Inception
         ("Q47703", "Q960155"),  # The Godfather -> The Sicilian
+        (
+            "Q116783360",
+            "Q1137369",
+        ),  # The Girl with the Dragon Tattoo (podcast episode) - > The Girl Who Played with Fire (book)
     ]
     get_multiple_paths(
         input_graph=kg,
         graph_cache=cache,
         output_dir="data/paths",
         pairs=pairs,
-        max_hops=3,
+        max_hops=4,
         debug=False,
         n_jobs=6,
     )

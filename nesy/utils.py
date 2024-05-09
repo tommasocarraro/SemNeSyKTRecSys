@@ -1,4 +1,4 @@
-from os.path import splitext, basename
+from os.path import basename, splitext
 
 
 def remove_ext(file_path: str) -> str:

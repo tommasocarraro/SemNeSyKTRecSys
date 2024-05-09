@@ -1,5 +1,6 @@
-from .preprocess_opts import preprocess_opts
 from kgtk.cli_entry import cli_entry
+
+from .preprocess_opts import preprocess_opts
 
 
 def kgtk_filter(
