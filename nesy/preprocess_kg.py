@@ -3,14 +3,14 @@ import shutil
 from os import makedirs
 from os.path import basename, dirname, join
 
-from .kgtk_wrappers import (
+from nesy.kgtk_wrappers import (
     kgtk_add_id,
     kgtk_build_cache,
     kgtk_cat,
     # kgtk_filter,
     kgtk_query,
 )
-from .utils import compute_graph_extension, remove_ext
+from nesy.utils import compute_graph_extension, remove_ext
 
 
 def preprocess_kg(
@@ -111,6 +111,6 @@ def preprocess_kg(
 
 
 # Example usage
-# kg = "data/wikidata/claims.wikibase-item.tsv.gz"
-# cache = "data/wikidata/graph-cache.sqlite3.db"
-# preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=True, debug=True)
+kg = "../data/wikidata/claims.wikibase-item.tsv.gz"
+cache = "../data/wikidata/graph-cache.sqlite3.db"
+preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=True, debug=True)

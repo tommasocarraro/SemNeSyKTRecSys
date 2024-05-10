@@ -1082,7 +1082,10 @@ def convert_ids_to_labels(wiki_paths_file):
         if x.startswith("P") and x.endswith("_"):
             x = x[:-1]
             suffix = " (inverse)"
-        label = c.execute("SELECT label FROM labels WHERE wikidata_id=?", (x,)).fetchone()[0]
+        try:
+            label = c.execute("SELECT label FROM labels WHERE wikidata_id=?", (x,)).fetchone()[0]
+        except TypeError:
+            return x
         # remove language specification
         if "@" in label:
             label = label.split("@")[0]
@@ -1092,7 +1095,9 @@ def convert_ids_to_labels(wiki_paths_file):
         label = label + suffix
         return label
 
-    res = df.map(lambda x: get_label(x) if isinstance(x, str) or not math.isnan(x) else "").values
+    res = df.map(lambda x: get_label(x) if isinstance(x, str) or not math.isnan(x) else "")
+    res.to_csv(wiki_paths_file[:-4] + "_labelled.tsv", index=False, sep="\t")
+    res = res.values
     out = {"standard": [], "inverse": []}
     for i, path in enumerate(res):
         out_str = ""
@@ -1102,11 +1107,21 @@ def convert_ids_to_labels(wiki_paths_file):
                 out_str = out_str + item + " ---> "
             else:
                 out_str = out_str.rstrip(" ---> ")
+                out_str += "\n"
                 break
         out_str = out_str.rstrip(" ---> ")
+        out_str += "\n"
         if "inverse" in out_str:
             out["inverse"].append(out_str)
         else:
             out["standard"].append(out_str)
-    pprint.pprint(out, width=300)
+
+    # create txt file of the paths
+    with open(wiki_paths_file[:-4] + "_labelled.txt", 'w', encoding='utf-8') as f:
+        for relation, paths in out.items():
+            if paths:
+                f.write(relation + "\n\n")
+                f.writelines(paths)
+                f.write("\n\n")
+
     conn.close()
