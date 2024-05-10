@@ -104,8 +104,9 @@ from nesy.paths import get_multiple_paths, get_paths
 # from nesy.preprocess_kg import preprocess_kg
 
 if __name__ == "__main__":
-    kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
-    cache = "data/wikidata/graph-cache.sqlite3.db"
+    convert_ids_to_labels("./data/paths/Q7961534-Q103474/paths_all.tsv")
+    # kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
+    # cache = "data/wikidata/graph-cache.sqlite3.db"
     # preprocess_kg(
     #     input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True
     # )
@@ -118,43 +119,43 @@ if __name__ == "__main__":
     #     max_hops=3,
     #     debug=True,
     # )
-    pairs = [
-        # 2001: A Space Odyssey -> The Blue Danube
-        ("Q103474", "Q482621"),
-        # Waldmeister -> 2001: A Space Odyssey
-        ("Q7961534", "Q103474"),
-        # The Rains of Castamere -> Game of Thrones
-        ("Q18463992", "Q23572"),
-        # Do Androids Dream of Electric Sheep? -> Blade Runner 2049
-        ("Q605249", "Q21500755"),
-        # Ready Player One (book) -> Ready Player One (film)
-        ("Q3906523", "Q22000542"),
-        # The Lord of the Rings: The Two Towers -> The Hobbit (book)
-        ("Q164963", "Q74287"),
-        # American Pie Presents: Band Camp -> The Anthem
-        ("Q261044", "Q3501212"),
-        # New Divide -> Transformers
-        ("Q19985", "Q171453"),
-        # Halloween -> Dragula
-        ("Q909063", "Q734624"),
-        # Timeline -> Jurassic Park
-        ("Q732060", "Q167726"),
-        # My Heart Will Go On -> Inception
-        ("Q155577", "Q25188"),
-        # The Godfather -> The Sicilian
-        ("Q47703", "Q960155"),
-        # The Girl with the Dragon Tattoo (podcast episode) - > The Girl Who Played with Fire (book)
-        ("Q116783360", "Q1137369"),
-    ]
-    get_multiple_paths(
-        input_graph=kg,
-        graph_cache=cache,
-        output_dir="data/paths",
-        pairs=pairs,
-        max_hops=4,
-        debug=False,
-        n_jobs=6,
-    )
+    # pairs = [
+    #     # 2001: A Space Odyssey -> The Blue Danube
+    #     ("Q103474", "Q482621"),
+    #     # Waldmeister -> 2001: A Space Odyssey
+    #     ("Q7961534", "Q103474"),
+    #     # The Rains of Castamere -> Game of Thrones
+    #     ("Q18463992", "Q23572"),
+    #     # Do Androids Dream of Electric Sheep? -> Blade Runner 2049
+    #     ("Q605249", "Q21500755"),
+    #     # Ready Player One (book) -> Ready Player One (film)
+    #     ("Q3906523", "Q22000542"),
+    #     # The Lord of the Rings: The Two Towers -> The Hobbit (book)
+    #     ("Q164963", "Q74287"),
+    #     # American Pie Presents: Band Camp -> The Anthem
+    #     ("Q261044", "Q3501212"),
+    #     # New Divide -> Transformers
+    #     ("Q19985", "Q171453"),
+    #     # Halloween -> Dragula
+    #     ("Q909063", "Q734624"),
+    #     # Timeline -> Jurassic Park
+    #     ("Q732060", "Q167726"),
+    #     # My Heart Will Go On -> Inception
+    #     ("Q155577", "Q25188"),
+    #     # The Godfather -> The Sicilian
+    #     ("Q47703", "Q960155"),
+    #     # The Girl with the Dragon Tattoo (podcast episode) - > The Girl Who Played with Fire (book)
+    #     ("Q116783360", "Q1137369"),
+    # ]
+    # get_multiple_paths(
+    #     input_graph=kg,
+    #     graph_cache=cache,
+    #     output_dir="data/paths",
+    #     pairs=pairs,
+    #     max_hops=3,
+    #     debug=False,
+    #     n_jobs=6,
+    # )
     # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
     # convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
     # todo prendere descrizione film, libri e musica -> segnale semantico + segnale latente -> si possono vedere le varie visioni
