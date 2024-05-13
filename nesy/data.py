@@ -16,16 +16,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
 import wayback
 import sys
 from SPARQLWrapper import SPARQLWrapper, JSON
 import logging
-import math
 from tqdm import tqdm
-import subprocess
-import sqlite3
-import pprint
 
 
 def create_asin_metadata_json(metadata):

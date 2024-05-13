@@ -99,13 +99,14 @@ from nesy.data import (
 )
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
-from nesy.paths.labels import convert_ids_to_labels
+from nesy.paths.labels import generate_all_labels
 
 if __name__ == "__main__":
+    generate_all_labels("./data/paths")
     # merge_tsv_from_directory(
     #     "./data/paths/Q103474-Q482621", "./data/paths/Q103474-Q482621/paths_all.tsv"
     # )
-    convert_ids_to_labels("./data/paths/Q103474-Q482621/paths_all.tsv")
+    # convert_ids_to_labels("./data/paths/Q103474-Q482621/paths_all.tsv")
     # kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
     # cache = "data/wikidata/graph-cache.sqlite3.db"
     # preprocess_kg(
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     #     pairs=pairs,
     #     max_hops=3,
     #     debug=False,
-    #     n_jobs=1,
+    #     n_jobs=3,
     # )
     # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
     # convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
