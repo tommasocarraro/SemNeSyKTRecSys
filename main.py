@@ -87,10 +87,8 @@ import os
 import pandas as pd
 
 from nesy.data import (
-    convert_ids_to_labels,
     create_asin_metadata_json,
     create_pandas_dataset,
-    create_wikidata_labels_sqlite,
     entity_linker_api,
     entity_linker_api_query,
     filter_metadata,
@@ -101,8 +99,7 @@ from nesy.data import (
 )
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
-
-# from nesy.preprocess_kg import preprocess_kg
+from nesy.paths.labels import convert_ids_to_labels
 
 if __name__ == "__main__":
     # merge_tsv_from_directory(
