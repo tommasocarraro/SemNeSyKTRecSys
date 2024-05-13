@@ -40,10 +40,15 @@ def merge_tsv_from_directory(directory: str, output_path: str) -> None:
             df = pd.read_csv(file_path, sep="\t")
 
             # Align columns
+            target_inserted = False
             for column in longest_header:
                 # If column is missing in the current DataFrame, insert a new column filled with tabs
-                if column not in df.columns:
-                    df[column] = float("nan") * len(df)
+                if not target_inserted and column not in df.columns:
+                    df[column] = df["target"]
+                    target_inserted = True
+                else:
+                    if target_inserted:
+                        df[column] = float("nan") * len(df)
 
             # Reorder columns to match the longest header DataFrame
             df = df.reindex(columns=longest_header)

@@ -1111,6 +1111,7 @@ def convert_ids_to_labels(wiki_paths_file):
                 break
         out_str = out_str.rstrip(" ---> ")
         out_str += "\n"
+        out_str = "(%d-hops) %s" % (int(out_str.count("--->") / 2), out_str)
         if "inverse" in out_str:
             out["inverse"].append(out_str)
         else:
