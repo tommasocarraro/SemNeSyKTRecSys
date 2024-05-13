@@ -1,8 +1,9 @@
 import math
 import sqlite3
 from tqdm import tqdm
-from nesy.utils import count_lines
+from .utils import count_lines
 import pandas as pd
+import os
 
 
 def create_wikidata_labels_sqlite(raw_labels):
@@ -90,3 +91,16 @@ def convert_ids_to_labels(wiki_paths_file):
                 f.write("\n\n")
 
     conn.close()
+
+
+def generate_all_labels(paths_dir):
+    """
+    This function iterates the given folder, looks for all paths_all.tsv files, and generate labels for all the found
+    paths.
+
+    :param paths_dir: path to directory containing the path files
+    """
+    for root, dirs, files in os.walk(paths_dir):
+        for filename in files:
+            if "all" in filename:
+                convert_ids_to_labels(os.path.join(root, filename))
