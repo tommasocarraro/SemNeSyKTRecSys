@@ -100,18 +100,20 @@ from nesy.data import (
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
 from nesy.paths.labels import generate_all_labels
+from nesy.preprocess_kg import preprocess_kg
 
 if __name__ == "__main__":
-    generate_all_labels("./data/paths")
+    # generate_all_labels("./data/paths")
     # merge_tsv_from_directory(
     #     "./data/paths/Q103474-Q482621", "./data/paths/Q103474-Q482621/paths_all.tsv"
     # )
     # convert_ids_to_labels("./data/paths/Q103474-Q482621/paths_all.tsv")
-    # kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
-    # cache = "data/wikidata/graph-cache.sqlite3.db"
-    # preprocess_kg(
-    #     input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True
-    # )
+    kg = "data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
+    cache = "data/wikidata/graph-cache.sqlite3.db"
+    filter_relations = pd.read_csv("selected-relations.csv")["ID"].tolist()
+    preprocess_kg(
+        input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True, filter_properties=filter_relations
+    )
     # get_paths(
     #     input_graph=kg,
     #     graph_cache=cache,
