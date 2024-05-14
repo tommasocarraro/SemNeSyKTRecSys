@@ -2,12 +2,12 @@ import os
 import shutil
 from os import makedirs
 from os.path import basename, dirname, join
-
+from nesy.utils import compute_graph_extension
 from nesy.kgtk_wrappers import (
     kgtk_add_id,
     kgtk_build_cache,
     kgtk_cat,
-    # kgtk_filter,
+    kgtk_filter,
     kgtk_query,
 )
 from nesy.utils import compute_graph_extension, remove_ext
@@ -20,6 +20,7 @@ def preprocess_kg(
     index_mode: str = "mode:graph",
     compress_inter_steps: bool = False,
     save_space: bool = True,
+    filter_properties: list = None,
 ):
     """
     Preprocesses the knowledge graph by performing the following steps:
@@ -37,6 +38,7 @@ def preprocess_kg(
         index_mode (str, optional): Index mode for building the graph cache. Defaults to "mode:graph".
         compress_inter_steps (bool, optional): Flag indicating whether to compress temporary files during intermediate. Defaults to False.
         save_space (bool, optional): Flag indicating whether to delete the temporary files as soon as they are not needed. Defaults to True
+        filter_properties (list, optional): List of properties to filter out from the graph cache. Defaults to None.
     """
     graph_name = remove_ext(basename(input_graph))
     base_temp_dir = join(dirname(input_graph), "tmp")
@@ -47,18 +49,20 @@ def preprocess_kg(
     kgtk_build_cache(input_graph=input_graph, graph_cache=temp_graph_cache, debug=debug)
 
     # optionally use filter to remove unwanted properties
-    # print("Filtering out unwanted properties")
-    # filtered_graph = join(
-    #     base_temp_dir,
-    #     graph_name + "_filtered" + compute_extension(compress_inter_steps),
-    # )
-    # filter(
-    #     input_graph=input_graph,
-    #     output_path=filtered_graph,
-    #     word_separator="|",
-    #     invert=True,
-    #     pattern=" ; P364|P21|P407|P1889|P103|P27|P21|P495; ",
-    # )
+    if filter_properties is not None:
+        print("Filtering out unwanted properties")
+        filtered_graph = join(
+            base_temp_dir,
+            graph_name + "_filtered" + compute_graph_extension(compress_inter_steps),
+        )
+        pattern = " ;%s; " % ("|".join(filter_properties))
+        kgtk_filter(
+            input_graph=input_graph,
+            output_path=filtered_graph,
+            word_separator="|",
+            invert=True,
+            pattern=pattern,
+        )
 
     print("Extracting all properties and computing their inverse")
     output_inverse_graph = join(
@@ -110,7 +114,7 @@ def preprocess_kg(
     print(f"Final knowledge graph saved at {concatenated_graph}")
 
 
-# Example usage
-kg = "../data/wikidata/claims.wikibase-item.tsv.gz"
-cache = "../data/wikidata/graph-cache.sqlite3.db"
-preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=True, debug=True)
+# # Example usage
+# kg = "../data/wikidata/claims.wikibase-item.tsv.gz"
+# cache = "../data/wikidata/graph-cache.sqlite3.db"
+# preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=True, debug=True)
