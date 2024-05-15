@@ -110,7 +110,7 @@ if __name__ == "__main__":
     # convert_ids_to_labels("./data/paths/Q103474-Q482621/paths_all.tsv")
     kg = "./data/wikidata/claims.wikibase-item.tsv.gz"
     cache = "./data/wikidata/graph-cache.sqlite3.db"
-    selected_relations = pd.read_csv("selected-relations.csv")["ID"].tolist()
+    selected_relations = pd.read_csv("./data/wikidata/selected-relations.csv")["ID"].tolist()
     preprocess_kg(
         input_graph=kg, cache_path=cache, compress_inter_steps=False, debug=True, selected_properties=selected_relations
     )
