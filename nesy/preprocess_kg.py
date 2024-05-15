@@ -20,7 +20,7 @@ def preprocess_kg(
     index_mode: str = "mode:graph",
     compress_inter_steps: bool = False,
     save_space: bool = True,
-    filter_properties: list = None,
+    selected_properties: list = None,
 ):
     """
     Preprocesses the knowledge graph by performing the following steps:
@@ -38,7 +38,7 @@ def preprocess_kg(
         index_mode (str, optional): Index mode for building the graph cache. Defaults to "mode:graph".
         compress_inter_steps (bool, optional): Flag indicating whether to compress temporary files during intermediate. Defaults to False.
         save_space (bool, optional): Flag indicating whether to delete the temporary files as soon as they are not needed. Defaults to True
-        filter_properties (list, optional): List of properties to filter out from the graph cache. Defaults to None.
+        selected_properties (list, optional): List of properties that has to be inserted in the graph cache. Defaults to None, meaning all properties are inserted.
     """
     graph_name = remove_ext(basename(input_graph))
     base_temp_dir = join(dirname(input_graph), "tmp")
@@ -49,18 +49,18 @@ def preprocess_kg(
     kgtk_build_cache(input_graph=input_graph, graph_cache=temp_graph_cache, debug=debug)
 
     # optionally use filter to remove unwanted properties
-    if filter_properties is not None:
+    if selected_properties is not None:
         print("Filtering out unwanted properties")
         filtered_graph = join(
             base_temp_dir,
             graph_name + "_filtered" + compute_graph_extension(compress_inter_steps),
         )
-        pattern = " ;%s; " % ("|".join(filter_properties))
+        pattern = " ;%s; " % ("|".join(selected_properties))
         kgtk_filter(
             input_graph=input_graph,
             output_path=filtered_graph,
             word_separator="|",
-            invert=True,
+            invert=False,
             pattern=pattern,
         )
 
@@ -72,6 +72,7 @@ def preprocess_kg(
     kgtk_query(
         input_graph=input_graph,
         match_clause="(n1)-[r1]->(n2)",
+        where_clause='r1 != "P155" and r1 != "P156" and r1 != "P1365" and r1 != "P1366"',
         return_clause="n2 as node1, CONCAT(r1.label, '_') as label, n1 as node2",
         output_path=output_inverse_graph,
         debug=debug,
