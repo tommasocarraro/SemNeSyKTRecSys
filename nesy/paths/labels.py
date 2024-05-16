@@ -4,6 +4,7 @@ from tqdm import tqdm
 from .utils import count_lines
 import pandas as pd
 import os
+import json
 
 
 def create_wikidata_labels_sqlite(raw_labels):
@@ -27,7 +28,7 @@ def create_wikidata_labels_sqlite(raw_labels):
     conn.close()
 
 
-def convert_ids_to_labels(wiki_paths_file):
+def convert_ids_to_labels(wiki_paths_file, add_wiki_id=False):
     """
     This function takes a tsv file containing paths between wikidata entities and converts the IDs into actual wikidata
     labels. Note each row represents a different path.
@@ -37,6 +38,7 @@ def convert_ids_to_labels(wiki_paths_file):
     Note that when a label is missing in the database, the wikidata ID is used in place on the label.
 
     :param wiki_paths_file: path to the tsv file containing wikidata paths
+    :param add_wiki_id: whether to include the wikidata IDs associated with the labels in the paths
     """
     df = pd.read_csv(wiki_paths_file, sep="\t")
     conn = sqlite3.connect("./data/wikidata/labels.db")
@@ -60,10 +62,11 @@ def convert_ids_to_labels(wiki_paths_file):
         label = label + suffix
         return label
 
-    res = df.map(lambda x: get_label(x) if isinstance(x, str) or not math.isnan(x) else "")
+    res = df.map(lambda x: (x + " : " + get_label(x)
+                            if add_wiki_id else get_label(x)) if isinstance(x, str) or not math.isnan(x) else "")
     res.to_csv(wiki_paths_file[:-4] + "_labelled.tsv", index=False, sep="\t")
     res = res.values
-    out = {"standard": [], "inverse": []}
+    out = {"standard": {}, "inverse": {}}
     for i, path in enumerate(res):
         out_str = ""
         # out_str += "path %d: " % (i + 1, )
@@ -72,23 +75,35 @@ def convert_ids_to_labels(wiki_paths_file):
                 out_str = out_str + item + " ---> "
             else:
                 out_str = out_str.rstrip(" ---> ")
-                out_str += "\n"
                 break
         out_str = out_str.rstrip(" ---> ")
-        out_str += "\n"
-        out_str = "(%d-hops) %s" % (int(out_str.count("--->") / 2), out_str)
+        n_hops = int(out_str.count("--->") / 2)
+
         if "inverse" in out_str:
-            out["inverse"].append(out_str)
+            if n_hops in out["inverse"]:
+                out["inverse"][n_hops].append(out_str)
+            else:
+                out["inverse"][n_hops] = [out_str]
         else:
-            out["standard"].append(out_str)
+            if n_hops in out["standard"]:
+                out["standard"][n_hops].append(out_str)
+            else:
+                out["standard"][n_hops] = [out_str]
+
+    # create JSON file with the paths
+    with open(wiki_paths_file[:-4] + "_labelled.json", "w", encoding='utf-8') as outfile:
+        json.dump(out, outfile, indent=4)
 
     # create txt file of the paths
     with open(wiki_paths_file[:-4] + "_labelled.txt", 'w', encoding='utf-8') as f:
-        for relation, paths in out.items():
-            if paths:
-                f.write(relation + "\n\n")
-                f.writelines(paths)
-                f.write("\n\n")
+        for relation, hops in out.items():
+            f.write(relation + "\n\n")
+            for hop, paths in hops.items():
+                f.write("%s-hop\n\n" % (hop, ))
+                for path in paths:
+                    f.write(path + "\n")
+                f.write("\n")
+            f.write("\n\n")
 
     conn.close()
 
@@ -102,5 +117,5 @@ def generate_all_labels(paths_dir):
     """
     for root, dirs, files in os.walk(paths_dir):
         for filename in files:
-            if "all" in filename:
+            if "all." in filename:
                 convert_ids_to_labels(os.path.join(root, filename))
