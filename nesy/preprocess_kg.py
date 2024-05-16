@@ -39,12 +39,16 @@ def preprocess_kg(
         compress_inter_steps (bool, optional): Flag indicating whether to compress temporary files during intermediate. Defaults to False.
         save_space (bool, optional): Flag indicating whether to delete the temporary files as soon as they are not needed. Defaults to True
         selected_properties (list, optional): List of properties that has to be inserted in the graph cache. Defaults to None, meaning all properties are inserted.
+
+    Returns:
+        The path to the preprocessed graph.
     """
     graph_name = remove_ext(basename(input_graph))
     base_temp_dir = join(dirname(input_graph), "tmp")
     makedirs(base_temp_dir, exist_ok=True)
 
     # optionally use filter to remove unwanted properties
+    filtered_graph = None
     if selected_properties is not None:
         print("Filtering out unwanted properties")
         filtered_graph = join(
@@ -67,13 +71,21 @@ def preprocess_kg(
     temp_graph_cache = join(base_temp_dir, "temp_cache.sqlite3.db")
     kgtk_build_cache(input_graph=input_graph, graph_cache=temp_graph_cache, debug=debug)
 
+    print("Importing graph into temporary cache")
+    temp_graph_cache = join(base_temp_dir, "temp_cache.sqlite3.db")
+    kgtk_build_cache(
+        input_graph=input_graph if filtered_graph is None else filtered_graph,
+        graph_cache=temp_graph_cache,
+        debug=debug,
+    )
+
     print("Extracting all properties and computing their inverse")
     output_inverse_graph = join(
         base_temp_dir,
         graph_name + "_inverse" + compute_graph_extension(compress_inter_steps),
     )
     kgtk_query(
-        input_graph=input_graph,
+        input_graph=input_graph if filtered_graph is None else filtered_graph,
         match_clause="(n1)-[r1]->(n2)",
         where_clause='r1 != "P155" and r1 != "P156" and r1 != "P1365" and r1 != "P1366"',
         return_clause="n2 as node1, CONCAT(r1.label, '_') as label, n1 as node2",
@@ -83,6 +95,8 @@ def preprocess_kg(
     )
     if save_space:
         os.remove(temp_graph_cache)
+        if filtered_graph is not None:
+            os.remove(filtered_graph)
 
     print("Generating IDs for the inversed properties")
     output_inverse_ids_graph = join(
@@ -116,6 +130,8 @@ def preprocess_kg(
     shutil.rmtree(base_temp_dir)
 
     print(f"Final knowledge graph saved at {concatenated_graph}")
+
+    return concatenated_graph
 
 
 # # Example usage
