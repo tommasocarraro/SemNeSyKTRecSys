@@ -64,12 +64,11 @@ def preprocess_kg(
             invert=False,
             pattern=pattern,
         )
-        # modify the input graph to be the new filtered graph
-        input_graph = filtered_graph
 
     print("Importing graph into temporary cache")
     temp_graph_cache = join(base_temp_dir, "temp_cache.sqlite3.db")
-    kgtk_build_cache(input_graph=input_graph, graph_cache=temp_graph_cache, debug=debug)
+    kgtk_build_cache(input_graph=filtered_graph if filtered_graph is not None else input_graph,
+                     graph_cache=temp_graph_cache, debug=debug)
 
     print("Importing graph into temporary cache")
     temp_graph_cache = join(base_temp_dir, "temp_cache.sqlite3.db")
