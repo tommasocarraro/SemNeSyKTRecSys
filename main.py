@@ -103,7 +103,7 @@ from nesy.paths.labels import generate_all_labels
 from nesy.preprocess_kg import preprocess_kg
 
 if __name__ == "__main__":
-    # generate_all_labels("./data/paths")
+    # generate_all_labels("./data/paths-new-relations")
     # merge_tsv_from_directory(
     #     "./data/paths/Q103474-Q482621", "./data/paths/Q103474-Q482621/paths_all.tsv"
     # )
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     # get_multiple_paths(
     #     input_graph=kg,
     #     graph_cache=cache,
-    #     output_dir="data/paths",
+    #     output_dir="data/paths-new-relations",
     #     pairs=pairs,
     #     max_hops=3,
     #     debug=False,

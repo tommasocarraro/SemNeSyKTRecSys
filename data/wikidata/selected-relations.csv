@@ -41,7 +41,6 @@ P527,has part(s)
 P547,commemorates
 P607,conflict
 P629,edition or translation of
-P642,of
 P674,characters
 P676,lyrics by
 P75,voice actor
@@ -53,7 +52,6 @@ P800,notable work
 P825,dedicated to
 P826,tonality
 P828,has cause
-P840,narrative location
 P872,printed by
 P910,topic's main category
 P921,main subject
@@ -90,8 +88,7 @@ P1809,choreographer
 P1811,list of episodes 
 P1877,after a work by 
 P1881,list of characters 
-P2283,uses 
-P2309,relation 
+P2283,uses
 P2378,issued by 
 P2438,narrator 
 P2515,costume designer 
@@ -100,8 +97,7 @@ P2596,culture
 P2652,partnership with 
 P2789,connects with 
 P2838,professional name 
-P2849,produced by 
-P2936,language used 
+P2849,produced by
 P3092,film crew member 
 P3174,art director 
 P3275,storyboard artist 
@@ -129,14 +125,13 @@ P6243,digital representation of
 P6379,has works in the collection 
 P6439,has lyrics 
 P6718,music video 
-P6872,has written for 
-P6886,writing language 
+P6872,has written for
 P6962,narrative motif 
 P7501,audio system 
 P7937,form of creative work 
 P8324,funder 
 P8345,media franchise 
-P8371,"references work, tradition or theory "
+P8371,"references work, tradition or theory"
 P8625,bibliography 
 P8670,character designer 
 P8938,artistic director 
@@ -154,4 +149,5 @@ P10754,distributed from
 P10806,orchestrator 
 P10893,recordist
 P12041,type of musical notation 
-P12324,production manager 
+P12324,production manager
+P6166,quotes work
