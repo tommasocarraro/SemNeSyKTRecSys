@@ -1,0 +1,82 @@
+standard
+
+(3-hops) Timeline ---> author ---> Michael Crichton ---> notable work ---> Jurassic Park ---> different from ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> notable work ---> Jurassic Park ---> derivative work ---> Jurassic Park
+
+
+inverse
+
+(3-hops) Timeline ---> genre ---> science fiction ---> genre (inverse) ---> Jurassic Park ---> media franchise (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> genre ---> science fiction ---> genre (inverse) ---> Jurassic Park ---> based on (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> genre ---> science fiction ---> genre (inverse) ---> Jurassic Park ---> different from ---> Jurassic Park
+(3-hops) Timeline ---> genre ---> science fiction ---> genre (inverse) ---> Jurassic Park ---> derivative work ---> Jurassic Park
+(3-hops) Timeline ---> genre ---> science fiction ---> subclass of (inverse) ---> science fiction film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> genre ---> action film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> genre ---> thriller film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> genre ---> adventure film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> genre ---> science fiction film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> genre ---> film based on a novel ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> after a work by ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> after a work by ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> instance of ---> film ---> instance of (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> screenwriter ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> based on (inverse) ---> Timeline ---> screenwriter ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> follows ---> Airframe ---> author ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> follows ---> Airframe ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> follows (inverse) ---> Prey ---> author ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> follows (inverse) ---> Prey ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> followed by ---> Prey ---> author ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> followed by ---> Prey ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> followed by (inverse) ---> Airframe ---> author ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> followed by (inverse) ---> Airframe ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> instance of ---> literary work ---> instance of (inverse) ---> Jurassic Park ---> based on (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> instance of ---> literary work ---> instance of (inverse) ---> Jurassic Park ---> different from ---> Jurassic Park
+(3-hops) Timeline ---> instance of ---> literary work ---> instance of (inverse) ---> Jurassic Park ---> derivative work ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Gerald R. Molen ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Gerald R. Molen ---> producer (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Samuel L. Jackson ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Ariana Richards ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Wayne Knight ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Cameron Thor ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> BD Wong ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Joseph Mazzello ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Martin Ferrero ---> cast member (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Steven Spielberg ---> producer (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> language of work or name ---> English ---> writing language (inverse) ---> Steven Spielberg ---> director (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> country of origin ---> United States of America ---> shares border with ---> Dominican Republic ---> narrative location (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> country of origin ---> United States of America ---> diplomatic relation ---> Dominican Republic ---> narrative location (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> country of origin ---> United States of America ---> diplomatic relation ---> Costa Rica ---> narrative location (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> genre ---> action film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> genre ---> thriller film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> genre ---> adventure film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> genre ---> science fiction film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> genre ---> film based on a novel ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> after a work by ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> after a work by ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> instance of ---> film ---> instance of (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> screenwriter ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> derivative work ---> Timeline ---> screenwriter ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> winner (inverse) ---> Hugo Award for Best Dramatic Presentation ---> award received (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> genre ---> action film ---> genre (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> award received ---> Hugo Award for Best Dramatic Presentation ---> award received (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> creator (inverse) ---> Ian Malcolm ---> present in work ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> creator (inverse) ---> Ellie Sattler ---> present in work ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> creator (inverse) ---> Alan Grant ---> present in work ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> author (inverse) ---> Jurassic Park ---> based on (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> author (inverse) ---> Jurassic Park ---> different from ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> author (inverse) ---> Jurassic Park ---> derivative work ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park ---> media franchise (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> author ---> Michael Crichton ---> notable work ---> Jurassic Park ---> based on (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> edition or translation of (inverse) ---> Timeline ---> author ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> edition or translation of (inverse) ---> Timeline ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> has edition or translation ---> Timeline ---> author ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> has edition or translation ---> Timeline ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> form of creative work ---> novel ---> form of creative work (inverse) ---> Jurassic Park ---> based on (inverse) ---> Jurassic Park
+(3-hops) Timeline ---> form of creative work ---> novel ---> form of creative work (inverse) ---> Jurassic Park ---> different from ---> Jurassic Park
+(3-hops) Timeline ---> form of creative work ---> novel ---> form of creative work (inverse) ---> Jurassic Park ---> derivative work ---> Jurassic Park
+(2-hops) Timeline ---> author ---> Michael Crichton ---> after a work by (inverse) ---> Jurassic Park
+
+(2-hops) Timeline ---> author ---> Michael Crichton ---> screenwriter (inverse) ---> Jurassic Park
+
+
+

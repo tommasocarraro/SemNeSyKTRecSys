@@ -1,0 +1,189 @@
+standard
+
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> based on ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> notable work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> notable work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Salvatore Tessio ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Peter Clemenza ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Kay Adams-Corleone ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Johnny Fontane ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fabrizio ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Mark McCluskey ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Emilio Barzini ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Sonny Corleone ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Vito Corleone ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Tom Hagen ---> present in work ---> The Godfather Returns ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Tom Hagen ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Michael Corleone ---> present in work ---> The Godfather Returns ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Michael Corleone ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fredo Corleone ---> present in work ---> The Godfather Returns ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fredo Corleone ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(2-hops) The Godfather ---> based on ---> The Godfather ---> followed by ---> The Sicilian
+
+
+
+inverse
+
+(3-hops) The Godfather ---> genre ---> drama film ---> genre (inverse) ---> The Sicilian ---> based on ---> The Sicilian
+(3-hops) The Godfather ---> genre ---> drama film ---> genre (inverse) ---> The Sicilian ---> derivative work (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> genre ---> film based on a novel ---> genre (inverse) ---> The Sicilian ---> based on ---> The Sicilian
+(3-hops) The Godfather ---> genre ---> film based on a novel ---> genre (inverse) ---> The Sicilian ---> derivative work (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> genre ---> crime film ---> genre (inverse) ---> The Sicilian ---> based on ---> The Sicilian
+(3-hops) The Godfather ---> genre ---> crime film ---> genre (inverse) ---> The Sicilian ---> derivative work (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> genre ---> crime film ---> subclass of ---> crime fiction ---> genre (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> nominated for ---> Academy Award for Best Writing, Adapted Screenplay ---> nominated for (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> nominated for ---> Academy Award for Best Writing, Adapted Screenplay ---> nominated for (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> nominated for ---> Academy Award for Best Writing, Adapted Screenplay ---> award received (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> nominated for ---> Academy Award for Best Writing, Adapted Screenplay ---> award received (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on ---> The Godfather ---> genre ---> crime fiction ---> genre (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on ---> The Godfather ---> part of the series ---> The Godfather ---> part of the series (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on ---> The Godfather ---> instance of ---> literary work ---> instance of (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on ---> The Godfather ---> author ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on ---> The Godfather ---> form of creative work ---> novel ---> form of creative work (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on ---> The Godfather ---> notable work (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Mark McCluskey ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Mark McCluskey ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Mark McCluskey ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Vito Corleone ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Vito Corleone ---> present in work ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Vito Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Vito Corleone ---> place of birth ---> Sicily ---> narrative location (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Vito Corleone ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> present in work (inverse) ---> Vito Corleone ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> based on (inverse) ---> The Godfather ---> based on ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on (inverse) ---> The Godfather ---> based on ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> based on (inverse) ---> The Godfather ---> derivative work (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> based on (inverse) ---> The Godfather ---> derivative work (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> The Godfather Part II ---> based on ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> The Godfather Part II ---> based on ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> The Godfather Part II ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> The Godfather Part II ---> derivative work (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> The Godfather Part II ---> derivative work (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> The Godfather Part II ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> The Godfather Part II ---> filming location ---> Sicily ---> narrative location (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> follows (inverse) ---> Fools Die ---> author ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> based on ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> derivative work (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> derivative work (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> filming location ---> Sicily ---> narrative location (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> award received ---> Academy Award for Best Writing, Adapted Screenplay ---> nominated for (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> award received ---> Academy Award for Best Writing, Adapted Screenplay ---> nominated for (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> award received ---> Academy Award for Best Writing, Adapted Screenplay ---> award received (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> award received ---> Academy Award for Best Writing, Adapted Screenplay ---> award received (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> part of the series ---> The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Godfather ---> part of the series (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> Omertà ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> Omertà ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Fourth K ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Fourth K ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> Fools Die ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> Fools Die ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> after a work by ---> Mario Puzo ---> notable work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> different from ---> The Godfather Saga ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> different from ---> The Godfather Saga ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> instance of ---> film ---> instance of (inverse) ---> The Sicilian ---> based on ---> The Sicilian
+(3-hops) The Godfather ---> instance of ---> film ---> instance of (inverse) ---> The Sicilian ---> derivative work (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> original language of film or TV show ---> English ---> writing language (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> country of origin ---> United States of America ---> narrative location (inverse) ---> Fools Die ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> country of origin ---> United States of America ---> narrative location (inverse) ---> Fools Die ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> country of origin ---> Italy ---> contains the administrative territorial entity ---> Sicily ---> narrative location (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> genre ---> crime fiction ---> genre (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> part of the series ---> The Godfather ---> part of the series (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> instance of ---> literary work ---> instance of (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> author ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> form of creative work ---> novel ---> form of creative work (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> notable work (inverse) ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> has part(s) (inverse) ---> The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Godfather ---> part of the series (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> Omertà ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> Omertà ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Fourth K ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Fourth K ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> Fools Die ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> Fools Die ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> notable work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Bruno Tattaglia ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Luca Brasi ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Salvatore Tessio ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Salvatore Tessio ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Salvatore Tessio ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Salvatore Tessio ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Peter Clemenza ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Peter Clemenza ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Peter Clemenza ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Peter Clemenza ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Moe Greene ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Connie Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Kay Adams-Corleone ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Kay Adams-Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Kay Adams-Corleone ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Kay Adams-Corleone ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Carmela Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Carmela Corleone ---> place of birth ---> Sicily ---> narrative location (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Johnny Fontane ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Johnny Fontane ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Johnny Fontane ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fabrizio ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Mark McCluskey ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Mark McCluskey ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Sandra Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Emilio Barzini ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Emilio Barzini ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Emilio Barzini ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Emilio Barzini ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Carlo Rizzi ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Al Neri ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Sonny Corleone ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Sonny Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Sonny Corleone ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Sonny Corleone ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Vito Corleone ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Vito Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Vito Corleone ---> place of birth ---> Sicily ---> narrative location (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Vito Corleone ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Vito Corleone ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Tom Hagen ---> present in work ---> The Godfather Returns ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Tom Hagen ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Tom Hagen ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Tom Hagen ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Tom Hagen ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Michael Corleone ---> present in work ---> The Godfather Returns ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Michael Corleone ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Michael Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Michael Corleone ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Michael Corleone ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fredo Corleone ---> present in work ---> The Godfather Returns ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fredo Corleone ---> present in work ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fredo Corleone ---> creator ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fredo Corleone ---> characters (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> characters ---> Fredo Corleone ---> characters (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+(3-hops) The Godfather ---> narrative location ---> New York City ---> narrative location (inverse) ---> The Godfather Returns ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> narrative location ---> New York City ---> narrative location (inverse) ---> The Godfather Returns ---> followed by (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> filming location ---> Sicily ---> narrative location (inverse) ---> The Sicilian ---> based on ---> The Sicilian
+(3-hops) The Godfather ---> filming location ---> Sicily ---> narrative location (inverse) ---> The Sicilian ---> derivative work (inverse) ---> The Sicilian
+(3-hops) The Godfather ---> filming location ---> New York City ---> narrative location (inverse) ---> The Godfather Returns ---> follows ---> The Sicilian
+(3-hops) The Godfather ---> filming location ---> New York City ---> narrative location (inverse) ---> The Godfather Returns ---> followed by (inverse) ---> The Sicilian
+(2-hops) The Godfather ---> based on ---> The Godfather ---> follows (inverse) ---> The Sicilian
+
+(2-hops) The Godfather ---> follows (inverse) ---> Fools Die ---> follows (inverse) ---> The Sicilian
+
+(2-hops) The Godfather ---> follows (inverse) ---> Fools Die ---> followed by ---> The Sicilian
+
+(2-hops) The Godfather ---> after a work by ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+
+(2-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> follows (inverse) ---> The Sicilian
+
+(2-hops) The Godfather ---> derivative work (inverse) ---> The Godfather ---> followed by ---> The Sicilian
+
+(2-hops) The Godfather ---> screenwriter ---> Mario Puzo ---> author (inverse) ---> The Sicilian
+
+(2-hops) The Godfather ---> filming location ---> Sicily ---> narrative location (inverse) ---> The Sicilian
+
+
+
