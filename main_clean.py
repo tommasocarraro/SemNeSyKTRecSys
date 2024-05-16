@@ -6,7 +6,7 @@ import pandas as pd
 
 def main():
     preprocess_flag = False
-    paths_flag = False
+    paths_flag = True
     labels_flag = True
 
     # first we preprocess the graph and create the cache
@@ -55,19 +55,19 @@ def main():
             ("Q116783360", "Q1137369"),
         ]
         get_multiple_paths(
-            input_graph=kg_preprocessed,
-            graph_cache=cache,
-            output_dir="data/paths",
+            input_graph="./data/wikidata/claims.wikibase-item_preprocessed.tsv.gz",
+            graph_cache="./data/wikidata/graph-cache.sqlite3.db",
+            output_dir="data/paths-new",
             pairs=pairs,
-            max_hops=2,
+            max_hops=3,
             debug=False,
-            n_jobs=1,
+            n_jobs=6,
         )
 
     # lastly we generate the paths files with labels instead of IDs
     if labels_flag:
         # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
-        generate_all_labels("./data/paths")
+        generate_all_labels("./data/paths-new")
 
 
 if __name__ == "__main__":
