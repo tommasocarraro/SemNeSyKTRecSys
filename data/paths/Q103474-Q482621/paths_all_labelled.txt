@@ -1,0 +1,15 @@
+standard
+
+(2-hops) 2001: A Space Odyssey ---> composer ---> Johann Strauss II ---> notable work ---> The Blue Danube
+
+
+
+inverse
+
+(3-hops) 2001: A Space Odyssey ---> instance of ---> film ---> instance of (inverse) ---> Q1210859 ---> quotes work ---> The Blue Danube
+(3-hops) 2001: A Space Odyssey ---> references work, tradition or theory ---> Daisy Bell ---> instance of ---> musical work/composition ---> instance of (inverse) ---> The Blue Danube
+(3-hops) 2001: A Space Odyssey ---> composer ---> Johann Strauss II ---> composer (inverse) ---> An der schönen blauen Donau ---> recording or performance of ---> The Blue Danube
+(2-hops) 2001: A Space Odyssey ---> composer ---> Johann Strauss II ---> composer (inverse) ---> The Blue Danube
+
+
+
