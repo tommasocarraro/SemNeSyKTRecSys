@@ -21,6 +21,7 @@ import sys
 from SPARQLWrapper import SPARQLWrapper, JSON
 import logging
 from tqdm import tqdm
+import itertools
 
 
 def create_asin_metadata_json(metadata):
@@ -1019,3 +1020,49 @@ def get_no_found(metadata):
     no_titles = [k for k, v in data.items() if v == "404-error"]
     df = pd.DataFrame(no_titles, columns=["ASINs"])
     df.to_csv("./data/processed/item-no-titles.csv", index=False)
+
+
+def get_mapping_map(dom):
+    """
+    This function returns the path to the mapping file corresponding to the given domain.
+
+    :param dom: str indicating the domain name (movies, music, books)
+    :return: path to the requested file
+    """
+    if dom == "movies":
+        return "./data/processed/mapping-reviews_Movies_and_TV_5.json"
+    if dom == "music":
+        return "./data/processed/mapping-reviews_CDs_and_Vinyl_5.json"
+    if dom == "books":
+        return "./data/processed/mapping-reviews_Books_5.json"
+
+
+def get_wiki_ids(mapping_dict):
+    """
+    This function returns the list of wikidata IDs corresponding to the given mapping dictionary.
+
+    :param mapping_dict: dictionary containing dataset_id:wikidata_id pairs
+    :return: list of wikidata IDs
+    """
+    return [id_ for id_ in list(mapping_dict.values()) if id_.startswith("Q")]
+
+
+def get_cross_pairs(dom1, dom2):
+    """
+    This function returns a list of all the possible combinations of the wikidata IDs in the two given domains.
+
+    :param dom1: str indicating the first domain.
+    :param dom2: str indicating the second domain.
+    :return: a generator of all combinations of items in the two different domains.
+             the length of the generator.
+    """
+    # get mapping file paths
+    dom1 = get_mapping_map(dom1)
+    dom2 = get_mapping_map(dom2)
+    # get wikidata ID lists
+    with open(dom1) as json_file:
+        dom1 = get_wiki_ids(json.load(json_file))
+    with open(dom2) as json_file:
+        dom2 = get_wiki_ids(json.load(json_file))
+    # return the cartesian product of the two sets
+    return ((id1, id2) for id1 in dom1 for id2 in dom2), len(dom1) * len(dom2)

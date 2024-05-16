@@ -99,6 +99,7 @@ def get_multiple_paths(
     max_hops: int = 3,
     debug: bool = False,
     n_jobs: int = 1,
+    gen_len: int = None,
 ) -> None:
     """
     Given a list of pairs (source, target), generate all paths between pairs.
@@ -111,6 +112,7 @@ def get_multiple_paths(
         max_hops (int, optional): The maximum number of hops allowed in a path. Defaults to 3.
         debug (bool, optional): Whether to enable debug mode. Defaults to False.
         n_jobs (int, optional): The number of parallel jobs to run. Defaults to 1.
+        gen_len (int, optional): The length of the generator yielding wikidata ID pairs. Defaults to None.
     """
     with Parallel(n_jobs=n_jobs, backend="loky") as pool:
         pool(
@@ -124,5 +126,5 @@ def get_multiple_paths(
                 debug,
                 True,
             )
-            for source, target in tqdm(pairs)
+            for source, target in tqdm(pairs, total=len(pairs) if gen_len is None else gen_len)
         )
