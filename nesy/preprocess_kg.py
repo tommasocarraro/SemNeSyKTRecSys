@@ -44,10 +44,6 @@ def preprocess_kg(
     base_temp_dir = join(dirname(input_graph), "tmp")
     makedirs(base_temp_dir, exist_ok=True)
 
-    print("Importing graph into temporary cache")
-    temp_graph_cache = join(base_temp_dir, "temp_cache.sqlite3.db")
-    kgtk_build_cache(input_graph=input_graph, graph_cache=temp_graph_cache, debug=debug)
-
     # optionally use filter to remove unwanted properties
     if selected_properties is not None:
         print("Filtering out unwanted properties")
@@ -55,14 +51,21 @@ def preprocess_kg(
             base_temp_dir,
             graph_name + "_filtered" + compute_graph_extension(compress_inter_steps),
         )
-        pattern = " ;%s; " % ("|".join(selected_properties))
+        pattern = " : %s : " % ("|".join(selected_properties))
         kgtk_filter(
             input_graph=input_graph,
             output_path=filtered_graph,
             word_separator="|",
+            pattern_separator=":",
             invert=False,
             pattern=pattern,
         )
+        # modify the input graph to be the new filtered graph
+        input_graph = filtered_graph
+
+    print("Importing graph into temporary cache")
+    temp_graph_cache = join(base_temp_dir, "temp_cache.sqlite3.db")
+    kgtk_build_cache(input_graph=input_graph, graph_cache=temp_graph_cache, debug=debug)
 
     print("Extracting all properties and computing their inverse")
     output_inverse_graph = join(
