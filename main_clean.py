@@ -7,12 +7,15 @@ import pandas as pd
 def main():
     preprocess_flag = False
     paths_flag = True
+    labels_cache_flag = False
     labels_flag = True
+
+    kg = "./data/wikidata/claims.wikibase-item.tsv.gz"
+    cache = "./data/wikidata/graph-cache.sqlite3.db"
+    kg_preprocessed = "./data/wikidata/claims.wikibase-item_preprocessed.tsv.gz"
 
     # first we preprocess the graph and create the cache
     if preprocess_flag:
-        kg = "./data/wikidata/claims.wikibase-item.tsv.gz"
-        cache = "./data/wikidata/graph-cache.sqlite3.db"
         selected_relations = pd.read_csv("./data/wikidata/selected-relations.csv")[
             "ID"
         ].tolist()
@@ -55,9 +58,9 @@ def main():
             ("Q116783360", "Q1137369"),
         ]
         get_multiple_paths(
-            input_graph="./data/wikidata/claims.wikibase-item_preprocessed.tsv.gz",
-            graph_cache="./data/wikidata/graph-cache.sqlite3.db",
-            output_dir="data/paths-new",
+            input_graph=kg_preprocessed,
+            graph_cache=cache,
+            output_dir="data/paths",
             pairs=pairs,
             max_hops=3,
             debug=False,
@@ -65,9 +68,10 @@ def main():
         )
 
     # lastly we generate the paths files with labels instead of IDs
+    if labels_cache_flag:
+        create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
     if labels_flag:
-        # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
-        generate_all_labels("./data/paths-new")
+        generate_all_labels("./data/paths")
 
 
 if __name__ == "__main__":
