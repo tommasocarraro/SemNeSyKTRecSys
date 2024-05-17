@@ -81,7 +81,7 @@ def preprocess_kg(
     kgtk_query(
         input_graph=input_graph if filtered_graph is None else filtered_graph,
         match_clause="(n1)-[r1]->(n2)",
-        where_clause='r1 != "P155" and r1 != "P156" and r1 != "P1365" and r1 != "P1366"',
+        where_clause='r1.label != "P155" and r1.label != "P156" and r1.label != "P1365" and r1.label != "P1366"',
         return_clause="n2 as node1, CONCAT(r1.label, '_') as label, n1 as node2",
         output_path=output_inverse_graph,
         debug=debug,
