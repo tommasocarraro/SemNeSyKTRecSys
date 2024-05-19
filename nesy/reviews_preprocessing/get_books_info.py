@@ -37,9 +37,7 @@ async def get_books_info(book_titles: list[str]):
     """
     limiter = AsyncLimiter(240)
     tasks = [
-        run_with_async_limiter(
-            limiter=limiter, fn=_get_book_info, params={title: title}
-        )
+        run_with_async_limiter(limiter=limiter, fn=_get_book_info, title=title)
         for title in book_titles
     ]
     return await asyncio.gather(*tasks)
