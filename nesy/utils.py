@@ -23,7 +23,7 @@ def compute_graph_extension(compress: bool) -> str:
 
 
 async def run_with_async_limiter(
-    limiter: AsyncLimiter, fn: Callable, params: dict[str, Any]
+    limiter: AsyncLimiter, fn: Callable, **kwargs
 ) -> Coroutine:
     """
     Runs the *fn* function inside the asynchronous context *limiter*
@@ -35,4 +35,4 @@ async def run_with_async_limiter(
     Returns: a coroutine to be awaited
     """
     async with limiter:
-        return await fn(*params)
+        return await fn(**kwargs)
