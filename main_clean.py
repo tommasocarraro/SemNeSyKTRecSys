@@ -5,10 +5,10 @@ import pandas as pd
 
 
 def main():
-    preprocess_flag = False
-    paths_flag = True
+    preprocess_flag = True
+    paths_flag = False
     labels_cache_flag = False
-    labels_flag = True
+    labels_flag = False
 
     kg = "./data/wikidata/claims.wikibase-item.tsv.gz"
     cache = "./data/wikidata/graph-cache.sqlite3.db"
