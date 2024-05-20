@@ -1,9 +1,9 @@
 import asyncio
 
 from nesy.reviews_preprocessing.get_books_info import get_books_info
-from nesy.reviews_preprocessing.get_movies_info import get_movies_info
-from nesy.reviews_preprocessing.get_records_info_v3 import get_records_info
-from nesy.reviews_preprocessing.get_shows_info import get_shows_info
+from nesy.reviews_preprocessing.get_movies_info_v2 import get_movies_info
+from nesy.reviews_preprocessing.get_records_info_v4 import get_records_info
+from nesy.reviews_preprocessing.get_shows_info_v2 import get_shows_info
 
 
 def pretty_print_responses(responses: list):
@@ -34,6 +34,7 @@ async def main():
     movies_responses = await get_movies_info(movies_titles)
     pretty_print_responses(movies_responses)
 
+    # todo hunter x hunter mi trova manga e basta
     shows_titles = ["Breaking Bad", "Doctor Who", "Dr. Who", "Hunter x Hunter"]
     shows_responses = await get_shows_info(shows_titles)
     pretty_print_responses(shows_responses)
