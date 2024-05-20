@@ -1,4 +1,4 @@
-from typing import Any, Sequence, Coroutine, Callable
+from typing import Sequence, Coroutine, Callable
 
 from aiolimiter import AsyncLimiter
 from joblib import delayed, Parallel

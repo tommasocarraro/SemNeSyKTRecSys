@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any
 
+import requests
 from aiolimiter import AsyncLimiter
 
 from config import LAST_FM_API_KEY
@@ -26,7 +27,10 @@ async def get_record_info(title: str) -> Coroutine:
         "format": "json",
         "limit": 1,
     }
-    return await get_request(base_url, params)
+    try:
+        return await get_request(base_url, params)
+    except requests.RequestException as e:
+        print(f"There was an error while retrieving item {title}: {e}")
 
 
 async def get_records_info(records_titles: list[str]):

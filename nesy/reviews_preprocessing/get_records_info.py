@@ -2,11 +2,12 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any, Union
 
+import requests
 from aiolimiter import AsyncLimiter
 
 from config import LAST_FM_API_KEY
 from .get_request import get_request
-from ..utils import run_with_async_limiter
+from .utils import run_with_async_limiter, process_responses_with_joblib
 
 
 async def _record_search(title: str) -> Coroutine:
@@ -26,7 +27,10 @@ async def _record_search(title: str) -> Coroutine:
         "format": "json",
         "limit": 1,
     }
-    return await get_request(base_url, params)
+    try:
+        return await get_request(base_url, params)
+    except requests.RequestException as e:
+        print(f"There was an error while retrieving item {title}: {e}")
 
 
 async def _get_record_info(artist: str, album: str) -> Coroutine:
@@ -79,8 +83,9 @@ async def get_records_info(records_titles: list[str]):
             print(f"The results are empty: {e}")
             return None, None
 
-    # TODO joblib
-    search_info = [_extract_search_info(res) for res in search_results]
+    search_info = process_responses_with_joblib(
+        responses=search_results, fn=_extract_search_info
+    )
 
     tasks = [
         run_with_async_limiter(
@@ -107,7 +112,4 @@ async def get_records_info(records_titles: list[str]):
             print(f"Couldn't retrieve the date: {e}")
             return name, artist, None
 
-    # TODO joblib
-    cleaned_info = [_extract_record_info(res) for res in info]
-
-    return cleaned_info
+    return process_responses_with_joblib(responses=info, fn=_extract_record_info)
