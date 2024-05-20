@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any
 
+import requests
 from aiolimiter import AsyncLimiter
 
 from config import TMDB_API_KEY
@@ -24,7 +25,10 @@ async def _get_show_info(title: str) -> Coroutine:
         "include_adult": "false",
         "page": 1,
     }
-    return await get_request(base_url, params)
+    try:
+        return await get_request(base_url, params)
+    except requests.RequestException as e:
+        print(f"There was an error while retrieving item {title}: {e}")
 
 
 async def get_shows_info(show_titles: list[str]):

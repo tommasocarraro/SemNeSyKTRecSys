@@ -2,10 +2,11 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any, Optional
 
+import requests
 from aiolimiter import AsyncLimiter
 
 from .get_request import get_request
-from ..utils import run_with_async_limiter
+from .utils import run_with_async_limiter, process_responses_with_joblib
 
 
 async def _get_record_info(title: str) -> Coroutine:
@@ -17,9 +18,11 @@ async def _get_record_info(title: str) -> Coroutine:
     Returns: a coroutine which provides the request's body in json format when awaited
     """
     base_url = "https://musicbrainz.org/ws/2/release"
-    params = {"query": title, "fmt": "json"}
-    # params = {"query": title, "limit": 1, "fmt": "json"}
-    return await get_request(base_url, params)
+    params = {"query": title, "limit": 1, "fmt": "json"}
+    try:
+        return await get_request(base_url, params)
+    except requests.RequestException as e:
+        print(f"There was an error while retrieving item {title}: {e}")
 
 
 async def get_records_info(record_titles: list[str]):
@@ -57,5 +60,4 @@ async def get_records_info(record_titles: list[str]):
     for artist in filtered_artists:
         print(artist)
 
-    # TODO joblib
-    # return [extract_info(res) for res in responses]
+    return process_responses_with_joblib(responses=responses, fn=extract_info)

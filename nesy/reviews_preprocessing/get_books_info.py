@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any
 
+import requests
 from aiolimiter import AsyncLimiter
 
 from config import GOOGLE_API_KEY
@@ -26,7 +27,10 @@ async def _get_book_info(title: str, language: str = "en") -> Coroutine:
         "maxResults": 1,
         "projection": "lite",
     }
-    return await get_request(base_url, params)
+    try:
+        return await get_request(base_url, params)
+    except requests.RequestException as e:
+        print(f"There was an error while retrieving item {title}: {e}")
 
 
 async def get_books_info(book_titles: list[str]):
