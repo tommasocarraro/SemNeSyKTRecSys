@@ -9,15 +9,15 @@ from .get_request import get_request
 from ..utils import run_with_async_limiter
 
 
-async def _get_movie_info(title: str) -> Coroutine:
+async def _get_show_info(title: str) -> Coroutine:
     """
-    Runs a GET request with the provided movie title against the TMDB API
+    Runs a GET request with the provided show title against the TMDB API
     Args:
-        title: movie title to be searched
+        title: show title to be searched
 
     Returns: a coroutine which provides the request's body in json format when awaited
     """
-    base_url = "https://api.themoviedb.org/3/search/movie"
+    base_url = "https://api.themoviedb.org/3/search/tv"
     params = {
         "query": title,
         "api_key": TMDB_API_KEY,
@@ -27,26 +27,26 @@ async def _get_movie_info(title: str) -> Coroutine:
     return await get_request(base_url, params)
 
 
-async def get_movies_info(movie_titles: list[str]):
+async def get_shows_info(show_titles: list[str]):
     """
-    Given a list of book titles, asynchronously queries the TMDB API
+    Given a list of show titles, asynchronously queries the TMDB API
     Args:
-        movie_titles: list of movie titles to be searched
+        show_titles: list of show titles to be searched
 
     Returns: a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
     limiter = AsyncLimiter(45, time_period=1)
     tasks = [
-        run_with_async_limiter(limiter=limiter, fn=_get_movie_info, title=title)
-        for title in movie_titles
+        run_with_async_limiter(limiter=limiter, fn=_get_show_info, title=title)
+        for title in show_titles
     ]
 
     def extract_info(res: Any):
         title, year = None, None
         try:
             base_body = res["results"][0]
-            title = base_body["original_title"]
-            release_date = base_body["release_date"]
+            title = base_body["original_name"]
+            release_date = base_body["first_air_date"]
             year = release_date.split(sep="-")[0]
         except IndexError as e:
             print(f"Failed to retrieve the year: {e}")
