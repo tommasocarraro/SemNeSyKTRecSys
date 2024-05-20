@@ -2,6 +2,7 @@ from typing import Coroutine
 import aiohttp
 
 
+# TODO handle errors: rate limiter, unauthorized, ...
 async def get_request(base_url: str, params: dict[str, str]) -> Coroutine:
     """
     Performs an asynchronous HTTP GET request
