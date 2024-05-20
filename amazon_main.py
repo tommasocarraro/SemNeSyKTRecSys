@@ -1,14 +1,16 @@
-from nesy.reviews_preprocessing.get_books_info import get_books_info
-from nesy.reviews_preprocessing.get_records_info_v3 import get_records_info
-from nesy.reviews_preprocessing.get_movies_info import get_movies_info
-from nesy.reviews_preprocessing.get_shows_info import get_shows_info
 import asyncio
+
+from nesy.reviews_preprocessing.get_books_info import get_books_info
+from nesy.reviews_preprocessing.get_movies_info import get_movies_info
+from nesy.reviews_preprocessing.get_records_info_v3 import get_records_info
+from nesy.reviews_preprocessing.get_shows_info import get_shows_info
 
 
 def pretty_print_responses(responses: list):
     if responses is not None:
         for res in responses:
             print(res)
+    print()
 
 
 async def main():

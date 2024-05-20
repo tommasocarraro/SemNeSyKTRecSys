@@ -1,4 +1,4 @@
-from typing import Sequence, Coroutine, Callable
+from typing import Sequence, Coroutine, Callable, Any, Awaitable
 
 from aiolimiter import AsyncLimiter
 from joblib import delayed, Parallel
@@ -12,10 +12,10 @@ def process_responses_with_joblib(
 
 
 async def run_with_async_limiter(
-    limiter: AsyncLimiter, fn: Callable, *args, **kwargs
+    limiter: AsyncLimiter, fn: Callable[[Any, Any], Awaitable[Any]], *args, **kwargs
 ) -> Coroutine:
     """
-    Runs the *fn* function inside the asynchronous context *limiter*
+    Runs the *fn* asynchronous function inside the asynchronous context *limiter*
     Args:
         limiter: an AsyncLimiter
         fn: an asynchronous function

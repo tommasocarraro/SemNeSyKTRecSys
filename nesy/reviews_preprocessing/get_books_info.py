@@ -1,36 +1,11 @@
 import asyncio
-from collections.abc import Coroutine
 from typing import Any
 
-import requests
 from aiolimiter import AsyncLimiter
 
 from config import GOOGLE_API_KEY
 from .get_request import get_request
 from .utils import run_with_async_limiter, process_responses_with_joblib
-
-
-async def _get_book_info(title: str, language: str = "en") -> Coroutine:
-    """
-    Runs a GET request with the provided book title against the Google Books v1 API
-    Args:
-        title: book title to be searched
-        language: language of the results, defaults to "en"
-
-    Returns: a coroutine which provides the request's body in json format when awaited
-    """
-    base_url = "https://www.googleapis.com/books/v1/volumes"
-    params = {
-        "q": f'intitle:"{title}"',
-        "key": GOOGLE_API_KEY,
-        "langRestrict": language,
-        "maxResults": 1,
-        "projection": "lite",
-    }
-    try:
-        return await get_request(base_url, params)
-    except requests.RequestException as e:
-        print(f"There was an error while retrieving item {title}: {e}")
 
 
 async def get_books_info(book_titles: list[str]):
@@ -43,7 +18,19 @@ async def get_books_info(book_titles: list[str]):
     """
     limiter = AsyncLimiter(240)
     tasks = [
-        run_with_async_limiter(limiter=limiter, fn=_get_book_info, title=title)
+        run_with_async_limiter(
+            limiter=limiter,
+            fn=get_request,
+            url="https://www.googleapis.com/books/v1/volumes",
+            title=title,
+            params={
+                "q": f'intitle:"{title}"',
+                "key": GOOGLE_API_KEY,
+                "langRestrict": "en",
+                "maxResults": 1,
+                "projection": "lite",
+            },
+        )
         for title in book_titles
     ]
 

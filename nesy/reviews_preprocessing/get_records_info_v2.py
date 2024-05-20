@@ -1,28 +1,10 @@
 import asyncio
-from collections.abc import Coroutine
 from typing import Any, Optional
 
-import requests
 from aiolimiter import AsyncLimiter
 
 from .get_request import get_request
 from .utils import run_with_async_limiter, process_responses_with_joblib
-
-
-async def _get_record_info(title: str) -> Coroutine:
-    """
-    Runs a GET request with the provided record title against the MusicBrainz v2 API
-    Args:
-        title: book title to be searched
-
-    Returns: a coroutine which provides the request's body in json format when awaited
-    """
-    base_url = "https://musicbrainz.org/ws/2/release"
-    params = {"query": title, "limit": 1, "fmt": "json"}
-    try:
-        return await get_request(base_url, params)
-    except requests.RequestException as e:
-        print(f"There was an error while retrieving item {title}: {e}")
 
 
 async def get_records_info(record_titles: list[str]):
@@ -35,7 +17,13 @@ async def get_records_info(record_titles: list[str]):
     """
     limiter = AsyncLimiter(max_rate=1, time_period=1)
     tasks = [
-        run_with_async_limiter(limiter=limiter, fn=_get_record_info, title=title)
+        run_with_async_limiter(
+            limiter=limiter,
+            fn=get_request,
+            title=title,
+            url="https://musicbrainz.org/ws/2/release",
+            params={"query": title, "limit": 1, "fmt": "json"},
+        )
         for title in record_titles
     ]
 
