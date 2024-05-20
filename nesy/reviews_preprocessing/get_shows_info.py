@@ -6,7 +6,7 @@ from aiolimiter import AsyncLimiter
 
 from config import TMDB_API_KEY
 from .get_request import get_request
-from ..utils import run_with_async_limiter
+from .utils import run_with_async_limiter, process_responses_with_joblib
 
 
 async def _get_show_info(title: str) -> Coroutine:
@@ -57,8 +57,4 @@ async def get_shows_info(show_titles: list[str]):
         return title, year
 
     responses = await asyncio.gather(*tasks)
-
-    # TODO joblib
-    info = [extract_info(res) for res in responses]
-
-    return info
+    return process_responses_with_joblib(extract_info, responses)

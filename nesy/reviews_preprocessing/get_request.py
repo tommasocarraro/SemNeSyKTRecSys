@@ -1,4 +1,5 @@
 from typing import Coroutine
+
 import aiohttp
 
 
@@ -12,6 +13,12 @@ async def get_request(base_url: str, params: dict[str, str]) -> Coroutine:
 
     Returns: a coroutine which provides the request's json output when awaited
     """
+    headers = {
+        "accept": "application/json",
+        "auth-agent": "SemNeSyKTRecSys-Python",
+        "Accept-Charset": "utf-8",
+    }
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(base_url, params=params) as response:
+        async with session.get(base_url, params=params, headers=headers) as response:
             return await response.json()

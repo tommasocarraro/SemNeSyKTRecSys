@@ -1,11 +1,12 @@
 import asyncio
 from collections.abc import Coroutine
+from typing import Any
 
 from aiolimiter import AsyncLimiter
 
 from config import GOOGLE_API_KEY
 from .get_request import get_request
-from ..utils import run_with_async_limiter
+from .utils import run_with_async_limiter, process_responses_with_joblib
 
 
 async def _get_book_info(title: str, language: str = "en") -> Coroutine:
@@ -19,10 +20,11 @@ async def _get_book_info(title: str, language: str = "en") -> Coroutine:
     """
     base_url = "https://www.googleapis.com/books/v1/volumes"
     params = {
-        "q": title,
+        "q": f'intitle:"{title}"',
         "key": GOOGLE_API_KEY,
         "langRestrict": language,
         "maxResults": 1,
+        "projection": "lite",
     }
     return await get_request(base_url, params)
 
@@ -40,4 +42,19 @@ async def get_books_info(book_titles: list[str]):
         run_with_async_limiter(limiter=limiter, fn=_get_book_info, title=title)
         for title in book_titles
     ]
-    return await asyncio.gather(*tasks)
+
+    responses = await asyncio.gather(*tasks)
+
+    def extract_info(res: Any):
+        title, author, year = None, None, None
+        try:
+            base_body = res["items"][0]["volumeInfo"]
+            title = base_body["title"]
+            author = base_body["authors"][0]
+            published_date = base_body["publishedDate"]
+            year = published_date.split("-")[0]
+        except (KeyError, IndexError) as e:
+            print(f"Failed to retrieve data: {e}")
+        return title, author, year
+
+    return process_responses_with_joblib(responses=responses, fn=extract_info)

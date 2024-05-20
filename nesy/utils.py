@@ -1,8 +1,5 @@
 from os.path import basename, splitext
 
-from aiolimiter import AsyncLimiter
-from typing import Coroutine, Callable, Any
-
 
 def remove_ext(file_path: str) -> str:
     """
@@ -20,19 +17,3 @@ def compute_graph_extension(compress: bool) -> str:
     If compress is set to True then the extension is .tsv.gz, otherwise it is .tsv.
     """
     return ".tsv.gz" if compress else ".tsv"
-
-
-async def run_with_async_limiter(
-    limiter: AsyncLimiter, fn: Callable, **kwargs
-) -> Coroutine:
-    """
-    Runs the *fn* function inside the asynchronous context *limiter*
-    Args:
-        limiter: an AsyncLimiter
-        fn: an asynchronous function
-        params: the function's parameters
-
-    Returns: a coroutine to be awaited
-    """
-    async with limiter:
-        return await fn(**kwargs)
