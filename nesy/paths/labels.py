@@ -94,7 +94,6 @@ def convert_ids_to_labels(wiki_paths_file, add_wiki_id=False):
     with open(wiki_paths_file[:-4] + "_labelled.json", "w", encoding='utf-8') as outfile:
         json.dump(out, outfile, indent=4)
     # todo ordinare per brevita' di cammini
-    # todo togliere i film dal mapping delle musiche
     # todo capire se inserire anche musical work nel dump
     # todo si puo fare un primo esperimento senza e poi magari sistemare https://www.last.fm/api
     # todo fare qualche esperimento con la special search

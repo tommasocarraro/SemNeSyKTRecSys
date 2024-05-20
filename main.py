@@ -7,6 +7,7 @@
 # ALCUNE STATISTICHE
 # metadati: 95% completi di titolo, 4.5% non hanno il titolo (404 error), 1% problemi di DOM o captcha
 # musica: 72% (46238) item matchati su wikidata
+# musica (senza film): 67% (43392) item matchati su wikidata
 # movies: 60% (30101) item matchati su wikidata
 # books: 16% (57946) item matchati su wikidata
 # interessante perche' nonostante i libri siano solo il 16%, il dataset e' comunque piu' completo degli altri due, quindi nessun problema, possiamo utilizzarlo
@@ -96,7 +97,8 @@ from nesy.data import (
     metadata_cleaning,
     metadata_scraping,
     metadata_stats,
-    get_cross_pairs
+    get_cross_pairs,
+    remove_movies_from_music
 )
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
@@ -104,6 +106,11 @@ from nesy.paths.labels import generate_all_labels
 from nesy.preprocess_kg import preprocess_kg
 
 if __name__ == "__main__":
+    metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5_only_music.json",
+                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
+                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    exit()
     # generate_all_labels("./data/paths")
     # merge_tsv_from_directory(
     #     "./data/paths/Q103474-Q482621", "./data/paths/Q103474-Q482621/paths_all.tsv"

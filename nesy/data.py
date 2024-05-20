@@ -1066,3 +1066,19 @@ def get_cross_pairs(dom1, dom2):
         dom2 = get_wiki_ids(json.load(json_file))
     # return the cartesian product of the two sets
     return ((id1, id2) for id1 in dom1 for id2 in dom2), len(dom1) * len(dom2)
+
+
+def remove_movies_from_music():
+    """
+    This function takes the mapping between Amazon CDs and wikidata and remove all the matched movies in this mapping.
+    It creates a new JSON file without the mapped movies. Instead of the Wikidata ID, there will be the "not-in-dump"
+    string.
+    """
+    with open("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json") as json_file:
+        cds = json.load(json_file)
+    with open("./data/processed/wikidata-movies.json") as json_file:
+        movies = json.load(json_file)
+    new_cds = {amaz_id: wiki_id if wiki_id not in movies["wids"] else "not-in-dump" for amaz_id, wiki_id in cds.items()}
+
+    with open('./data/processed/mapping-reviews_CDs_and_Vinyl_5_only_music.json', 'w', encoding='utf-8') as f:
+        json.dump(new_cds, f, ensure_ascii=False, indent=4)
