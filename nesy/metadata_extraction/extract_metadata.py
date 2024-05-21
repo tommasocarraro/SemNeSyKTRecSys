@@ -61,5 +61,5 @@ def extract_metadata(
 
     # write JSON objects to file system and close file connections
     for file, data in output_data_and_files.values():
-        file.write(json.dumps(data))
+        file.write(json.dumps(data, indent=4))
         file.close()
