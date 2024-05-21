@@ -1010,43 +1010,45 @@ def entity_linker_title_person_year(amazon_metadata, retry=False, parallel=False
                             entity_data = entity_response.json()
                             # Extract relevant data from the page
                             claims = entity_data['entities'][item["title"]]['claims']
-                            person_claims = None
-                            if m_data[asin]["type"] == "movie":
-                                person_claims = claims.get('P57', [])
-                            elif m_data[asin]["type"] == "music":
-                                person_claims = claims.get('P175', [])
-                            else:
-                                person_claims = claims.get('P50', [])
-                            release_date_claims = claims.get('P577', [])
 
-                            # check if extracted data match metadata retrieved
-                            # get person wikidata ID
-                            params = {
-                                "action": "query",
-                                "format": "json",
-                                "list": "search",
-                                "srsearch": m_data[asin]["person"]
-                            }
-                            # todo capire cosa fare nel caso in cui manchi l'anno o il registra
-                            # todo notare anche che potrebbe essere che manchi su wikidata questa informazione
-                            # todo bisogna gestire tutti questi casi e capire come fare il match
-                            # todo vogliamo che tutto matchi o ci basta solo qualcosa? e' da capire
-                            response = requests.get(wikidata_api_url, params=params)
-                            response.raise_for_status()
+                            person_match = None
+                            if m_data[asin]["person"] is not None:
+                                if m_data[asin]["type"] == "movie":
+                                    person_claims = claims.get('P57', [])
+                                elif m_data[asin]["type"] == "music":
+                                    person_claims = claims.get('P175', [])
+                                else:
+                                    person_claims = claims.get('P50', [])
 
-                            data = response.json()
-                            person_id = None
-                            if "search" in data["query"] and data["query"]["search"]:
-                                person_id = data["query"]["search"][0]["title"]
-                            person_match = any(
-                                claim['mainsnak']['datavalue']['value']['id'] == person_id
-                                for claim in person_claims
-                            )
-                            release_date_match = any(
-                                claim['mainsnak']['datavalue']['value']['time'][1:5] == str(m_data[asin]["year"])
-                                for claim in release_date_claims
-                            )
+                                # get person wikidata ID
+                                params = {
+                                    "action": "query",
+                                    "format": "json",
+                                    "list": "search",
+                                    "srsearch": m_data[asin]["person"]
+                                }
 
+                                response = requests.get(wikidata_api_url, params=params)
+                                response.raise_for_status()
+
+                                data = response.json()
+                                person_id = None
+                                if "search" in data["query"] and data["query"]["search"]:
+                                    person_id = data["query"]["search"][0]["title"]
+                                person_match = any(
+                                    claim['mainsnak']['datavalue']['value']['id'] == person_id
+                                    for claim in person_claims
+                                )
+
+                            release_date_match = None
+                            if m_data[asin]["year"] is not None:
+                                release_date_claims = claims.get('P577', [])
+                                release_date_match = any(
+                                    claim['mainsnak']['datavalue']['value']['time'][1:5] == str(m_data[asin]["year"])
+                                    for claim in release_date_claims
+                                )
+                            # todo gestire tutte le casistiche qui, casi in cui non c'e' regista o titolo
+                            # todo sistemare il type dove manca sui metadati
                             if person_match and release_date_match:
                                 print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
                                 return asin, item["title"]
