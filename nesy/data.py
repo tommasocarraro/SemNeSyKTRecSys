@@ -789,7 +789,7 @@ def entity_linker_api(amazon_ratings, use_dump=True):
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
 
 
-def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False, retry_reason=None):
+def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False, retry_reason=None, add_dump=False):
     """
     This function uses the Wikidata API (action=query) to get the ID of wikidata items corresponding to the Amazon
     items. The API is
@@ -813,6 +813,8 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False, retry_re
     :param retry_reason: string indicating for which items the search has to be computed again. For example, indicate
     "exception" for the items that gave an exception during the first mapping loop. The procedure will repeat the loop
     only for these items.
+    :param add_dump: whether in case of music mapping an additional dump with movie wiki IDs has to be used. This is
+    useful since a lot of albums in Amazon are just DVD of the albums. Defaults to False.
     """
     # read data
     data = pd.read_csv(amazon_ratings)
@@ -891,7 +893,7 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False, retry_re
                                     logging.info("%s - %s" % (asin, item["title"]))
                                     return asin, item["title"]
                             # second loop on the alternate dump (only when processing CDs and Vinyls dataset)
-                            if "CDs" in amazon_ratings:
+                            if "CDs" in amazon_ratings and add_dump:
                                 # only for the CDs and Vinyls dataset, it could happen that animated movies are included
                                 # in the dataset as (erroneously) treated as CDs
                                 # if no entries are found in the music dump (as they should be DVDs and not CDs), we
@@ -934,6 +936,146 @@ def entity_linker_api_query(amazon_ratings, use_dump=True, retry=False, retry_re
     with open('./data/processed/mapping-%s.json' % (amazon_ratings.split("/")[-1].split(".")[0],), 'w',
               encoding='utf-8') as f:
         json.dump(match_dict, f, ensure_ascii=False, indent=4)
+
+
+def entity_linker_title_person_year(amazon_metadata, retry=False, parallel=False):
+    """
+    This function uses the Wikidata API (action=query) to get the ID of wikidata items corresponding to the Amazon
+    items in the dataset. The API is accessed using HTTP requests. It takes as input a JSON file containing metadata on
+    Amazon items. This metadata contains title, person (i.e., director in case of movie, artist in case of song, and
+    writer in case of books), and publication year for the item. The title of the Amazon item is used for querying
+    Wikidata Special Search. This function first iterates through the found items and filter our items which are not in
+    the correct category. For example, if we are looking for a book and the result contains some movies, these are
+    filter out. Then, it gets the wikidata information for all the other items and look for person and publication year.
+    If the person and publication year match, then the match is saved.
+
+    At the end, a new JSON file is created. The keys will be the ASINs and the values the wikidata IDs.
+
+    :param amazon_metadata: JSON file containing metadata on Amazon items
+    :param retry: valid from second execution. If this is set to true, the script will retry to find matches for all
+    the items that during the first search did not get a match due to an error.
+    :param parallel: whether to use multiple processors for executing this function
+    """
+    # read metadata
+    with open(amazon_metadata) as json_file:
+        m_data = json.load(json_file)
+    # load wikidata dumps
+    wiki_dumps = {}
+    wikidata_movies = "./data/processed/legacy/wikidata-movies.json"
+    wikidata_books = "./data/processed/legacy/wikidata-books.json"
+    wikidata_music = "./data/processed/legacy/wikidata-music.json"
+    with open(wikidata_music) as json_file:
+        wiki_dumps["music"] = json.load(json_file)
+    with open(wikidata_books)as json_file:
+        wiki_dumps["book"] = json.load(json_file)
+    with open(wikidata_movies) as json_file:
+        wiki_dumps["movie"] = json.load(json_file)
+    # link to API
+    wikidata_api_url = "https://www.wikidata.org/w/api.php"
+
+    def entity_link(asin):
+        """
+        It performs an HTTP request on the Wikidata API to get the Wikidata ID of the given item (referred by ASIN).
+
+        :param asin: asin of the Amazon item for which the ID is requested
+
+        It returns a tuple where the first element is the ASIN and the second element is the Wikidata ID or a string
+        indicating the reason why the match could not be found.
+        """
+        try:
+            # check if we have the title for the item
+            if m_data[asin]["title"] is not None:
+                # remove punctuation and strange parenthesis
+                # todo capire se ha senso sta cosa
+                amazon_title = re.sub("[\(\[].*?[\)\]]", "", m_data[asin]["title"])
+                amazon_title = amazon_title.replace(":", " ").replace("-", "").replace("/", "")
+                # Define parameters for the Wikidata API search
+                params = {
+                    "action": "query",
+                    "format": "json",
+                    "list": "search",
+                    "srsearch": amazon_title
+                }
+
+                response = requests.get(wikidata_api_url, params=params)
+                response.raise_for_status()
+
+                data = response.json()
+                if "search" in data["query"] and data["query"]["search"]:
+                    for item in data["query"]["search"]:
+                        if item["title"] in wiki_dumps[m_data[asin]["type"]]["wids"]:
+                            # we need to open the wikidata page of this item
+                            entity_url = f'https://www.wikidata.org/wiki/Special:EntityData/{item["title"]}.json'
+                            entity_response = requests.get(entity_url)
+                            entity_data = entity_response.json()
+                            # Extract relevant data from the page
+                            claims = entity_data['entities'][item["title"]]['claims']
+                            person_claims = None
+                            if m_data[asin]["type"] == "movie":
+                                person_claims = claims.get('P57', [])
+                            elif m_data[asin]["type"] == "music":
+                                person_claims = claims.get('P175', [])
+                            else:
+                                person_claims = claims.get('P50', [])
+                            release_date_claims = claims.get('P577', [])
+
+                            # check if extracted data match metadata retrieved
+                            # get person wikidata ID
+                            params = {
+                                "action": "query",
+                                "format": "json",
+                                "list": "search",
+                                "srsearch": m_data[asin]["person"]
+                            }
+                            # todo capire cosa fare nel caso in cui manchi l'anno o il registra
+                            # todo notare anche che potrebbe essere che manchi su wikidata questa informazione
+                            # todo bisogna gestire tutti questi casi e capire come fare il match
+                            # todo vogliamo che tutto matchi o ci basta solo qualcosa? e' da capire
+                            response = requests.get(wikidata_api_url, params=params)
+                            response.raise_for_status()
+
+                            data = response.json()
+                            person_id = None
+                            if "search" in data["query"] and data["query"]["search"]:
+                                person_id = data["query"]["search"][0]["title"]
+                            person_match = any(
+                                claim['mainsnak']['datavalue']['value']['id'] == person_id
+                                for claim in person_claims
+                            )
+                            release_date_match = any(
+                                claim['mainsnak']['datavalue']['value']['time'][1:5] == str(m_data[asin]["year"])
+                                for claim in release_date_claims
+                            )
+
+                            if person_match and release_date_match:
+                                print("%s - %s - %s" % (asin, m_data[asin], item["title"]))
+                                return asin, item["title"]
+
+                    print("%s not found in dump" % (asin,))
+                    return asin, "not-in-dump"  # all found items are not of the correct category
+                else:
+                    print("%s not found by query" % (asin,))
+                    return asin, "not-found-query"  # there are no results for the query
+            else:
+                print("%s does not have a title" % (asin,))
+                return asin, "no-title"  # the item has not a corresponding title in the metadata file
+        except Exception as e:
+            print("%s produced the exception %s" % (asin, e))
+            return asin, "exception"  # the search produced an exception
+
+    # here the parallel computing
+    if parallel:
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            matches = list(executor.map(entity_link, list(m_data.keys())))
+    else:
+        matches = [entity_link(asin) for asin in list(m_data.keys())]
+
+    match_dict = {k: v for k, v in matches}
+    print(match_dict)
+
+    # with open('./data/processed/mapping-%s.json' % (amazon_ratings.split("/")[-1].split(".")[0],), 'w',
+    #           encoding='utf-8') as f:
+    #     json.dump(match_dict, f, ensure_ascii=False, indent=4)
 
 
 def get_wid_per_cat(category):
