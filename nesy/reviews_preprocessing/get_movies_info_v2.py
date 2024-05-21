@@ -28,6 +28,7 @@ async def get_movies_info(movie_titles: list[str]):
                 "key": GOOGLE_API_KEY,
                 "limit": 10,
                 "indent": "True",
+                "types": ["Movie"],
             },
         )
         for title in movie_titles

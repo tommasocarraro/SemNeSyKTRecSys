@@ -98,7 +98,8 @@ from nesy.data import (
     metadata_scraping,
     metadata_stats,
     get_cross_pairs,
-    remove_movies_from_music
+    remove_movies_from_music,
+    split_metadata
 )
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
@@ -106,10 +107,11 @@ from nesy.paths.labels import generate_all_labels
 from nesy.preprocess_kg import preprocess_kg
 
 if __name__ == "__main__":
-    metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5_only_music.json",
-                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
-    metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
-                   errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    metadata_stats("./data/processed/complete-filtered-metadata.json",
+                   errors=["404-error"], save_asins=True)
+    # metadata_stats("./data/processed/mapping-reviews_CDs_and_Vinyl_5.json",
+    #                errors=["not-in-dump", "not-found-query", "not-title"], save_asins=False)
+    # split_metadata("./data/processed/final-metadata.json")
     exit()
     # generate_all_labels("./data/paths")
     # merge_tsv_from_directory(
