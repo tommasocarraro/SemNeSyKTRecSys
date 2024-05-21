@@ -14,13 +14,13 @@ def pretty_print_responses(responses: list):
 
 
 async def main():
-    # books_titles = [
-    #     "Harry Potter and the Order of the Phoenix",
-    #     # "I, robot",
-    #     # "The Shining",
-    # ]
-    # books_responses = await get_books_info(books_titles)
-    # pretty_print_responses(books_responses)
+    books_titles = [
+        "Harry Potter and the Order of the Phoenix",
+        # "I, robot",
+        # "The Shining",
+    ]
+    books_responses = await get_books_info(books_titles)
+    pretty_print_responses(books_responses)
 
     records_titles = [
         "The Dark Side of the Moon",
@@ -29,18 +29,18 @@ async def main():
     ]
     records_responses = await get_records_info(records_titles)
     pretty_print_responses(records_responses)
-    #
-    # movies_titles = [
-    #     "Night of the Living Dead",
-    #     "It",
-    #     "The Lord of the Rings: The Two Towers",
-    # ]
-    # movies_responses = await get_movies_info(movies_titles)
-    # pretty_print_responses(movies_responses)
-    #
-    # shows_titles = ["Breaking Bad", "Doctor Who", "Dr. Who", "Hunter x Hunter"]
-    # shows_responses = await get_shows_info(shows_titles)
-    # pretty_print_responses(shows_responses)
+
+    movies_titles = [
+        "Night of the Living Dead",
+        "It",
+        "The Lord of the Rings: The Two Towers",
+    ]
+    movies_responses = await get_movies_info(movies_titles)
+    pretty_print_responses(movies_responses)
+
+    shows_titles = ["Breaking Bad", "Doctor Who", "Dr. Who", "Hunter x Hunter"]
+    shows_responses = await get_shows_info(shows_titles)
+    pretty_print_responses(shows_responses)
 
 
 if __name__ == "__main__":
