@@ -29,6 +29,7 @@ async def get_shows_info(show_titles: list[str]):
                 "key": GOOGLE_API_KEY,
                 "limit": 10,
                 "indent": "True",
+                "types": ["TVSeries"]
             },
         )
         for title in show_titles

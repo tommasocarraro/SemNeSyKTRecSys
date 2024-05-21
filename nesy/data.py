@@ -611,7 +611,9 @@ def metadata_stats(metadata, errors, save_asins=True):
     the scraping procedure. The parameter errors allows to define which statistics to include in the output.
     For each of these statistics, the output will contain the set of ASINs corresponding to each error, if save_asins
     is set to True. The output will also contain the percentage of items included in each statistics given the total
-    number of items in the given file.
+    number of items in the given file. The output will be saved to a JSON file in the same location of the given
+    metadata file with "_stats" added at the name. This, if save_asins is set to True, otherwise it just prints of the
+    standard output.
 
     :param metadata: path to the metadata file for which the statistics have to be generated
     :param errors: list of strings containing the name of the errors that have to be included in the statistics. The
@@ -635,7 +637,11 @@ def metadata_stats(metadata, errors, save_asins=True):
     total = sum([errors[e]["counter"] for e in errors])
     for e in errors:
         errors[e]["percentage"] = errors[e]["counter"] / total * 100
-    print(errors)
+    if save_asins:
+        with open(metadata[:-5] + "_stats.json", 'w', encoding='utf-8') as f:
+            json.dump(errors, f, ensure_ascii=False, indent=4)
+    else:
+        print(errors)
 
 
 def metadata_cleaning(metadata):
@@ -1082,3 +1088,24 @@ def remove_movies_from_music():
 
     with open('./data/processed/mapping-reviews_CDs_and_Vinyl_5_only_music.json', 'w', encoding='utf-8') as f:
         json.dump(new_cds, f, ensure_ascii=False, indent=4)
+
+
+def split_metadata(metadata_path):
+    """
+    This function takes as input a full metadata file and split it into three files (movies, books, and music).
+
+    It generates the new metadata file, one for each domain.
+
+    :param metadata_path: path to the metadata file to be split
+    """
+    with open(metadata_path) as json_file:
+        complete_metadata = json.load(json_file)
+    path_prefix = "./data/processed/mapping-reviews_"
+    for mapping in ["Books_5", "CDs_and_Vinyl_5_only_music", "Movies_and_TV_5"]:
+        path = path_prefix + mapping + ".json"
+        with open(path) as json_file:
+            mapping_file = json.load(json_file)
+            correct_asins = set(mapping_file.keys())
+            new_dict = {asin: title for asin, title in complete_metadata.items() if asin in correct_asins}
+            with open("./data/processed/" + mapping + "_metadata.json", 'w', encoding='utf-8') as f:
+                json.dump(new_dict, f, ensure_ascii=False, indent=4)
