@@ -37,6 +37,7 @@ FIELDS_TO_BE_REMOVED = [
     "details.Grade level",
     "details.Calendar",
     "features",
+    "main_category",
 ]
 
 
