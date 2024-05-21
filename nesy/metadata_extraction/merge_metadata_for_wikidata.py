@@ -79,7 +79,7 @@ def merge_metadata_for_wikidata(output_file_path: str):
             "type": mtype,
         }
 
-    output_file.write(json.dumps(output_data))
+    output_file.write(json.dumps(output_data, indent=4))
     output_file.close()
     complete_filtered_metadata_file.close()
     extracted_metadata_all_file.close()
