@@ -44,10 +44,16 @@ def extract_metadata(
                 if len(query_result) > 0:
                     item = query_result[0]
                     asin = item["parent_asin"]
-                    if "parent_asin" in item:
-                        del item["parent_asin"]
-                    output_data_and_files["all"][1][asin] = item
-                    output_data_and_files[file_name][1][asin] = item
+
+                    lower_item = {
+                        k.lower(): v for k, v in item.items() if k != "parent_asin"
+                    }
+
+                    output_data_and_files["all"][1][asin] = lower_item
+                    # dicts are actually passed by reference so this adds the type field to all files, deepcopy would
+                    # be expensive
+                    output_data_and_files["all"][1][asin]["type"] = file_name.lower()
+                    output_data_and_files[file_name][1][asin] = lower_item
                     found = True
         if not found:
             output_data_and_files["all"][1][asin] = {}

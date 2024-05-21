@@ -2,6 +2,9 @@ import os
 
 from nesy.metadata_extraction.build_sqlite_cache import build_sqlite_cache
 from nesy.metadata_extraction.extract_metadata import extract_metadata
+from nesy.metadata_extraction.merge_metadata_for_wikidata import (
+    merge_metadata_for_wikidata,
+)
 
 file_paths = [
     os.path.join("data", "amazon2023", "meta_Books.jsonl"),
@@ -17,3 +20,6 @@ metadata_extraction_failure_path = os.path.join(
     "data", "processed", "failed-metadata.txt"
 )
 extract_metadata(asin_file_path, file_paths, cache_path)
+
+merged_output_path = os.path.join("data", "processed", "merged_metadata.json")
+merge_metadata_for_wikidata(merged_output_path)
