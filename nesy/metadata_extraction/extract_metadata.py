@@ -24,29 +24,36 @@ def extract_metadata(
     # extract the input metadata file names without extensions
     file_names = [os.path.basename(file).split(".")[0] for file in metadata_files]
 
-    # open all output files and keep track of the file variables in a dictionary
-    output_files = {
-        filename: open(
-            os.path.join(output_dir, "extracted_metadata_" + filename + ".jsonl"), "w"
+    # dictionary containing all opened output files and a dictionary which will be filled with the data to write in them
+    output_data_and_files = {
+        filename: (
+            open(
+                os.path.join(output_dir, "extracted_metadata_" + filename + ".json"),
+                "w",
+            ),
+            {},
         )
-        for filename in file_names
+        for filename in file_names + ["all", "misses"]
     }
 
-    # store each entry both in a common file and in its own category's file
-    with open(os.path.join(output_dir, "extracted_metadata.jsonl"), "w") as output_file:
-        with open(os.path.join(output_dir, "failed_metadata.txt"), "w") as failure_file:
-            for asin in asin_list:
-                found = False
-                for file_name in file_names:
-                    if not found:
-                        query_result = query_by_asin(file_name, asin, cache_path)
-                        if len(query_result) > 0:
-                            item = query_result[0]
-                            output_file.write(json.dumps(item) + "\n")
-                            output_files[file_name].write(json.dumps(item) + "\n")
-                            found = True
-                if not found:
-                    failure_file.write(asin + "\n")
+    for asin in asin_list:
+        found = False
+        for file_name in file_names:
+            if not found:
+                query_result = query_by_asin(file_name, asin, cache_path)
+                if len(query_result) > 0:
+                    item = query_result[0]
+                    asin = item["parent_asin"]
+                    if "parent_asin" in item:
+                        del item["parent_asin"]
+                    output_data_and_files["all"][1][asin] = item
+                    output_data_and_files[file_name][1][asin] = item
+                    found = True
+        if not found:
+            output_data_and_files["all"][1][asin] = {}
+            output_data_and_files["misses"][1][asin] = {}
 
-    for file in output_files.values():
+    # write JSON objects to file system and close file connections
+    for file, data in output_data_and_files.values():
+        file.write(json.dumps(data))
         file.close()
