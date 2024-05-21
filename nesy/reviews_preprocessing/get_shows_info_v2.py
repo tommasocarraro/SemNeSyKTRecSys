@@ -29,7 +29,7 @@ async def get_shows_info(show_titles: list[str]):
                 "key": GOOGLE_API_KEY,
                 "limit": 10,
                 "indent": "True",
-                "types": ["TVSeries"]
+                "types": ["TVSeries"],
             },
         )
         for title in show_titles
@@ -45,7 +45,7 @@ async def get_shows_info(show_titles: list[str]):
                 if "TVSeries" in base_body["@type"]:
                     title = base_body["name"]
                     release_date = base_body["detailedDescription"]["articleBody"]
-                    pattern = r'\b(19|20)\d{2}\b'
+                    pattern = r"\b(19|20)\d{2}\b"
                     match = re.search(pattern, release_date)
                     if match:
                         year = match.group(0)

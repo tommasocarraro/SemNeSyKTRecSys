@@ -14,7 +14,7 @@ async def get_books_info(book_titles: list[str]):
     Args:
         book_titles: list of book titles to be searched
 
-    Returns: a coroutine which provides all the responses' bodies' in json format when awaited
+    Returns: a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
     limiter = AsyncLimiter(240)
     tasks = [
