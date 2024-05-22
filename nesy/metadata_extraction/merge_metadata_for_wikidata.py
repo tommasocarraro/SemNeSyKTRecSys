@@ -3,6 +3,8 @@ import os
 
 import regex as re
 
+from .utils import correct_missing_types
+
 
 def merge_metadata_for_wikidata(output_file_path: str):
     extracted_metadata_all_file = open(
@@ -44,7 +46,7 @@ def merge_metadata_for_wikidata(output_file_path: str):
                             dates.append(key)
 
                     years = []
-                    reg = r"\b\d{4}\b"
+                    reg = r"\b(19|20)\d{2}\b"
                     for date in dates:
                         reg_matches = re.findall(reg, obj["details"][date])
                         if len(reg_matches) > 0:
@@ -78,6 +80,8 @@ def merge_metadata_for_wikidata(output_file_path: str):
             "year": year,
             "type": mtype,
         }
+
+    correct_missing_types(output_data)
 
     json.dump(output_data, output_file, indent=4, ensure_ascii=False)
     output_file.close()
