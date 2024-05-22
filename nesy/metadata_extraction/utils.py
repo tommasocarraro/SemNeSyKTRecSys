@@ -46,9 +46,7 @@ def correct_missing_types(metadata):
     # get movie ASINs
     movie = pd.read_csv("./data/processed/legacy/reviews_Movies_and_TV_5.csv")
     movie_asins = list(movie["itemId"].unique())
-    # get book ASINs
-    book = pd.read_csv("./data/processed/reviews_Books_5.csv")
-    book_asins = list(book["itemId"].unique())
+    # book ASINs are not needed because if it is not in music or movie dataset, then it is a book
     # modify metadata
     for asin, data in m_data.items():
         if data["type"] is None:
@@ -61,3 +59,28 @@ def correct_missing_types(metadata):
     # update file
     with open(metadata, 'w', encoding='utf-8') as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
+
+
+def get_metadata_stats(metadata):
+    """
+    This function computes some metadata statistics on the given file.
+    It groups data into categories (books, music, movie) and counts the number of items without title, person, or
+    year.
+
+    :param metadata: metadata JSON file on which the statistics have to be computed
+    """
+    # open metadata
+    with open(metadata) as json_file:
+        m_data = json.load(json_file)
+    # create statistics dict
+    stats = {"movies_and_tv": {"title": 0, "person": 0, "year": 0},
+             "cds_and_vinyl": {"title": 0, "person": 0, "year": 0},
+             "books": {"title": 0, "person": 0, "year": 0}}
+    for asin, data in m_data.items():
+        if data["title"] is None:
+            stats[data["type"]]["title"] += 1
+        if data["person"] is None:
+            stats[data["type"]]["person"] += 1
+        if data["year"] is None:
+            stats[data["type"]]["year"] += 1
+    print(stats)
