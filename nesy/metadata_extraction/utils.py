@@ -28,7 +28,7 @@ def object_recursive_delete_fields(json_object, fields_to_remove) -> None:
             object_recursive_delete_fields(json_object[key], fields_to_remove)
 
 
-def correct_missing_types(metadata):
+def correct_missing_types(metadata: dict[str, dict[str, str]]) -> None:
     """
     This function adds the type (i.e., movie, music, or book) to every item in the given metadata for which this
     field is None.
@@ -37,18 +37,14 @@ def correct_missing_types(metadata):
 
     :param metadata: json file on which this operation has to be performed.
     """
-    # open metadata
-    with open(metadata) as json_file:
-        m_data = json.load(json_file)
     # get music ASINs
     music = pd.read_csv("./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv")
-    music_asins = list(music["itemId"].unique())
+    music_asins = {k: 0 for k in list(music["itemId"].unique())}
     # get movie ASINs
     movie = pd.read_csv("./data/processed/legacy/reviews_Movies_and_TV_5.csv")
-    movie_asins = list(movie["itemId"].unique())
-    # book ASINs are not needed because if it is not in music or movie dataset, then it is a book
+    movie_asins = {k: 0 for k in list(movie["itemId"].unique())}
     # modify metadata
-    for asin, data in m_data.items():
+    for asin, data in metadata.items():
         if data["type"] is None:
             if asin in music_asins:
                 data["type"] = "cds_and_vinyl"
@@ -56,9 +52,6 @@ def correct_missing_types(metadata):
                 data["type"] = "movies_and_tv"
             else:
                 data["type"] = "books"
-    # update file
-    with open(metadata, 'w', encoding='utf-8') as f:
-        json.dump(m_data, f, ensure_ascii=False, indent=4)
 
 
 def get_metadata_stats(metadata):
