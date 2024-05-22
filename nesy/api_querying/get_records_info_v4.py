@@ -17,7 +17,7 @@ async def get_records_info(record_titles: list[str]):
 
     Returns: a coroutine which provides all the responses' bodies' in json format when awaited
     """
-    limiter = AsyncLimiter(240)
+    limiter = AsyncLimiter(10, 1)
     tasks = [
         run_with_async_limiter(
             limiter=limiter,

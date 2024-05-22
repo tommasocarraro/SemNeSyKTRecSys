@@ -106,7 +106,7 @@ from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
 from nesy.paths.labels import generate_all_labels
 from nesy.preprocess_kg import preprocess_kg
-from nesy.metadata_extraction.utils import correct_missing_types
+from nesy.metadata_extraction.utils import correct_missing_types, get_metadata_stats
 
 if __name__ == "__main__":
     # todo controllare meglio tutte le categorie di wikidata per i controlli che gli item finiscano nella categoria
@@ -115,6 +115,8 @@ if __name__ == "__main__":
     # todo fare mega refactoring
     # todo capire se andare su neo4j
     correct_missing_types("./data/processed/merged_metadata.json")
+    get_metadata_stats("./data/processed/merged_metadata.json")
+    # correct_missing_types("./data/processed/merged_metadata.json")
     # entity_linker_title_person_year("./prova.json")
     # metadata_stats("./data/processed/complete-filtered-metadata.json",
     #                errors=["404-error"], save_asins=True)
