@@ -17,12 +17,14 @@ def create_wikidata_labels_sqlite(raw_labels):
     conn = sqlite3.connect("./data/wikidata/labels.db")
     c = conn.cursor()
 
-    c.execute('''CREATE TABLE labels (wikidata_id TEXT PRIMARY KEY, label TEXT)''')
-    with open(raw_labels, 'r') as f:
+    c.execute("""CREATE TABLE labels (wikidata_id TEXT PRIMARY KEY, label TEXT)""")
+    with open(raw_labels, "r") as f:
         for i, line in enumerate(tqdm(f, total=count_lines(raw_labels))):
             if i != 0:
                 split_line = line.split("\t")
-                c.execute("INSERT INTO labels VALUES (?, ?)", (split_line[1], split_line[3]))
+                c.execute(
+                    "INSERT INTO labels VALUES (?, ?)", (split_line[1], split_line[3])
+                )
 
     conn.commit()
     conn.close()
@@ -50,7 +52,9 @@ def convert_ids_to_labels(wiki_paths_file, add_wiki_id=False):
             x = x[:-1]
             suffix = " (inverse)"
         try:
-            label = c.execute("SELECT label FROM labels WHERE wikidata_id=?", (x,)).fetchone()[0]
+            label = c.execute(
+                "SELECT label FROM labels WHERE wikidata_id=?", (x,)
+            ).fetchone()[0]
         except TypeError:
             return x
         # remove language specification
@@ -62,8 +66,13 @@ def convert_ids_to_labels(wiki_paths_file, add_wiki_id=False):
         label = label + suffix
         return label
 
-    res = df.map(lambda x: (x + " : " + get_label(x)
-                            if add_wiki_id else get_label(x)) if isinstance(x, str) or not math.isnan(x) else "")
+    res = df.map(
+        lambda x: (
+            (x + " : " + get_label(x) if add_wiki_id else get_label(x))
+            if isinstance(x, str) or not math.isnan(x)
+            else ""
+        )
+    )
     res.to_csv(wiki_paths_file[:-4] + "_labelled.tsv", index=False, sep="\t")
     res = res.values
     out = {"standard": {}, "inverse": {}}
@@ -91,19 +100,21 @@ def convert_ids_to_labels(wiki_paths_file, add_wiki_id=False):
                 out["standard"][n_hops] = [out_str]
 
     # create JSON file with the paths
-    with open(wiki_paths_file[:-4] + "_labelled.json", "w", encoding='utf-8') as outfile:
-        json.dump(out, outfile, indent=4)
+    with open(
+        wiki_paths_file[:-4] + "_labelled.json", "w", encoding="utf-8"
+    ) as outfile:
+        json.dump(out, outfile, indent=4, ensure_ascii=False)
     # todo ordinare per brevita' di cammini
     # todo capire se inserire anche musical work nel dump
     # todo si puo fare un primo esperimento senza e poi magari sistemare https://www.last.fm/api
     # todo fare qualche esperimento con la special search
 
     # create txt file of the paths
-    with open(wiki_paths_file[:-4] + "_labelled.txt", 'w', encoding='utf-8') as f:
+    with open(wiki_paths_file[:-4] + "_labelled.txt", "w", encoding="utf-8") as f:
         for relation, hops in out.items():
             f.write(relation + "\n\n")
             for hop, paths in hops.items():
-                f.write("%s-hop\n\n" % (hop, ))
+                f.write("%s-hop\n\n" % (hop,))
                 for path in paths:
                     f.write(path + "\n")
                 f.write("\n")
