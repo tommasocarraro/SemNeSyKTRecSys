@@ -1,12 +1,16 @@
 from typing import Coroutine
 
 import aiohttp
-import backoff
 import requests
+from backoff import on_exception, expo, full_jitter
 
 
-@backoff.on_exception(
-    backoff.expo, requests.exceptions.RequestException, max_time=120, max_tries=10
+@on_exception(
+    expo,
+    requests.exceptions.RequestException,
+    max_time=120,
+    max_tries=10,
+    jitter=full_jitter,
 )
 async def _get_request(base_url: str, params: dict[str, str]) -> Coroutine:
     """
@@ -30,7 +34,7 @@ async def _get_request(base_url: str, params: dict[str, str]) -> Coroutine:
             return await response.json()
 
 
-async def get_request(url: str, title: str, params: dict[str, str]) -> Coroutine:
+async def get_request(url: str, title: str, params: dict[str, str]):
     """
     Runs a GET request against the provided URL's API with the provided params
     Args:
@@ -41,6 +45,6 @@ async def get_request(url: str, title: str, params: dict[str, str]) -> Coroutine
     Returns: a coroutine which provides the request's body in json format when awaited
     """
     try:
-        return await _get_request(url, params)
+        return title, await _get_request(url, params)
     except requests.RequestException as e:
         print(f"There was an error while retrieving item {title}: {e}")
