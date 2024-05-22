@@ -46,8 +46,12 @@ async def tqdm_process_responses(tasks: list):
     for res in tqdm.as_completed(tasks, desc="Querying the API...", dynamic_ncols=True):
         try:
             responses.append(await res)
-        except ClientResponseError as e:
+        except (ClientResponseError, KeyboardInterrupt) as e:
             error = e
             break
-    print(f"Stopping early due to HTTP error: {error}", file=sys.stderr)
+    # printing the error outside the loop to avoid messing up tqdm's progress bar
+    if isinstance(error, ClientResponseError):
+        print(f"Stopping early due to HTTP error: {error}", file=sys.stderr)
+    else:
+        print(f"Keyboard interrupt detected. Quitting gracefully...", file=sys.stderr)
     return responses
