@@ -56,10 +56,10 @@ def _insert_file_into_database(
 
                     #
                     if "title" not in json_obj or json_obj["title"] is None:
-                        failure.write(json.dumps(json_obj) + "\n")
+                        failure.write(json.dumps(json_obj, ensure_ascii=False) + "\n")
                     else:
                         parent_asin = json_obj.get("parent_asin")
-                        data = json.dumps(json_obj)
+                        data = json.dumps(json_obj, indent=4, ensure_ascii=False)
                         cursor.execute(
                             f"INSERT INTO {table_name} (parent_asin, data) VALUES (?, ?)",
                             (parent_asin, data),
