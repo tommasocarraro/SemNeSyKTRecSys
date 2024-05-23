@@ -45,13 +45,17 @@ def extract_metadata(
                     item = query_result[0]
                     asin = item["parent_asin"]
 
-                    lower_item = {
-                        k.lower(): v for k, v in item.items() if k != "parent_asin"
-                    }
+                    def lowercase_keys(d):
+                        if isinstance(d, dict):
+                            return {k.lower(): lowercase_keys(v) for k, v in d.items()}
+                        elif isinstance(d, list):
+                            return [lowercase_keys(item) for item in d]
+                        else:
+                            return d
+
+                    lower_item = lowercase_keys(item)
 
                     output_data_and_files["all"][1][asin] = lower_item
-                    # dicts are actually passed by reference so this adds the type field to all files, deepcopy would
-                    # be expensive
                     output_data_and_files["all"][1][asin]["type"] = file_name.lower()
                     output_data_and_files[file_name][1][asin] = lower_item
                     found = True
