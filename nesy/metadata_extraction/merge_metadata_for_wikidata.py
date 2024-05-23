@@ -65,12 +65,10 @@ def merge_metadata_for_wikidata(output_file_path: str):
                     mtype = "books"
                 elif "cds" in obj["type"]:
                     if "author" in obj and obj["author"] is not None:
-                        person = obj["author"]
+                        person = obj["author"]["name"]
                     elif "details" in obj and "contributor" in obj["details"]:
                         contributor: str = obj["details"]["contributor"]
-                        contributors = [s.strip() for s in contributor.split(",")]
-                        if len(contributors) == 1:
-                            person = contributors[0]
+                        person = [s.strip() for s in contributor.split(",")]
                     mtype = "cds_and_vinyl"
                 else:
                     raise RuntimeError("Unrecognized metadata type")
