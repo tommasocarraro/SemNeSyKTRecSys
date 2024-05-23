@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os.path
+from typing import Union, Literal
 
 from nesy.api_querying.google_kg_search import google_kg_search
 
@@ -11,26 +12,29 @@ async def main():
 
     # how many items to process
     limit = 500
+    query_type: Union[
+        Literal["books"], Literal["cds_and_vinyl"], Literal["movies_and_tv"]
+    ] = "movies_and_tv"
     with open(merged_metadata_path, "r") as f:
         with open(merged_metadata_aug, "w", encoding="UTF-8") as g:
             merged_metadata = json.load(f)
 
             # dictionary for reverse lookup
-            books = {}
+            items = {}
             for k, v in merged_metadata.items():
-                if v["type"] == "books" and v["title"] is not None:
-                    books[v["title"]] = k
+                if v["type"] == query_type and v["title"] is not None:
+                    items[v["title"]] = k
 
-            books_titles = list(books.keys())
-            print(f"Remaining books: {len(books_titles)}, processing: {limit}...")
+            titles = list(items.keys())
+            print(f"Remaining books: {len(titles)}, processing: {limit}...")
 
-            books_info = await google_kg_search(
-                titles=list(books.keys())[:limit], query_type="books"
+            items_info = await google_kg_search(
+                titles=list(items.keys())[:limit], query_type=query_type
             )
 
             # title is the same used for querying, the one provided by the response is disregarded
-            for title, author, year in books_info:
-                asin = books[title]
+            for title, author, year in items_info:
+                asin = items[title]
                 merged_metadata[asin]["person"] = author
                 merged_metadata[asin]["year"] = year
 
