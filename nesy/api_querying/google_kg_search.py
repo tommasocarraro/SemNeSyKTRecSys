@@ -55,7 +55,7 @@ def extract_info_movie_tvseries(res: Any):
     return director, year
 
 
-async def get_records_info(
+async def google_kg_search(
     titles: list[str],
     query_type: Union[
         Literal["books"], Literal["cds_and_vinyl"], Literal["movies_and_tv"]
@@ -78,13 +78,13 @@ async def get_records_info(
         how_many=len(titles), max_rate=max_rate, time_period=time_period
     )
     if query_type == "books":
-        actual_query_type = ["Book"]
+        actual_query_type = [("types", "Book")]
         extract_info_cb = None
     elif query_type == "cds_and_vinyl":
-        actual_query_type = ["MusicAlbum"]
+        actual_query_type = [("types", "MusicAlbum")]
         extract_info_cb = None
     else:
-        actual_query_type = ["Movie", "TVSeries"]
+        actual_query_type = [("types", "Movie"), ("types", "TVSeries")]
         extract_info_cb = extract_info_movie_tvseries
     tasks = [
         run_with_async_limiter(
@@ -92,14 +92,14 @@ async def get_records_info(
             fn=get_request,
             url="https://kgsearch.googleapis.com/v1/entities:search",
             title=title,
-            params={
-                "query": title,
-                "key": GOOGLE_API_KEY,
-                "limit": 10,
-                "indent": "True",
-                "types": actual_query_type,
-                "languages": language,
-            },
+            params=[
+                ("query", title),
+                ("key", GOOGLE_API_KEY),
+                ("limit", 10),
+                ("indent", "True"),
+                ("languages", language),
+                *actual_query_type,
+            ],
         )
         for title in titles
     ]

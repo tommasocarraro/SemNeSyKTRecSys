@@ -37,7 +37,7 @@ def get_async_limiter(
         f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} second(s). This will "
         f"take approximately {eta:.2f} minutes"
     )
-    return AsyncLimiter(max_rate=1, time_period=2)
+    return AsyncLimiter(max_rate=max_rate, time_period=time_period)
 
 
 async def tqdm_process_responses(tasks: list):
