@@ -34,17 +34,25 @@ def extract_info_music(res: Any):
 
 def extract_info_movie_tvseries(res: Any):
     director, year = None, None
-    for item in res["itemListElement"]:
+    for item in res[1]["itemListElement"]:
         base_body = item["result"]
         detailed_description = base_body["detailedDescription"]["articleBody"]
         pattern = r"\b(19|20)\d{2}\b"
         match = re.search(pattern, detailed_description)
         if match:
             year = match.group(0)
-        pattern = r"(?i)directed by ((?:[A-Z][a-z]+\s*)+)"
+        pattern = r"(?i)directed by ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)"
         match = re.search(pattern, detailed_description)
         if match:
-            director = match.group(0)
+            director = match.group(0).lstrip("directed by ")
+        else:
+            pattern = r"(?i)by ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)"
+            match = re.search(pattern, detailed_description)
+            if match:
+                director = match.group(0).lstrip("by ")
+        if director is not None and year is not None:
+            return director, year
+    return director, year
 
 
 async def get_records_info(
@@ -77,7 +85,7 @@ async def get_records_info(
         extract_info_cb = None
     else:
         actual_query_type = ["Movie", "TVSeries"]
-        extract_info_cb = None
+        extract_info_cb = extract_info_movie_tvseries
     tasks = [
         run_with_async_limiter(
             limiter=limiter,
@@ -89,8 +97,8 @@ async def get_records_info(
                 "key": GOOGLE_API_KEY,
                 "limit": 10,
                 "indent": "True",
-                "type": actual_query_type,
-                "language": language,
+                "types": actual_query_type,
+                "languages": language,
             },
         )
         for title in titles
