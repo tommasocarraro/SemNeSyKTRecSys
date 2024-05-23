@@ -61,7 +61,7 @@ def merge_metadata_for_wikidata(output_file_path: str):
                     mtype = "movies_and_tv"
                 elif "books" in obj["type"]:
                     if "author" in obj and obj["author"] is not None:
-                        person = obj["author"]
+                        person = obj["author"]["name"]
                     mtype = "books"
                 elif "cds" in obj["type"]:
                     if "author" in obj and obj["author"] is not None:
