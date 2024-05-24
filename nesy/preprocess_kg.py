@@ -2,7 +2,7 @@ import os
 import shutil
 from os import makedirs
 from os.path import basename, dirname, join
-from nesy.utils import compute_graph_extension
+
 from nesy.kgtk_wrappers import (
     kgtk_add_id,
     kgtk_build_cache,
@@ -112,6 +112,10 @@ def preprocess_kg(
     if save_space:
         os.remove(output_inverse_ids_graph)
 
+    # delete existing cache to prevent it from growing too much with useless data
+    if os.path.exists(cache_path):
+        os.remove(cache_path)
+
     print("Building the graph cache")
     kgtk_build_cache(
         input_graph=concatenated_graph,
@@ -128,7 +132,7 @@ def preprocess_kg(
     return concatenated_graph
 
 
-# # Example usage
+# Example usage
 # kg = "../data/wikidata/claims.wikibase-item.tsv.gz"
 # cache = "../data/wikidata/graph-cache.sqlite3.db"
 # preprocess_kg(input_graph=kg, cache_path=cache, compress_inter_steps=True, debug=True)
