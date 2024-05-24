@@ -1,24 +1,21 @@
 import json
 import os
+from typing import Any
 
 import regex as re
 
 from .utils import correct_missing_types
 
 
-def merge_metadata_for_wikidata(output_file_path: str):
-    extracted_metadata_all_file = open(
-        os.path.join("data", "processed", "extracted_metadata_all.json"), "r"
-    )
-    extracted_metadata_all = json.load(extracted_metadata_all_file)
-
-    complete_filtered_metadata_file = open(
+def merge_metadata_for_wikidata(
+    extracted_metadata: dict[str, Any], output_file_path: str
+):
+    with open(
         os.path.join("data", "processed", "legacy", "complete-filtered-metadata.json"),
         "r",
-    )
-    complete_filtered_metadata = json.load(complete_filtered_metadata_file)
+    ) as complete_filtered_metadata_file:
+        complete_filtered_metadata = json.load(complete_filtered_metadata_file)
 
-    output_file = open(output_file_path, "w")
     output_data = {}
 
     for asin in complete_filtered_metadata.keys():
@@ -29,8 +26,8 @@ def merge_metadata_for_wikidata(output_file_path: str):
             title = complete_filtered_metadata[asin]
 
         # check if ASIN is in extracted metadata
-        if asin in extracted_metadata_all:
-            obj = extracted_metadata_all[asin]
+        if asin in extracted_metadata:
+            obj = extracted_metadata[asin]
             # check if object is not empty
             if bool(obj):
                 # try to extract the title
@@ -81,7 +78,5 @@ def merge_metadata_for_wikidata(output_file_path: str):
 
     correct_missing_types(output_data)
 
-    json.dump(output_data, output_file, indent=4, ensure_ascii=False)
-    output_file.close()
-    complete_filtered_metadata_file.close()
-    extracted_metadata_all_file.close()
+    with open(output_file_path, "w") as output_file:
+        json.dump(output_data, output_file, indent=4, ensure_ascii=False)

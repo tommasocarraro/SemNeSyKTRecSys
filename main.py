@@ -100,13 +100,13 @@ from nesy.data import (
     get_cross_pairs,
     remove_movies_from_music,
     split_metadata,
-    entity_linker_title_person_year
+    entity_linker_title_person_year,
 )
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
 from nesy.paths.labels import generate_all_labels
 from nesy.preprocess_kg import preprocess_kg
-from nesy.metadata_extraction.utils import correct_missing_types, get_metadata_stats
+from nesy.dataset_augmentation.utils import correct_missing_types, get_metadata_stats
 
 if __name__ == "__main__":
     # todo controllare meglio tutte le categorie di wikidata per i controlli che gli item finiscano nella categoria
@@ -188,7 +188,7 @@ if __name__ == "__main__":
         max_hops=2,
         debug=False,
         n_jobs=6,
-        gen_len=gen_len
+        gen_len=gen_len,
     )
     # create_wikidata_labels_sqlite("./data/wikidata/labels.en.tsv")
     # convert_ids_to_labels("./data/wikidata/results/Q103474-Q482621/query_results_2_hops.tsv")
