@@ -1,12 +1,13 @@
 import json
 import os.path
+from typing import Any
 
 from .query_by_asin import query_by_asin
 
 
 def extract_metadata(
     asin_file_path: str, metadata_files: list[str], cache_path: str
-) -> None:
+) -> dict[str, Any]:
     """
     For each ASIN code found in asin_file, extract the respective metadata from the SQLITE database.
     Args:
@@ -14,8 +15,6 @@ def extract_metadata(
         metadata_files: List of metadata files.
         cache_path: Path to the SQLITE database.
     """
-    output_dir = os.path.dirname(asin_file_path)
-
     # read all ASIN codes from the ASIN file
     with open(asin_file_path) as asin_file:
         json_obj = json.load(asin_file)
@@ -23,19 +22,7 @@ def extract_metadata(
 
     # extract the input metadata file names without extensions
     file_names = [os.path.basename(file).split(".")[0] for file in metadata_files]
-
-    # dictionary containing all opened output files and a dictionary which will be filled with the data to write in them
-    output_data_and_files = {
-        filename: (
-            open(
-                os.path.join(output_dir, "extracted_metadata_" + filename + ".json"),
-                "w",
-            ),
-            {},
-        )
-        for filename in file_names + ["all", "misses"]
-    }
-
+    output_data = {}
     for asin in asin_list:
         found = False
         for file_name in file_names:
@@ -54,16 +41,14 @@ def extract_metadata(
                             return d
 
                     lower_item = lowercase_keys(item)
+                    if "books" in file_name.lower():
+                        lower_item["type"] = "books"
+                    elif "movies" in file_name.lower():
+                        lower_item["type"] = "movies_and_tv"
+                    elif "cds" in file_name.lower():
+                        lower_item["type"] = "cds_and_vinyl"
 
-                    output_data_and_files["all"][1][asin] = lower_item
-                    output_data_and_files["all"][1][asin]["type"] = file_name.lower()
-                    output_data_and_files[file_name][1][asin] = lower_item
+                    output_data[asin] = lower_item
                     found = True
-        if not found:
-            output_data_and_files["all"][1][asin] = {}
-            output_data_and_files["misses"][1][asin] = {}
 
-    # write JSON objects to file system and close file connections
-    for file, data in output_data_and_files.values():
-        json.dump(data, file, indent=4, ensure_ascii=False)
-        file.close()
+    return output_data

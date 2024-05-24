@@ -3,7 +3,7 @@ import json
 import os.path
 from typing import Union, Literal
 
-from nesy.api_querying.google_kg_search import google_kg_search
+from nesy.dataset_augmentation.api_querying import google_kg_search
 
 
 async def main():
