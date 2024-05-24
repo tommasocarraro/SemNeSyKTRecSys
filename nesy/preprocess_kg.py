@@ -125,7 +125,8 @@ def preprocess_kg(
     )
 
     # removing temp directory
-    shutil.rmtree(base_temp_dir)
+    if os.path.exists(base_temp_dir):
+        shutil.rmtree(base_temp_dir)
 
     print(f"Final knowledge graph saved at {concatenated_graph}")
 
