@@ -1,5 +1,7 @@
 import json
+
 import pandas as pd
+from loguru import logger
 
 
 def object_recursive_delete_fields(json_object, fields_to_remove) -> None:
@@ -66,9 +68,11 @@ def get_metadata_stats(metadata):
     with open(metadata) as json_file:
         m_data = json.load(json_file)
     # create statistics dict
-    stats = {"movies_and_tv": {"title": 0, "person": 0, "year": 0},
-             "cds_and_vinyl": {"title": 0, "person": 0, "year": 0},
-             "books": {"title": 0, "person": 0, "year": 0}}
+    stats = {
+        "movies_and_tv": {"title": 0, "person": 0, "year": 0},
+        "cds_and_vinyl": {"title": 0, "person": 0, "year": 0},
+        "books": {"title": 0, "person": 0, "year": 0},
+    }
     for asin, data in m_data.items():
         if data["title"] is None:
             stats[data["type"]]["title"] += 1
@@ -76,4 +80,4 @@ def get_metadata_stats(metadata):
             stats[data["type"]]["person"] += 1
         if data["year"] is None:
             stats[data["type"]]["year"] += 1
-    print(stats)
+    logger.info(stats)

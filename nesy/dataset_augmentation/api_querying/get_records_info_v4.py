@@ -1,8 +1,9 @@
 import asyncio
-from typing import Any
 import re
+from typing import Any
 
 from aiolimiter import AsyncLimiter
+from loguru import logger
 
 from config import GOOGLE_API_KEY
 from .get_request import get_request
@@ -45,7 +46,7 @@ async def get_records_info(record_titles: list[str]):
                     title = base_body["name"]
                     artist = base_body["description"].split("by")[1].lstrip()
                     release_date = base_body["detailedDescription"]["articleBody"]
-                    pattern = r'\b(19|20)\d{2}\b'
+                    pattern = r"\b(19|20)\d{2}\b"
                     match = re.search(pattern, release_date)
                     if match:
                         year = match.group(0)
@@ -53,11 +54,13 @@ async def get_records_info(record_titles: list[str]):
                         year = None
                     break
         except IndexError as e:
-            print(f"Failed to retrieve the year: {e}")
+            logger.error(f"Failed to retrieve the year: {e}")
         except KeyError as e:
-            print(f"Failed to retrieve the data: {e}")
+            logger.error(f"Failed to retrieve the data: {e}")
         except TypeError as e:
-            print(f"Type mismatch between the expected and actual json structure: {e}")
+            logger.error(
+                f"Type mismatch between the expected and actual json structure: {e}"
+            )
         return title, artist, year
 
     return process_responses_with_joblib(responses=responses, fn=extract_info)

@@ -1,5 +1,7 @@
 import re
-from typing import Union, Literal, Any
+from typing import Any
+
+from loguru import logger
 
 from config import GOOGLE_API_KEY
 from .get_request import get_request
@@ -7,7 +9,7 @@ from .utils import (
     run_with_async_limiter,
     process_responses_with_joblib,
     get_async_limiter,
-    tqdm_process_responses,
+    tqdm_run_tasks_async,
 )
 
 
@@ -24,11 +26,13 @@ def extract_info_music(res: Any):
                 year = match.group(0)
             break
     except IndexError as e:
-        print(f"Failed to retrieve the artist: {e}")
+        logger.error(f"Failed to retrieve the artist: {e}")
     except KeyError as e:
-        print(f"Failed to retrieve the data: {e}")
+        logger.error(f"Failed to retrieve the data: {e}")
     except TypeError as e:
-        print(f"Type mismatch between the expected and actual json structure: {e}")
+        logger.error(
+            f"Type mismatch between the expected and actual json structure: {e}"
+        )
     return artist, year
 
 
@@ -57,16 +61,14 @@ def extract_info_movie_tvseries(res: Any):
 
 async def google_kg_search(
     titles: list[str],
-    query_type: Union[
-        Literal["books"], Literal["cds_and_vinyl"], Literal["movies_and_tv"]
-    ],
+    query_types: list[str],
     language: str = "en",
 ):
     """
     Given a list of titles, asynchronously queries the Google Graph Search API.
     Args:
         titles: list of titles to be searched
-        query_type: type of search
+        query_types: types of entities to be searched
         language: languages of the results, defaults to "en"
 
     Returns:
@@ -77,14 +79,11 @@ async def google_kg_search(
     limiter = get_async_limiter(
         how_many=len(titles), max_rate=max_rate, time_period=time_period
     )
-    if query_type == "books":
-        actual_query_type = [("types", "Book")]
+    if "Book" in query_types:
         extract_info_cb = None
-    elif query_type == "cds_and_vinyl":
-        actual_query_type = [("types", "MusicAlbum")]
+    elif "CDs" in query_types:
         extract_info_cb = None
     else:
-        actual_query_type = [("types", "Movie"), ("types", "TVSeries")]
         extract_info_cb = extract_info_movie_tvseries
     tasks = [
         run_with_async_limiter(
@@ -98,12 +97,12 @@ async def google_kg_search(
                 ("limit", 10),
                 ("indent", "True"),
                 ("languages", language),
-                *actual_query_type,
+                *list(zip(["types" for _ in range(len(query_types))], query_types)),
             ],
         )
         for title in titles
     ]
 
-    responses = await tqdm_process_responses(tasks)
+    responses = await tqdm_run_tasks_async(tasks)
 
     return process_responses_with_joblib(responses=responses, fn=extract_info_cb)

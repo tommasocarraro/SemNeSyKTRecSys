@@ -3,6 +3,8 @@ import shutil
 from os import makedirs
 from os.path import basename, dirname, join
 
+from loguru import logger
+
 from nesy.kgtk_wrappers import (
     kgtk_add_id,
     kgtk_build_cache,
@@ -50,7 +52,7 @@ def preprocess_kg(
     # optionally use filter to remove unwanted properties
     filtered_graph = None
     if selected_properties is not None:
-        print("Filtering out unwanted properties")
+        logger.info("Filtering out unwanted properties")
         filtered_graph = join(
             base_temp_dir,
             graph_name + "_filtered" + compute_graph_extension(compress_inter_steps),
@@ -65,7 +67,7 @@ def preprocess_kg(
             pattern=pattern,
         )
 
-    print("Importing graph into temporary cache")
+    logger.info("Importing graph into temporary cache")
     temp_graph_cache = join(base_temp_dir, "temp_cache.sqlite3.db")
     kgtk_build_cache(
         input_graph=input_graph if filtered_graph is None else filtered_graph,
@@ -73,7 +75,7 @@ def preprocess_kg(
         debug=debug,
     )
 
-    print("Extracting all properties and computing their inverse")
+    logger.info("Extracting all properties and computing their inverse")
     output_inverse_graph = join(
         base_temp_dir,
         graph_name + "_inverse" + compute_graph_extension(compress_inter_steps),
@@ -92,7 +94,7 @@ def preprocess_kg(
         if filtered_graph is not None:
             os.remove(filtered_graph)
 
-    print("Generating IDs for the inversed properties")
+    logger.info("Generating IDs for the inversed properties")
     output_inverse_ids_graph = join(
         base_temp_dir,
         graph_name
@@ -103,7 +105,7 @@ def preprocess_kg(
     if save_space:
         os.remove(output_inverse_graph)
 
-    print("Concatenating the original and the inversed properties")
+    logger.info("Concatenating the original and the inversed properties")
     concatenated_graph = join(dirname(input_graph), graph_name + "_preprocessed.tsv.gz")
     kgtk_cat(
         input_graphs=[input_graph, output_inverse_ids_graph],
@@ -116,7 +118,7 @@ def preprocess_kg(
     if os.path.exists(cache_path):
         os.remove(cache_path)
 
-    print("Building the graph cache")
+    logger.info("Building the graph cache")
     kgtk_build_cache(
         input_graph=concatenated_graph,
         graph_cache=cache_path,
@@ -128,7 +130,7 @@ def preprocess_kg(
     if os.path.exists(base_temp_dir):
         shutil.rmtree(base_temp_dir)
 
-    print(f"Final knowledge graph saved at {concatenated_graph}")
+    logger.info(f"Final knowledge graph saved at {concatenated_graph}")
 
     return concatenated_graph
 

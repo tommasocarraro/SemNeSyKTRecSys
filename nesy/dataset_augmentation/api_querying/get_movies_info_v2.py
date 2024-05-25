@@ -2,6 +2,7 @@ import asyncio
 from typing import Any
 
 from aiolimiter import AsyncLimiter
+from loguru import logger
 
 from config import GOOGLE_API_KEY
 from .get_request import get_request
@@ -47,11 +48,13 @@ async def get_movies_info(movie_titles: list[str]):
                     year = release_date.split()[0]
                     break
         except IndexError as e:
-            print(f"Failed to retrieve the year: {e}")
+            logger.error(f"Failed to retrieve the year: {e}")
         except KeyError as e:
-            print(f"Failed to retrieve the data: {e}")
+            logger.error(f"Failed to retrieve the data: {e}")
         except TypeError as e:
-            print(f"Type mismatch between the expected and actual json structure: {e}")
+            logger.error(
+                f"Type mismatch between the expected and actual json structure: {e}"
+            )
         return title, year
 
     return process_responses_with_joblib(responses=responses, fn=extract_info)
