@@ -1,6 +1,9 @@
+import heapq
 import re
-from typing import Any
+from typing import Any, Optional
 
+import jaro
+import regex
 from loguru import logger
 
 from config import GOOGLE_API_KEY
@@ -59,6 +62,72 @@ def extract_info_movie_tvseries(res: Any):
     return director, year
 
 
+def extract_books_info(
+    data: tuple[str, dict[str, Any]]
+) -> tuple[str, Optional[str], Optional[str]]:
+    author, year = None, None
+    title, res = data
+    results_with_scores = []
+    counter = 0
+    try:
+        results = res["itemListElement"]
+        for result in results:
+            body = result["result"]
+            score = 0
+            try:
+                description = body["description"]
+                s = regex.search(r"\b(?<=by\s)(\w*\s\w*)\b", description)
+                if s:
+                    author = s.group(0)
+            except KeyError:
+                try:
+                    detailed_description = body["detailedDescription"]["articleBody"]
+                    s = regex.search(r"\b(?<=by\s)(\w*\s\w*)\b", detailed_description)
+                    if s:
+                        author = s.group(0)
+                except KeyError:
+                    logger.warning(f"Failed to retrieve {title}'s author")
+            try:
+                detailed_description = body["detailedDescription"]["articleBody"]
+                s = regex.search(
+                    r"(?<=([Rr]eleased|[Pp]ublished).*\b)(\d{4})", detailed_description
+                )
+                if s:
+                    year = s.group(0)
+            except KeyError:
+                logger.warning(f"Failed to retrieve {title}'s year")
+            try:
+                name = body["name"]
+                score = jaro.jaro_winkler_metric(title, name)
+            except KeyError:
+                logger.warning(
+                    f"Failed to retrieve {title}'s name, using first result instead of computing the score"
+                )
+            try:
+                # TODO dunno if this is actually useful
+                types = body["@type"]
+                for dtype in types:
+                    if dtype not in ["Book", "Thing"]:
+                        score = score - 0.5 if score >= 0.5 else 0
+            except KeyError:
+                logger.warning(f"Failed to retrieve {title}'s types")
+            # required because if the first element of the tuple is equal to another, the heap will use the second
+            # to compare and will throw an error if the types are not comparable
+            counter += 1
+            heapq.heappush(
+                results_with_scores,
+                (score, counter, (author, year)),
+            )
+    except KeyError as e:
+        logger.error(f"Failed to retrieve {title}'s information due to error: {e}")
+
+    best_score = heapq.nlargest(1, results_with_scores)
+    if len(best_score) > 0:
+        author, year = best_score[0][2]
+
+    return title, author, year
+
+
 async def google_kg_search(
     titles: list[str],
     query_types: list[str],
@@ -74,15 +143,11 @@ async def google_kg_search(
     Returns:
         a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
-    max_rate = 10
-    time_period = 1.0
-    limiter = get_async_limiter(
-        how_many=len(titles), max_rate=max_rate, time_period=time_period
-    )
+    limiter = get_async_limiter(how_many=len(titles), max_rate=10, time_period=1)
     if "Book" in query_types:
-        extract_info_cb = None
+        extract_info_cb = extract_books_info
     elif "CDs" in query_types:
-        extract_info_cb = None
+        extract_info_cb = extract_info_music
     else:
         extract_info_cb = extract_info_movie_tvseries
     tasks = [
@@ -103,6 +168,10 @@ async def google_kg_search(
         for title in titles
     ]
 
-    responses = await tqdm_run_tasks_async(tasks)
+    responses = await tqdm_run_tasks_async(tasks, desc="Querying Google KG...")
 
-    return process_responses_with_joblib(responses=responses, fn=extract_info_cb)
+    info_list = process_responses_with_joblib(responses=responses, fn=extract_info_cb)
+    return {
+        title: {"title": title, "person": author, "year": year}
+        for title, author, year in info_list
+    }

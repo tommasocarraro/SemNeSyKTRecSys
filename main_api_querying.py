@@ -38,14 +38,17 @@ async def query_apis(
 
     if item_type == "movies_and_tv":
         query_fn = get_movies_and_tv_info
+        args = [titles[:limit] if limit != -1 else titles]
     elif item_type == "books":
         query_fn = get_books_info
+        args = [titles[:limit] if limit != -1 else titles, ["Book"]]
     elif item_type == "cds_and_vinyl":
         query_fn = get_records_info
+        args = [titles[:limit] if limit != -1 else titles]
     else:
         raise ValueError("Unsupported item type")
 
-    items_info = await query_fn(titles[:limit] if limit != -1 else titles)
+    items_info = await query_fn(*args)
 
     # title is the same used for querying, the one provided by the response is disregarded
     for info in items_info.values():
@@ -82,7 +85,7 @@ async def main():
                 metadata[k]["queried"] = False
         g.seek(0)
         # modify in-place
-        await query_apis(metadata, item_type="books", limit=5000)
+        await query_apis(metadata, item_type="books", limit=50000)
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 
