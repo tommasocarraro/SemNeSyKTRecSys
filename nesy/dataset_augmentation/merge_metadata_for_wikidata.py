@@ -1,10 +1,25 @@
 import json
 import os
-from typing import Any
+from typing import Any, Union
 
 import regex as re
 
 from .utils import correct_missing_types
+
+
+def _clean_title(title: Union[str, None]) -> Union[str, None]:
+    if title is not None:
+        # remove tags between square and round braces
+        title_clean = re.sub(r"\[.*?\]", "", title)
+        title_clean = re.sub(r"\(.*?\)", "", title_clean)
+        # remove tags without braces
+        if title_clean.endswith("DVD") or title_clean.endswith("VHS"):
+            title_clean = title_clean[:-3].rstrip()
+        # remove explicit lyrics warning
+        elif title_clean.endswith("explicit_lyrics"):
+            title_clean = title_clean[: -len("explicit_lyrics")].rstrip()
+        # remove any remaining whitespace
+        return title_clean.rstrip()
 
 
 def merge_metadata_for_wikidata(
@@ -69,6 +84,8 @@ def merge_metadata_for_wikidata(
                     mtype = "cds_and_vinyl"
                 else:
                     raise RuntimeError("Unrecognized metadata type")
+
+        title = _clean_title(title)
         output_data[asin] = {
             "title": title,
             "person": person,

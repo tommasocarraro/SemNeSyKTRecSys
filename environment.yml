@@ -3,7 +3,7 @@ dependencies:
   - python=3.9
   - conda-forge::graph-tool
   - conda-forge::jupyterlab
-  - anaconda::sqlite=3.40.0
+  - anaconda::sqlite=3.46.0
   - pip
   - pip:
     - kgtk==1.5.4
@@ -19,3 +19,4 @@ dependencies:
     - requests==2.31.0
     - aiolimiter==1.1.0
     - python-dotenv==1.0.1
+    - loguru==0.7.2

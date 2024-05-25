@@ -1,9 +1,12 @@
-import sys
+import asyncio
+import signal
+from asyncio import CancelledError
 from typing import Sequence, Coroutine, Callable
 
 from aiohttp import ClientResponseError
 from aiolimiter import AsyncLimiter
 from joblib import delayed, Parallel
+from loguru import logger
 from tqdm.asyncio import tqdm
 
 
@@ -33,25 +36,29 @@ def get_async_limiter(
     how_many: int, max_rate: float, time_period: float
 ) -> AsyncLimiter:
     eta = how_many * time_period / max_rate / 60
-    print(
+    logger.info(
         f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} second(s). This will "
         f"take approximately {eta:.2f} minutes"
     )
     return AsyncLimiter(max_rate=max_rate, time_period=time_period)
 
 
-async def tqdm_process_responses(tasks: list):
+async def tqdm_run_tasks_async(tasks: list, desc: str):
     responses = []
-    error = None
-    for res in tqdm.as_completed(tasks, desc="Querying the API...", dynamic_ncols=True):
+    loop = asyncio.get_event_loop()
+
+    loop.add_signal_handler(
+        signal.SIGINT, lambda: [task.cancel() for task in asyncio.all_tasks()]
+    )
+    for res in (pbar := tqdm.as_completed(tasks, desc=desc, dynamic_ncols=True)):
         try:
             responses.append(await res)
-        except (ClientResponseError, KeyboardInterrupt) as e:
-            error = e
-            break
-    # printing the error outside the loop to avoid messing up tqdm's progress bar
-    if isinstance(error, ClientResponseError):
-        print(f"Stopping early due to HTTP error: {error}", file=sys.stderr)
-    else:
-        print(f"Keyboard interrupt detected. Quitting gracefully...", file=sys.stderr)
+        except (ClientResponseError, CancelledError) as e:
+            pbar.close()
+            if isinstance(e, ClientResponseError):
+                logger.error(f"Stopping early due to HTTP error: {e}")
+            elif isinstance(e, CancelledError):
+                logger.info(f"SIGINT detected. Quitting gracefully...")
+            else:
+                logger.error(f"An error occurred: {e}")
     return responses

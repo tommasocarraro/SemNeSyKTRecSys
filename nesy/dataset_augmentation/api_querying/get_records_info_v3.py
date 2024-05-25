@@ -2,6 +2,7 @@ import asyncio
 from typing import Any
 
 from aiolimiter import AsyncLimiter
+from loguru import logger
 
 from config import LAST_FM_API_KEY
 from .get_request import get_request
@@ -42,10 +43,10 @@ async def get_records_info(records_titles: list[str]):
             name = base_body["name"]
             return name, artist
         except KeyError as e:
-            print(f"There was an error while exploring the json structure: {e}")
+            logger.error(f"There was an error while exploring the json structure: {e}")
             return None, None
         except IndexError as e:
-            print(f"The results are empty: {e}")
+            logger.error(f"The results are empty: {e}")
             return None, None
 
     return process_responses_with_joblib(responses=responses, fn=extract_info)

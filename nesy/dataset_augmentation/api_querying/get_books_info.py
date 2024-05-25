@@ -6,7 +6,7 @@ from .utils import (
     run_with_async_limiter,
     process_responses_with_joblib,
     get_async_limiter,
-    tqdm_process_responses,
+    tqdm_run_tasks_async,
 )
 
 
@@ -40,7 +40,7 @@ async def get_books_info(book_titles: list[str]):
         for title in book_titles
     ]
 
-    responses = await tqdm_process_responses(tasks)
+    responses = await tqdm_run_tasks_async(tasks)
 
     def extract_info(res: tuple[str, Any]) -> tuple[str, str, str]:
         title, res_body = res

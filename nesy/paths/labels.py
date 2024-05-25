@@ -1,10 +1,12 @@
-import math
-import sqlite3
-from tqdm import tqdm
-from .utils import count_lines
-import pandas as pd
-import os
 import json
+import math
+import os
+import sqlite3
+
+import pandas as pd
+from tqdm import tqdm
+
+from .utils import count_lines
 
 
 def create_wikidata_labels_sqlite(raw_labels):
