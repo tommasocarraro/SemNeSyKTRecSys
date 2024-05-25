@@ -1,11 +1,15 @@
 import asyncio
 from typing import Any, Optional
 
-from aiolimiter import AsyncLimiter
 from loguru import logger
 
 from .get_request import get_request
-from .utils import run_with_async_limiter, process_responses_with_joblib
+from .utils import (
+    run_with_async_limiter,
+    process_responses_with_joblib,
+    get_async_limiter,
+    tqdm_run_tasks_async,
+)
 
 
 async def get_records_info(record_titles: list[str]):
@@ -14,9 +18,10 @@ async def get_records_info(record_titles: list[str]):
     Args:
         record_titles: list of record titles to be searched
 
-    Returns: a coroutine which provides all the responses' bodies' in json format when awaited
+    Returns:
+        a coroutine which provides all the responses' bodies' in json format when awaited
     """
-    limiter = AsyncLimiter(max_rate=1, time_period=1)
+    limiter = get_async_limiter(how_many=len(record_titles), max_rate=1, time_period=1)
     tasks = [
         run_with_async_limiter(
             limiter=limiter,
@@ -27,26 +32,41 @@ async def get_records_info(record_titles: list[str]):
         )
         for title in record_titles
     ]
+    responses = await tqdm_run_tasks_async(tasks, desc="Querying MusicBrainz...")
 
-    def extract_info(res: Any) -> tuple[Optional[str], Optional[str], Optional[str]]:
-        title, artist, year = None, None, None
+    def extract_info(
+        data: tuple[str, dict[str, Any]]
+    ) -> tuple[str, Optional[str], Optional[str]]:
+        artist, year = None, None
+        title, res = data
         try:
             base_body = res["releases"][0]
-            title = base_body["title"]
-            artist = base_body["artist-credit"][0]["name"]
-            release_date = base_body["date"]
-            year = release_date.split("-")[0]
-        except (IndexError, KeyError) as e:
+            try:
+                artist = base_body["artist-credit"][0]["name"]
+            except (KeyError, IndexError):
+                logger.warning(f"Failed to retrieve {title}'s artist")
+            try:
+                release_date = base_body["date"]
+                year = release_date.split("-")[0]
+            except KeyError:
+                logger.warning(f"Failed to retrieve {title}'s release year")
+            except IndexError:
+                logger.warning(
+                    f"Something went wrong when extracting the year from the release date"
+                )
+        except KeyError as e:
             logger.error(f"Failed to retrieve the information: {e}")
+        except IndexError:
+            logger.warning(f"No releases found for {title}")
+        except TypeError as e:
+            logger.error(
+                f"Something went wrong while retrieving {title}'s information: {e}"
+            )
         return title, artist, year
 
-    responses = await asyncio.gather(*tasks)
-
-    # filtered_artists = [
-    #     artist for artist in responses[0]["releases"] if "disambiguation" not in artist
-    # ]
-    #
-    # for artist in filtered_artists:
-    #     print(artist)
-
-    return process_responses_with_joblib(responses=responses, fn=extract_info)
+    music_info = process_responses_with_joblib(responses=responses, fn=extract_info)
+    music_dict = {
+        title: {"title": title, "person": artist, "year": year}
+        for title, artist, year in music_info
+    }
+    return music_dict

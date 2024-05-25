@@ -36,9 +36,13 @@ def get_async_limiter(
     how_many: int, max_rate: float, time_period: float
 ) -> AsyncLimiter:
     eta = how_many * time_period / max_rate / 60
+    unit = "minute(s)"
+    if eta > 60:
+        eta /= 60
+        unit = "hour(s)"
     logger.info(
         f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} second(s). This will "
-        f"take approximately {eta:.2f} minutes"
+        f"take approximately {eta:.2f} {unit}"
     )
     return AsyncLimiter(max_rate=max_rate, time_period=time_period)
 
