@@ -73,11 +73,16 @@ async def main():
         with open(merged_metadata_aug_file_path, "w", encoding="utf-8") as g:
             json.dump(metadata, g, indent=4, ensure_ascii=False)
 
+    # set this to True if you want to requery previously queried items
+    reset_queried = False
     with open(merged_metadata_aug_file_path, "r+", encoding="utf-8") as g:
         metadata = json.load(g)
+        if reset_queried:
+            for k, v in metadata.items():
+                metadata[k]["queried"] = False
         g.seek(0)
         # modify in-place
-        await query_apis(metadata, item_type="cds_and_vinyl", limit=5000)
+        await query_apis(metadata, item_type="books", limit=5000)
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 
