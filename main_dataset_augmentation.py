@@ -13,7 +13,7 @@ file_paths = [
 ]
 cache_path = os.path.join("data", "amazon2023", "meta_cache.sqlite3.db")
 cache_fail_path = os.path.join("data", "amazon2023", "meta_cache_failures.jsonl")
-build_sqlite_cache(file_paths, cache_path, cache_fail_path)
+# build_sqlite_cache(file_paths, cache_path, cache_fail_path)
 
 asin_file_path = os.path.join("data", "processed", "filtered-metadata.json")
 metadata_extraction_failure_path = os.path.join(

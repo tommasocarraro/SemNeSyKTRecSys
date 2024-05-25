@@ -8,7 +8,7 @@ from nesy.dataset_augmentation.api_querying.get_movies_and_tv_info import (
 )
 
 
-async def query_movies_and_tv(metadata: dict[str, Any], limit: int = 500) -> None:
+async def query_movies_and_tv(metadata: dict[str, Any], limit: int = -1) -> None:
     # dictionary for reverse lookup
     items = {
         v["title"]: k
@@ -20,9 +20,13 @@ async def query_movies_and_tv(metadata: dict[str, Any], limit: int = 500) -> Non
     }
 
     titles = list(items.keys())
-    logger.info(f"Remaining items: {len(titles)}, processing: {limit}...")
+    logger.info(
+        f"Remaining items: {len(titles)}, processing: {limit if limit <= len(titles) else len(titles)}..."
+    )
 
-    items_info = await get_movies_and_tv_info(titles=titles[:limit])
+    items_info = await get_movies_and_tv_info(
+        titles=titles[:limit] if limit != -1 else titles
+    )
 
     # title is the same used for querying, the one provided by the response is disregarded
     for info in items_info.values():
@@ -54,7 +58,7 @@ async def main():
         metadata = json.load(g)
         g.seek(0)
         # modify in-place
-        await query_movies_and_tv(metadata, 10000)
+        await query_movies_and_tv(metadata)
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 
