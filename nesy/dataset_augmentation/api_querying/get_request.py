@@ -24,7 +24,7 @@ async def _get_request(base_url: str, params: dict[str, str]) -> Coroutine:
     """
     headers = {
         "accept": "application/json",
-        "auth-agent": "SemNeSyKTRecSys-Python",
+        "User-Agent": "SemNeSyKTRecSys-Python ( nicolo.bertocco@studenti.unipd.it )",
         "Accept-Charset": "utf-8",
     }
 
