@@ -10,14 +10,70 @@ from .utils import correct_missing_types
 def _clean_title(title: Union[str, None]) -> Union[str, None]:
     if title is not None:
         # remove tags between square and round braces
-        title_clean = re.sub(r"\[.*?\]", "", title)
-        title_clean = re.sub(r"\(.*?\)", "", title_clean)
+        title_clean = re.sub(r"[\[\(].*?[\]\)]", "", title)
         # remove tags without braces
         if title_clean.endswith("DVD") or title_clean.endswith("VHS"):
             title_clean = title_clean[:-3].rstrip()
         # remove explicit lyrics warning
         elif title_clean.endswith("explicit_lyrics"):
             title_clean = title_clean[: -len("explicit_lyrics")].rstrip()
+        # TODO optimize regexps
+        # remove the complete x season
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))([Tt]he\s)?[Cc]omplete\s[\w\d]*\s[Ss]eason\b",
+            "",
+            title_clean,
+        )
+        # remove the complete season x
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))([Tt]he\s)?[Cc]omplete\s[Ss]eason\s\d*\b",
+            "",
+            title_clean,
+        )
+        # remove season x
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Ss]eason\s\d*\b", "", title_clean
+        )
+        # remove seasons x-y
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Ss]easons\s\d*-\d*\b", "", title_clean
+        )
+        # remove vol. x
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Vv]ol.\s\d*\b", "", title_clean
+        )
+        # remove volume x
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Vv]olume\s\d*\b", "", title_clean
+        )
+        # remove volume(s) x&y
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Vv]olumes?\s\d*\s?&\s?\d*\b", "", title_clean
+        )
+        # remove the complete series
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Tt]he\s[Cc]omplete\s[Ss]eries\b",
+            "",
+            title_clean,
+        )
+        # remove complete set
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Cc]omplete\s[Ss]et\b", "", title_clean
+        )
+        # remove programs x-y
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Pp]rograms?\s\d*-\d*\b", "", title_clean
+        )
+        # remove set x
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Ss]et\s\d*\b", "", title_clean
+        )
+        # remove complete
+        title_clean = re.sub(
+            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Cc]omplete\b", "", title_clean
+        )
+        # remove trailing special character
+        title_clean = re.sub(r"[^\w\s]$", "", title_clean)
         # remove any remaining whitespace
         return title_clean.rstrip()
 

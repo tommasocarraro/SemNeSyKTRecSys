@@ -1,6 +1,5 @@
 from typing import Any
 
-from aiolimiter import AsyncLimiter
 from loguru import logger
 
 from config import TMDB_API_KEY
@@ -9,6 +8,7 @@ from .utils import (
     run_with_async_limiter,
     process_responses_with_joblib,
     tqdm_run_tasks_async,
+    get_async_limiter,
 )
 
 
@@ -22,7 +22,7 @@ async def get_movies_and_tv_info(titles: list[str]):
         A coroutine which, if awaited, provides a dictionary containing the queried titles as keys and the
         retrieved information as values.
     """
-    limiter = AsyncLimiter(35, time_period=1)
+    limiter = get_async_limiter(len(titles), 35, time_period=1)
 
     search_tasks = [
         run_with_async_limiter(
@@ -49,7 +49,7 @@ async def get_movies_and_tv_info(titles: list[str]):
         title, res = data
         try:
             if len(res["results"]) == 0:
-                logger.error(f"No results for {title}")
+                logger.warning(f"No results for {title}")
                 return title, (item_id, year)
             base_body = res["results"][0]
             media_type = base_body["media_type"]
@@ -59,19 +59,19 @@ async def get_movies_and_tv_info(titles: list[str]):
                     first_air_date = base_body["first_air_date"]
                     year = first_air_date.split("-")[0]
                 except (KeyError, IndexError):
-                    logger.error(f"Failed to retrieve year for {title}")
+                    logger.warning(f"Failed to retrieve year for {title}")
                     year = None
             elif media_type == "movie":
                 try:
                     item_id = base_body["id"]
                 except KeyError:
-                    logger.error(f"Failed to retrieve item id for {title}")
+                    logger.warning(f"Failed to retrieve item id for {title}")
                     item_id = None
                 try:
                     release_date = base_body["release_date"]
                     year = release_date.split("-")[0]
                 except (KeyError, IndexError):
-                    logger.error(f"Failed to retrieve year for {title}")
+                    logger.warning(f"Failed to retrieve year for {title}")
                     year = None
         except (TypeError, KeyError, IndexError) as e:
             logger.error(
@@ -116,10 +116,12 @@ async def get_movies_and_tv_info(titles: list[str]):
                 if crew_member["job"] == "Director":
                     person = crew_member["name"]
                     break
-        except (TypeError, KeyError, IndexError) as e:
+        except TypeError as e:
             logger.error(
                 f"There was error while processing {title}'s info response: {e}"
             )
+        except KeyError:
+            logger.warning(f"Failed to retrieve {title}'s director")
         return title, person
 
     movie_info = process_responses_with_joblib(
