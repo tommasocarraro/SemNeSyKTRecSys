@@ -54,6 +54,9 @@ async def tqdm_run_tasks_async(tasks: list, desc: str):
     loop.add_signal_handler(
         signal.SIGINT, lambda: [task.cancel() for task in asyncio.all_tasks()]
     )
+    loop.add_signal_handler(
+        signal.SIGTERM, lambda: [task.cancel() for task in asyncio.all_tasks()]
+    )
     for res in (pbar := tqdm.as_completed(tasks, desc=desc, dynamic_ncols=True)):
         try:
             responses.append(await res)
