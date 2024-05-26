@@ -1,44 +1,93 @@
 import asyncio
 import json
 import os.path
-from typing import Union, Literal
+from typing import Any, Union, Literal
 
-from nesy.api_querying.google_kg_search import google_kg_search
+from loguru import logger
+
+from nesy.dataset_augmentation.api_querying.get_movies_and_tv_info import (
+    get_movies_and_tv_info,
+)
+from nesy.dataset_augmentation.api_querying.get_records_info_v2 import get_records_info
+from nesy.dataset_augmentation.api_querying.google_kg_search import (
+    google_kg_search as get_books_info,
+)
+
+
+async def query_apis(
+    metadata: dict[str, Any],
+    item_type: Union[
+        Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
+    ],
+    limit: int = -1,
+) -> None:
+    # dictionary for reverse lookup
+    items = {
+        v["title"]: k
+        for k, v in metadata.items()
+        if v["type"] == item_type
+        and v["title"] is not None
+        and (v["person"] is None or v["year"] is None)
+        and not v["queried"]
+    }
+
+    titles = list(items.keys())
+    logger.info(
+        f"Remaining items: {len(titles)}, processing: {limit if limit <= len(titles) else len(titles)}..."
+    )
+
+    if item_type == "movies_and_tv":
+        query_fn = get_movies_and_tv_info
+        args = [titles[:limit] if limit != -1 else titles]
+    elif item_type == "books":
+        query_fn = get_books_info
+        args = [titles[:limit] if limit != -1 else titles, ["Book"]]
+    elif item_type == "cds_and_vinyl":
+        query_fn = get_records_info
+        args = [titles[:limit] if limit != -1 else titles]
+    else:
+        raise ValueError("Unsupported item type")
+
+    items_info = await query_fn(*args)
+
+    # title is the same used for querying, the one provided by the response is disregarded
+    for info in items_info.values():
+        asin = items[info["title"]]
+        if metadata[asin]["person"] is None:
+            metadata[asin]["person"] = info["person"]
+        if metadata[asin]["year"] is None:
+            metadata[asin]["year"] = info["year"]
+        metadata[asin]["queried"] = True
 
 
 async def main():
-    merged_metadata_path = os.path.join("data", "processed", "merged_metadata.json")
-    merged_metadata_aug = os.path.join("data", "processed", "merged_metadata_aug.json")
+    merged_metadata_file_path = os.path.join(
+        "data", "processed", "merged_metadata.json"
+    )
+    merged_metadata_aug_file_path = os.path.join(
+        "data", "processed", "merged_metadata_aug.json"
+    )
 
-    # how many items to process
-    limit = 500
-    query_type: Union[
-        Literal["books"], Literal["cds_and_vinyl"], Literal["movies_and_tv"]
-    ] = "movies_and_tv"
-    with open(merged_metadata_path, "r") as f:
-        with open(merged_metadata_aug, "w", encoding="UTF-8") as g:
-            merged_metadata = json.load(f)
+    if not os.path.exists(merged_metadata_aug_file_path):
+        with open(merged_metadata_file_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        for k, v in metadata.items():
+            metadata[k]["queried"] = False
+        with open(merged_metadata_aug_file_path, "w", encoding="utf-8") as g:
+            json.dump(metadata, g, indent=4, ensure_ascii=False)
 
-            # dictionary for reverse lookup
-            items = {}
-            for k, v in merged_metadata.items():
-                if v["type"] == query_type and v["title"] is not None:
-                    items[v["title"]] = k
-
-            titles = list(items.keys())
-            print(f"Remaining books: {len(titles)}, processing: {limit}...")
-
-            items_info = await google_kg_search(
-                titles=list(items.keys())[:limit], query_type=query_type
-            )
-
-            # title is the same used for querying, the one provided by the response is disregarded
-            for title, author, year in items_info:
-                asin = items[title]
-                merged_metadata[asin]["person"] = author
-                merged_metadata[asin]["year"] = year
-
-            json.dump(merged_metadata, g, indent=4, ensure_ascii=False)
+    # set this to True if you want to requery previously queried items
+    reset_queried = False
+    with open(merged_metadata_aug_file_path, "r+", encoding="utf-8") as g:
+        metadata = json.load(g)
+        if reset_queried:
+            for k, v in metadata.items():
+                metadata[k]["queried"] = False
+        g.seek(0)
+        # modify in-place
+        await query_apis(metadata, item_type="books", limit=50000)
+        json.dump(metadata, g, indent=4, ensure_ascii=False)
+        g.truncate()
 
 
 if __name__ == "__main__":
