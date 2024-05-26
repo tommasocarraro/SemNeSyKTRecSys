@@ -100,7 +100,8 @@ from nesy.data import (
     get_cross_pairs,
     remove_movies_from_music,
     split_metadata,
-    entity_linker_title_person_year
+    entity_linker_title_person_year,
+    update_metadata
 )
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
@@ -114,8 +115,9 @@ if __name__ == "__main__":
     # todo finire tutta sta parte
     # todo fare mega refactoring
     # todo capire se andare su neo4j
-    correct_missing_types("./data/processed/merged_metadata.json")
-    get_metadata_stats("./data/processed/merged_metadata.json")
+    # correct_missing_types("./data/processed/merged_metadata.json")
+    # get_metadata_stats("./data/processed/merged_metadata.json")
+    update_metadata("./data/processed/filtered-metadata.json", "./data/processed/missing-titles.json")
     # correct_missing_types("./data/processed/merged_metadata.json")
     # entity_linker_title_person_year("./prova.json")
     # metadata_stats("./data/processed/complete-filtered-metadata.json",
