@@ -12,8 +12,6 @@
 # books: 16% (57946) item matchati su wikidata
 # interessante perche' nonostante i libri siano solo il 16%, il dataset e' comunque piu' completo degli altri due, quindi nessun problema, possiamo utilizzarlo
 # todo vedere discorso delle descrizioni dei film, libri ecc in altri database, per calcolare similarita' tra loro
-# todo capire come creare i percorsi su wikidata con i 1000 pacchetti disponibili
-# todo se riesco a lavorare su un dump o un sotto dump potrei sfruttare quel pacchetto che avevo trovato per fare le ricerche per label e alias
 
 
 # todo INTERESSANTE
@@ -109,11 +107,6 @@ from nesy.preprocess_kg import preprocess_kg
 from nesy.dataset_augmentation.utils import correct_missing_types, get_metadata_stats
 
 if __name__ == "__main__":
-    # todo controllare meglio tutte le categorie di wikidata per i controlli che gli item finiscano nella categoria
-    #  corretta
-    # todo finire tutta sta parte
-    # todo fare mega refactoring
-    # todo capire se andare su neo4j
     correct_missing_types("./data/processed/merged_metadata.json")
     get_metadata_stats("./data/processed/merged_metadata.json")
     # correct_missing_types("./data/processed/merged_metadata.json")
@@ -223,7 +216,6 @@ if __name__ == "__main__":
 
     # get_wid_per_cat("books")
     # metadata_cleaning("./data/processed/complete-filtered-metadata.json")
-    # # todo fare il contrario da wikidata ad amazon, come check che i match sono corretti
     # with open("./data/processed/mapping-reviews_Movies_and_TV_5.json") as json_file:
     #     mapping = json.load(json_file)
     # p = pd.read_csv("./data/processed/reviews_Movies_and_TV_5.csv")
