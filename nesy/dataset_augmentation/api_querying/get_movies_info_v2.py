@@ -1,19 +1,19 @@
 import asyncio
 from typing import Any
-import re
 
 from aiolimiter import AsyncLimiter
+from loguru import logger
 
 from config import GOOGLE_API_KEY
 from .get_request import get_request
 from .utils import run_with_async_limiter, process_responses_with_joblib
 
 
-async def get_shows_info(show_titles: list[str]):
+async def get_movies_info(movie_titles: list[str]):
     """
-    Given a list of show titles, asynchronously queries the Google Graph Search API.
+    Given a list of movie titles, asynchronously queries the Google Graph Search API.
     Args:
-        show_titles: list of show titles to be searched
+        movie_titles: list of movie titles to be searched
 
     Returns: a coroutine which provides all the responses' bodies' in json format when awaited
     """
@@ -29,10 +29,10 @@ async def get_shows_info(show_titles: list[str]):
                 "key": GOOGLE_API_KEY,
                 "limit": 10,
                 "indent": "True",
-                "types": ["TVSeries"],
+                "types": ["Movie"],
             },
         )
-        for title in show_titles
+        for title in movie_titles
     ]
 
     responses = await asyncio.gather(*tasks)
@@ -42,22 +42,19 @@ async def get_shows_info(show_titles: list[str]):
         try:
             for item in res["itemListElement"]:
                 base_body = item["result"]
-                if "TVSeries" in base_body["@type"]:
+                if "Movie" in base_body["@type"]:
                     title = base_body["name"]
-                    release_date = base_body["detailedDescription"]["articleBody"]
-                    pattern = r"\b(19|20)\d{2}\b"
-                    match = re.search(pattern, release_date)
-                    if match:
-                        year = match.group(0)
-                    else:
-                        year = None
+                    release_date = base_body["description"]
+                    year = release_date.split()[0]
                     break
         except IndexError as e:
-            print(f"Failed to retrieve the year: {e}")
+            logger.error(f"Failed to retrieve the year: {e}")
         except KeyError as e:
-            print(f"Failed to retrieve the data: {e}")
+            logger.error(f"Failed to retrieve the data: {e}")
         except TypeError as e:
-            print(f"Type mismatch between the expected and actual json structure: {e}")
+            logger.error(
+                f"Type mismatch between the expected and actual json structure: {e}"
+            )
         return title, year
 
     return process_responses_with_joblib(responses=responses, fn=extract_info)

@@ -1,13 +1,13 @@
 from typing import Coroutine
 
 import aiohttp
-import requests
 from backoff import on_exception, expo, full_jitter
+from loguru import logger
 
 
 @on_exception(
     expo,
-    requests.exceptions.RequestException,
+    aiohttp.ClientResponseError,
     max_time=120,
     max_tries=10,
     jitter=full_jitter,
@@ -19,11 +19,12 @@ async def _get_request(base_url: str, params: dict[str, str]) -> Coroutine:
         base_url: API endpoint to contact
         params: URL parameters to attach to the base URL
 
-    Returns: a coroutine which provides the request's json output when awaited
+    Returns:
+        a coroutine which provides the request's json output when awaited
     """
     headers = {
         "accept": "application/json",
-        "auth-agent": "SemNeSyKTRecSys-Python",
+        "User-Agent": "SemNeSyKTRecSys-Python ( nicolo.bertocco@studenti.unipd.it )",
         "Accept-Charset": "utf-8",
     }
 
@@ -42,9 +43,18 @@ async def get_request(url: str, title: str, params: dict[str, str]):
         title: title to be searched, only used for debugging purposes
         params: dictionary of HTTP parameters
 
-    Returns: a coroutine which provides the request's body in json format when awaited
+    Returns:
+        a coroutine which provides the request's body in json format when awaited
     """
     try:
         return title, await _get_request(url, params)
-    except requests.RequestException as e:
-        print(f"There was an error while retrieving item {title}: {e}")
+    except aiohttp.ClientResponseError as e:
+        if e.status == 404:
+            logger.error(f"Error 404: item {title} not found")
+        elif e.status == 429:
+            logger.error(f"Error 429: Too Many Requests")
+        elif e.status == 401:
+            logger.error(f"Error 401: Unauthorized")
+        else:
+            logger.error(f"There was an error while retrieving item {title}: {e}")
+        raise e

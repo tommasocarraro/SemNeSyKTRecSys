@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 
+from loguru import logger
 from tqdm import tqdm
 
 from .utils import object_recursive_delete_fields
@@ -65,7 +66,9 @@ def _insert_file_into_database(
                             (parent_asin, data),
                         )
                 except json.JSONDecodeError as e:
-                    print(f"There was en error while decoding the JSON object: {e}")
+                    logger.error(
+                        f"There was en error while decoding the JSON object: {e}"
+                    )
                     continue
 
 
@@ -116,4 +119,4 @@ def build_sqlite_cache(
     conn.commit()
     conn.close()
 
-    print("Data import complete.")
+    logger.info("Data import complete.")

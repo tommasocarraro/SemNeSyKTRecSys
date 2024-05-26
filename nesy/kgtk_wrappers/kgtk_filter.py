@@ -4,7 +4,12 @@ from .preprocess_opts import preprocess_opts
 
 
 def kgtk_filter(
-    input_graph: str, word_separator: str, pattern_separator: str, invert: bool, pattern: str, output_path: str
+    input_graph: str,
+    word_separator: str,
+    pattern_separator: str,
+    invert: bool,
+    pattern: str,
+    output_path: str,
 ) -> None:
     """
     Filter the input graph using the specified pattern and save the filtered graph to the output path.

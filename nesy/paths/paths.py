@@ -1,15 +1,13 @@
 import os
-import time
 from multiprocessing import cpu_count
 from typing import Sequence
 
-import pandas as pd
 from joblib import delayed, Parallel
 from tqdm.auto import tqdm
 
-from ..kgtk_wrappers import kgtk_query
 from .clauses import get_clauses
 from .merge_tsv_files import merge_tsv_from_directory
+from ..kgtk_wrappers import kgtk_query
 
 
 def _run_query_job(
@@ -126,5 +124,7 @@ def get_multiple_paths(
                 debug,
                 True,
             )
-            for source, target in tqdm(pairs, total=len(pairs) if gen_len is None else gen_len)
+            for source, target in tqdm(
+                pairs, total=len(pairs) if gen_len is None else gen_len
+            )
         )
