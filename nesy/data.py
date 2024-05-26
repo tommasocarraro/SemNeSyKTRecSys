@@ -1253,3 +1253,23 @@ def split_metadata(metadata_path):
             new_dict = {asin: title for asin, title in complete_metadata.items() if asin in correct_asins}
             with open("./data/processed/" + mapping + "_metadata.json", 'w', encoding='utf-8') as f:
                 json.dump(new_dict, f, ensure_ascii=False, indent=4)
+
+
+def update_metadata(metadata_path, new_data):
+    """
+    Updates the given metadata with the given new data (ASIN is the key and a dict containing the title and other info
+    is the value).
+
+    :param metadata_path: path to metadata with ASIN - title pairs
+    :param new_data: path to new data
+    """
+    # open metadata
+    with open(metadata_path) as json_file:
+        metadata = json.load(json_file)
+    # open new data
+    with open(new_data) as json_file:
+        new_data = json.load(json_file)
+    # update metadata
+    metadata.update({k: v["title"] for k, v in new_data.items() if v["title"] is not None})
+    with open(metadata_path, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=4)
