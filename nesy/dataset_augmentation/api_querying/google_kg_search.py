@@ -7,16 +7,15 @@ import regex
 from loguru import logger
 
 from config import GOOGLE_API_KEY
-from .get_request import get_request
+from .get_request import get_request_with_limiter
 from .utils import (
-    run_with_async_limiter,
     process_responses_with_joblib,
     get_async_limiter,
-    tqdm_run_tasks_async,
+    process_http_requests,
 )
 
 
-def extract_info_music(res: Any):
+def _extract_info_music(res: Any):
     artist, year = None, None
     try:
         for item in res["itemListElement"]:
@@ -39,7 +38,7 @@ def extract_info_music(res: Any):
     return artist, year
 
 
-def extract_info_movie_tvseries(res: Any):
+def _extract_info_movie_tvseries(res: Any):
     director, year = None, None
     for item in res[1]["itemListElement"]:
         base_body = item["result"]
@@ -62,7 +61,7 @@ def extract_info_movie_tvseries(res: Any):
     return director, year
 
 
-def extract_books_info(
+def _extract_books_info(
     data: tuple[str, dict[str, Any]]
 ) -> tuple[str, Optional[str], Optional[str]]:
     author, year = None, None
@@ -145,15 +144,14 @@ async def google_kg_search(
     """
     limiter = get_async_limiter(how_many=len(titles), max_rate=10, time_period=1)
     if "Book" in query_types:
-        extract_info_cb = extract_books_info
+        extract_info_cb = _extract_books_info
     elif "CDs" in query_types:
-        extract_info_cb = extract_info_music
+        extract_info_cb = _extract_info_music
     else:
-        extract_info_cb = extract_info_movie_tvseries
+        extract_info_cb = _extract_info_movie_tvseries
     tasks = [
-        run_with_async_limiter(
+        get_request_with_limiter(
             limiter=limiter,
-            fn=get_request,
             url="https://kgsearch.googleapis.com/v1/entities:search",
             title=title,
             params=[
@@ -167,8 +165,7 @@ async def google_kg_search(
         )
         for title in titles
     ]
-
-    responses = await tqdm_run_tasks_async(tasks, desc="Querying Google KG...")
+    responses = await process_http_requests(tasks, tqdm_desc="Querying Google KG...")
 
     info_list = process_responses_with_joblib(responses=responses, fn=extract_info_cb)
     return {

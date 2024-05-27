@@ -1,26 +1,44 @@
-from typing import Coroutine
+from typing import Union
 
 import aiohttp
-from backoff import on_exception, expo, full_jitter
+from aiohttp import ClientResponseError
+from aiolimiter import AsyncLimiter
+from backoff import expo, on_exception, random_jitter
 from loguru import logger
+
+
+async def _handle_backoff(details):
+    limiter: AsyncLimiter = details["kwargs"]["limiter"]
+    logger.warning(
+        f"HTTP error 429 received. Setting limiter time period to {limiter.time_period} seconds"
+    )
+    limiter.time_period *= 2
 
 
 @on_exception(
     expo,
-    aiohttp.ClientResponseError,
-    max_time=120,
-    max_tries=10,
-    jitter=full_jitter,
+    ClientResponseError,
+    max_tries=8,
+    on_backoff=_handle_backoff,
+    jitter=random_jitter,
+    giveup=lambda e: e.status not in [429, 503],
 )
-async def _get_request(base_url: str, params: dict[str, str]) -> Coroutine:
+async def get_request_with_limiter(
+    url: str,
+    title: str,
+    params: Union[dict[str, str], list[tuple[str, str]]],
+    limiter: AsyncLimiter,
+):
     """
-    Performs an asynchronous HTTP GET request
+    Runs a GET request against the provided URL's API with the provided params
     Args:
-        base_url: API endpoint to contact
-        params: URL parameters to attach to the base URL
+        url: target URL
+        title: title to be searched, only used for debugging purposes
+        params: dictionary of HTTP parameters
+        limiter: an aiolimiter AsyncLimiter
 
     Returns:
-        a coroutine which provides the request's json output when awaited
+        a coroutine which provides the request\'s body in json format when awaited
     """
     headers = {
         "accept": "application/json",
@@ -28,33 +46,7 @@ async def _get_request(base_url: str, params: dict[str, str]) -> Coroutine:
         "Accept-Charset": "utf-8",
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            base_url, params=params, headers=headers, raise_for_status=True
-        ) as response:
-            return await response.json()
-
-
-async def get_request(url: str, title: str, params: dict[str, str]):
-    """
-    Runs a GET request against the provided URL's API with the provided params
-    Args:
-        url: target URL
-        title: title to be searched, only used for debugging purposes
-        params: dictionary of HTTP parameters
-
-    Returns:
-        a coroutine which provides the request's body in json format when awaited
-    """
-    try:
-        return title, await _get_request(url, params)
-    except aiohttp.ClientResponseError as e:
-        if e.status == 404:
-            logger.error(f"Error 404: item {title} not found")
-        elif e.status == 429:
-            logger.error(f"Error 429: Too Many Requests")
-        elif e.status == 401:
-            logger.error(f"Error 401: Unauthorized")
-        else:
-            logger.error(f"There was an error while retrieving item {title}: {e}")
-        raise e
+    async with limiter:
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.get(url, params=params, headers=headers) as response:
+                return title, await response.json()

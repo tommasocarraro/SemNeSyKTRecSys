@@ -1,7 +1,7 @@
 import asyncio
 import signal
-from asyncio import CancelledError
-from typing import Sequence, Coroutine, Callable
+from json import JSONDecodeError
+from typing import Sequence, Callable
 
 from aiohttp import ClientResponseError
 from aiolimiter import AsyncLimiter
@@ -17,55 +17,63 @@ def process_responses_with_joblib(
     return pool(delayed(fn)(res) for res in responses)
 
 
-async def run_with_async_limiter(
-    limiter: AsyncLimiter, fn: Callable, *args, **kwargs
-) -> Coroutine:
-    """
-    Runs the *fn* asynchronous function inside the asynchronous context *limiter*
-    Args:
-        limiter: an AsyncLimiter
-        fn: an asynchronous function
-
-    Returns: a coroutine to be awaited
-    """
-    async with limiter:
-        return await fn(*args, **kwargs)
-
-
 def get_async_limiter(
     how_many: int, max_rate: float, time_period: float
 ) -> AsyncLimiter:
+    """
+    Logs ETA with the given parameters and returns the asynchronous limiter
+    Args:
+        how_many: how many total calls
+        max_rate: how many calls per *time_period*
+        time_period: time period, measured in seconds
+
+    Returns:
+        An asynchronous rate limiter
+    """
     eta = how_many * time_period / max_rate / 60
-    unit = "minute(s)"
+    unit = "minute" if eta == 1 else "minutes"
     if eta > 60:
         eta /= 60
-        unit = "hour(s)"
+        unit = "hour" if eta == 1 else "hours"
     logger.info(
-        f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} second(s). This will "
+        f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} {'second' if time_period==1 else 'seconds'}. This will "
         f"take approximately {eta:.2f} {unit}"
     )
     return AsyncLimiter(max_rate=max_rate, time_period=time_period)
 
 
-async def tqdm_run_tasks_async(tasks: list, desc: str):
-    responses = []
+def _stop_querying():
+    for task in asyncio.all_tasks():
+        task.cancel()
+
+
+async def process_http_requests(tasks: list, tqdm_desc: str):
     loop = asyncio.get_event_loop()
 
-    loop.add_signal_handler(
-        signal.SIGINT, lambda: [task.cancel() for task in asyncio.all_tasks()]
-    )
-    loop.add_signal_handler(
-        signal.SIGTERM, lambda: [task.cancel() for task in asyncio.all_tasks()]
-    )
-    for res in (pbar := tqdm.as_completed(tasks, desc=desc, dynamic_ncols=True)):
+    for sig in [signal.SIGINT, signal.SIGTERM]:
+        loop.add_signal_handler(sig, _stop_querying)
+
+    results = []
+    for res in (pbar := tqdm.as_completed(tasks, desc=tqdm_desc, dynamic_ncols=True)):
         try:
-            responses.append(await res)
-        except (ClientResponseError, CancelledError) as e:
-            pbar.close()
+            result = await res
+            results.append(result)
+        except (ClientResponseError, JSONDecodeError) as e:
             if isinstance(e, ClientResponseError):
-                logger.error(f"Stopping early due to HTTP error: {e}")
-            elif isinstance(e, CancelledError):
-                logger.info(f"SIGINT detected. Quitting gracefully...")
-            else:
-                logger.error(f"An error occurred: {e}")
-    return responses
+                if e.status == 404:
+                    logger.warning(f"Item not found: {e}")
+                elif e.status in [429, 503]:
+                    logger.error(f"Too many requests to the server: {e}")
+                    _stop_querying()
+                    pbar.close()
+                elif e.status >= 500:
+                    logger.warning(f"Server error: {e}")
+                elif e.status == 401:
+                    logger.error(f"Unauthorized: {e}")
+                    _stop_querying()
+                    pbar.close()
+                else:
+                    logger.error(f"Unknown error: {e}")
+            elif isinstance(e, JSONDecodeError):
+                logger.error(f"Failed to parse response: {e}")
+    return results
