@@ -99,6 +99,7 @@ from nesy.data import (
     remove_movies_from_music,
     split_metadata,
     entity_linker_title_person_year,
+    update_metadata
 )
 from nesy.paths import get_multiple_paths, get_paths
 from nesy.paths.merge_tsv_files import merge_tsv_from_directory
@@ -107,8 +108,10 @@ from nesy.preprocess_kg import preprocess_kg
 from nesy.dataset_augmentation.utils import correct_missing_types, get_metadata_stats
 
 if __name__ == "__main__":
-    correct_missing_types("./data/processed/merged_metadata.json")
-    get_metadata_stats("./data/processed/merged_metadata.json")
+    update_metadata("./data/processed/legacy/complete-filtered-metadata.json", "./data/processed/missing-titles.json")
+    # correct_missing_types("./data/processed/merged_metadata.json")
+    # metadata_stats("./data/processed/filtered-metadata.json", errors=['no-title'], save_asins=False)
+    # metadata_stats("./data/processed/legacy/complete-filtered-metadata.json", errors=['not-title', '404-error', 'captcha-or-DOM', 'captcha', ], save_asins=False)
     # correct_missing_types("./data/processed/merged_metadata.json")
     # entity_linker_title_person_year("./prova.json")
     # metadata_stats("./data/processed/complete-filtered-metadata.json",
