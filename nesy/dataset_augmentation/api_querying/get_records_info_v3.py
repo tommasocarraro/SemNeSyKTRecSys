@@ -1,12 +1,29 @@
 import asyncio
 from typing import Any
 
-from aiolimiter import AsyncLimiter
 from loguru import logger
 
 from config import LAST_FM_API_KEY
-from .get_request import get_request
-from .utils import run_with_async_limiter, process_responses_with_joblib
+from .get_request import get_request_with_limiter
+from .utils import (
+    process_responses_with_joblib,
+    get_async_limiter,
+    process_http_requests,
+)
+
+
+def _extract_info(json_response: Any):
+    try:
+        base_body = json_response["results"]["albummatches"]["album"][0]
+        artist = base_body["artist"]
+        name = base_body["name"]
+        return name, artist
+    except KeyError as e:
+        logger.error(f"There was an error while exploring the json structure: {e}")
+        return None, None
+    except IndexError as e:
+        logger.error(f"The results are empty: {e}")
+        return None, None
 
 
 async def get_records_info(records_titles: list[str]):
@@ -17,13 +34,13 @@ async def get_records_info(records_titles: list[str]):
 
     Returns: a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
-    limiter = AsyncLimiter(5)
+    limiter = get_async_limiter(
+        how_many=len(records_titles), max_rate=5, time_period=60
+    )
     tasks = [
-        run_with_async_limiter(
-            limiter=limiter,
-            fn=get_request,
-            title=title,
+        get_request_with_limiter(
             url="https://ws.audioscrobbler.com/2.0",
+            title=title,
             params={
                 "album": title,
                 "api_key": LAST_FM_API_KEY,
@@ -31,22 +48,12 @@ async def get_records_info(records_titles: list[str]):
                 "format": "json",
                 "limit": 1,
             },
+            limiter=limiter,
         )
         for title in records_titles
     ]
-    responses = await asyncio.gather(*tasks)
+    responses = await process_http_requests(
+        tasks=tasks, tqdm_desc="Querying last.fm..."
+    )
 
-    def extract_info(json_response: Any):
-        try:
-            base_body = json_response["results"]["albummatches"]["album"][0]
-            artist = base_body["artist"]
-            name = base_body["name"]
-            return name, artist
-        except KeyError as e:
-            logger.error(f"There was an error while exploring the json structure: {e}")
-            return None, None
-        except IndexError as e:
-            logger.error(f"The results are empty: {e}")
-            return None, None
-
-    return process_responses_with_joblib(responses=responses, fn=extract_info)
+    return process_responses_with_joblib(responses=responses, fn=_extract_info)

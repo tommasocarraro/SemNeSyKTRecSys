@@ -85,7 +85,7 @@ async def main():
                 metadata[k]["queried"] = False
         g.seek(0)
         # modify in-place
-        await query_apis(metadata, item_type="books", limit=50000)
+        await query_apis(metadata, item_type="cds_and_vinyl", limit=50000)
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 
