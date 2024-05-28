@@ -2,7 +2,6 @@
 Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
 
 ## TODO list:
-- Figure out why google kg search for books is duplicating warning logs
 - better check wikidata categories to create the small dumps used to filter out unwanted matches
 - code refactoring to put code in the right module
 - is it better to move to Neo4j?
