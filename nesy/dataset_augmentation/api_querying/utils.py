@@ -1,13 +1,17 @@
 import asyncio
+import os
 import signal
 from asyncio import CancelledError
-from typing import Sequence, Coroutine, Callable
+from json import JSONDecodeError
+from typing import Sequence, Callable, Coroutine, Union, Generator, Any
 
 from aiohttp import ClientResponseError
 from aiolimiter import AsyncLimiter
 from joblib import delayed, Parallel
 from loguru import logger
 from tqdm.asyncio import tqdm
+
+from nesy.dataset_augmentation import state
 
 
 def process_responses_with_joblib(
@@ -17,55 +21,86 @@ def process_responses_with_joblib(
     return pool(delayed(fn)(res) for res in responses)
 
 
-async def run_with_async_limiter(
-    limiter: AsyncLimiter, fn: Callable, *args, **kwargs
-) -> Coroutine:
-    """
-    Runs the *fn* asynchronous function inside the asynchronous context *limiter*
-    Args:
-        limiter: an AsyncLimiter
-        fn: an asynchronous function
-
-    Returns: a coroutine to be awaited
-    """
-    async with limiter:
-        return await fn(*args, **kwargs)
-
-
 def get_async_limiter(
     how_many: int, max_rate: float, time_period: float
 ) -> AsyncLimiter:
+    """
+    Logs ETA with the given parameters and returns the asynchronous limiter
+    Args:
+        how_many: how many total calls
+        max_rate: how many calls per *time_period*
+        time_period: time period, measured in seconds
+
+    Returns:
+        An asynchronous rate limiter
+    """
     eta = how_many * time_period / max_rate / 60
-    unit = "minute(s)"
+    unit = "minute" if eta == 1 else "minutes"
     if eta > 60:
         eta /= 60
-        unit = "hour(s)"
+        unit = "hour" if eta == 1 else "hours"
+    elif eta < 1:
+        eta *= 60
+        unit = "second" if eta == 1 else "seconds"
     logger.info(
-        f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} second(s). This will "
-        f"take approximately {eta:.2f} {unit}"
+        f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} "
+        f"{'second' if time_period==1 else 'seconds'}. This will take approximately {eta:.2f} {unit}"
     )
     return AsyncLimiter(max_rate=max_rate, time_period=time_period)
 
 
-async def tqdm_run_tasks_async(tasks: list, desc: str):
-    responses = []
-    loop = asyncio.get_event_loop()
+def _add_signal_handlers():
+    loop = asyncio.get_running_loop()
 
-    loop.add_signal_handler(
-        signal.SIGINT, lambda: [task.cancel() for task in asyncio.all_tasks()]
-    )
-    loop.add_signal_handler(
-        signal.SIGTERM, lambda: [task.cancel() for task in asyncio.all_tasks()]
-    )
-    for res in (pbar := tqdm.as_completed(tasks, desc=desc, dynamic_ncols=True)):
+    def shutdown() -> None:
+        logger.warning("Cancelling all running async tasks")
+        for task in asyncio.all_tasks(loop):
+            if task is not asyncio.current_task(loop):
+                task.cancel()
+        state.GRACEFUL_EXIT = True
+
+    for sig in [signal.SIGINT, signal.SIGTERM]:
+        loop.add_signal_handler(sig, shutdown)
+
+
+def _manually_abort(pbar: Generator[Any, Any, None]) -> None:
+    pbar.close()
+    os.kill(os.getpid(), signal.SIGINT)
+
+
+async def process_http_requests(
+    tasks: list[Coroutine], tqdm_desc: str
+) -> tuple[list[Union[tuple[str, any], tuple[str, None]]], bool]:
+    _add_signal_handlers()
+
+    results = []
+    for response in (
+        pbar := tqdm.as_completed(tasks, desc=tqdm_desc, dynamic_ncols=True)
+    ):
+        title = None
         try:
-            responses.append(await res)
-        except (ClientResponseError, CancelledError) as e:
+            title, body = await response
+            results.append((title, body))
+        except CancelledError:
+            results.append((title, None))
             pbar.close()
-            if isinstance(e, ClientResponseError):
-                logger.error(f"Stopping early due to HTTP error: {e}")
-            elif isinstance(e, CancelledError):
-                logger.info(f"SIGINT detected. Quitting gracefully...")
+        except ClientResponseError as e:
+            if e.status == 404:
+                logger.warning(f"Item not found: {e}")
+            elif e.status in [429, 503]:
+                _manually_abort(pbar)
+                logger.error(f"Too many requests to the server: {e}")
+                results.append((title, None))
+            elif e.status >= 500:
+                logger.warning(f"Server error: {e}")
+            elif e.status == 401:
+                _manually_abort(pbar)
+                logger.error(f"Unauthorized: {e}")
+                results.append((title, None))
             else:
-                logger.error(f"An error occurred: {e}")
-    return responses
+                logger.error(f"Unknown error: {e}")
+        except JSONDecodeError as e:
+            _manually_abort(pbar)
+            logger.error(f"JSON decoding error: {e}")
+            results.append((title, None))
+    return results

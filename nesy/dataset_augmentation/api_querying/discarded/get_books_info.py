@@ -1,12 +1,13 @@
 from typing import Any
 
 from config import GOOGLE_API_KEY
-from .get_request import get_request
-from .utils import (
-    run_with_async_limiter,
+from nesy.dataset_augmentation.api_querying.get_request_with_limiter import (
+    get_request_with_limiter,
+)
+from nesy.dataset_augmentation.api_querying.utils import (
     process_responses_with_joblib,
     get_async_limiter,
-    tqdm_run_tasks_async,
+    process_http_requests,
 )
 
 
@@ -23,10 +24,9 @@ async def get_books_info(book_titles: list[str]):
     limiter = get_async_limiter(
         how_many=len(book_titles), max_rate=max_rate, time_period=time_period
     )
+
     tasks = [
-        run_with_async_limiter(
-            limiter=limiter,
-            fn=get_request,
+        get_request_with_limiter(
             url="https://www.googleapis.com/books/v1/volumes",
             title=title,
             params={
@@ -36,11 +36,14 @@ async def get_books_info(book_titles: list[str]):
                 "maxResults": 1,
                 "projection": "lite",
             },
+            limiter=limiter,
         )
         for title in book_titles
     ]
 
-    responses = await tqdm_run_tasks_async(tasks)
+    responses = await process_http_requests(
+        tasks=tasks, tqdm_desc="Querying Google KG Search..."
+    )
 
     def extract_info(res: tuple[str, Any]) -> tuple[str, str, str]:
         title, res_body = res

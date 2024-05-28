@@ -4,7 +4,7 @@ from typing import Any, Union
 
 import regex as re
 
-from .utils import correct_missing_types
+from nesy.dataset_augmentation.metadata_extraction.utils import correct_missing_types
 
 
 def _clean_title(title: Union[str, None]) -> Union[str, None]:
