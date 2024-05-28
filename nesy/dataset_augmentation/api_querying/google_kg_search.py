@@ -173,10 +173,12 @@ async def google_kg_search(
         )
         for title in titles
     ]
-    responses = await process_http_requests(tasks, tqdm_desc="Querying Google KG...")
+    responses, graceful_exit = await process_http_requests(
+        tasks, tqdm_desc="Querying Google KG..."
+    )
 
     info_list = process_responses_with_joblib(responses=responses, fn=extract_info_cb)
     return {
         title: {"title": title, "person": author, "year": year, "err": err}
         for title, author, year, err in info_list
-    }
+    }, graceful_exit

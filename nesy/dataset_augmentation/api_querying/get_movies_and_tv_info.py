@@ -102,7 +102,7 @@ async def get_movies_and_tv_info(titles: list[str]):
         )
         for title in titles
     ]
-    search_responses = await process_http_requests(
+    search_responses, graceful_exit_1 = await process_http_requests(
         search_tasks, "Searching for movies and TV series on TMDB..."
     )
 
@@ -127,7 +127,7 @@ async def get_movies_and_tv_info(titles: list[str]):
         )
         for title, movie in movies_results
     ]
-    movies_info_responses = await process_http_requests(
+    movies_info_responses, graceful_exit_2 = await process_http_requests(
         movie_info_tasks, "Retrieving movies directors from TMDB..."
     )
     movie_info = process_responses_with_joblib(
@@ -143,4 +143,4 @@ async def get_movies_and_tv_info(titles: list[str]):
         movies_and_tv_dict[title]["person"] = person
         if err:
             movies_and_tv_dict["err"] = err
-    return movies_and_tv_dict
+    return movies_and_tv_dict, graceful_exit_1 or graceful_exit_2

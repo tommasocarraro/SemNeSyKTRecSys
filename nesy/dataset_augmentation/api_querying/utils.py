@@ -12,6 +12,9 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 
+graceful_exit = False
+
+
 def process_responses_with_joblib(
     fn: Callable, responses: Sequence, n_jobs: int = -1
 ) -> list:
@@ -52,6 +55,8 @@ def _add_signal_handlers():
         for task in asyncio.all_tasks(loop):
             if task is not asyncio.current_task(loop):
                 task.cancel()
+        global graceful_exit
+        graceful_exit = True
 
     for sig in [signal.SIGINT, signal.SIGTERM]:
         loop.add_signal_handler(sig, shutdown)
@@ -64,7 +69,8 @@ def _manually_abort(pbar: Generator[Any, Any, None]) -> None:
 
 async def process_http_requests(
     tasks: list[Coroutine], tqdm_desc: str
-) -> list[Union[tuple[str, any], tuple[str, None]]]:
+) -> tuple[list[Union[tuple[str, any], tuple[str, None]]], bool]:
+    global graceful_exit
     _add_signal_handlers()
 
     results = []
@@ -97,4 +103,4 @@ async def process_http_requests(
             _manually_abort(pbar)
             logger.error(f"JSON decoding error: {e}")
             results.append((title, None))
-    return results
+    return results, graceful_exit
