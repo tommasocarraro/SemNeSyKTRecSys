@@ -30,33 +30,38 @@ async def query_apis(
     }
 
     titles = list(items.keys())
-    logger.info(
-        f"Remaining items: {len(titles)}, processing: {limit if limit <= len(titles) else len(titles)}..."
-    )
 
     if item_type == "movies_and_tv":
         query_fn = get_movies_and_tv_info
-        args = [titles[:limit] if limit != -1 else titles]
+        args = []
     elif item_type == "books":
         query_fn = get_books_info
-        args = [titles[:limit] if limit != -1 else titles, ["Book"]]
+        args = [["Book"]]
     elif item_type == "cds_and_vinyl":
         query_fn = get_records_info
-        args = [titles[:limit] if limit != -1 else titles]
+        args = []
     else:
         raise ValueError("Unsupported item type")
 
-    items_info = await query_fn(*args)
+    for i in range(0, len(titles), limit):
+        logger.info(
+            f"Remaining items: {len(titles) - i}, processing: {limit if limit <= len(titles) else len(titles)}..."
+        )
+        batch = titles[i : i + limit]
+        items_info, graceful_exit = await query_fn(batch, *args)
 
-    # title is the same used for querying, the one provided by the response is disregarded
-    for info in items_info.values():
-        if not info["err"]:
-            asin = items[info["title"]]
-            if metadata[asin]["person"] is None:
-                metadata[asin]["person"] = info["person"]
-            if metadata[asin]["year"] is None:
-                metadata[asin]["year"] = info["year"]
-            metadata[asin]["queried"] = True
+        # title is the same used for querying, the one provided by the response is disregarded
+        for info in items_info.values():
+            if not info["err"]:
+                asin = items[info["title"]]
+                if metadata[asin]["person"] is None:
+                    metadata[asin]["person"] = info["person"]
+                if metadata[asin]["year"] is None:
+                    metadata[asin]["year"] = info["year"]
+                metadata[asin]["queried"] = True
+
+        if graceful_exit:
+            break
 
 
 async def main():
@@ -67,6 +72,7 @@ async def main():
         "data", "processed", "merged_metadata_aug.json"
     )
 
+    # if the aug file doesn't exist, create it by copying over all the data from the base file, adding queried field
     if not os.path.exists(merged_metadata_aug_file_path):
         with open(merged_metadata_file_path, "r", encoding="utf-8") as f:
             metadata = json.load(f)
@@ -77,16 +83,20 @@ async def main():
 
     # set this to True if you want to requery previously queried items
     reset_queried = False
+
     with open(merged_metadata_aug_file_path, "r+", encoding="utf-8") as g:
         metadata = json.load(g)
         if reset_queried:
             for k, v in metadata.items():
                 metadata[k]["queried"] = False
+        # reset file cursor position so writing the data back will overwrite previous contents
         g.seek(0)
+
         # modify metadata in-place
         # await query_apis(metadata, item_type="cds_and_vinyl", limit=5000)
         # await query_apis(metadata, item_type="movies_and_tv", limit=5000)
-        await query_apis(metadata, item_type="books", limit=5000)
+        await query_apis(metadata, item_type="books", limit=50)
+
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 

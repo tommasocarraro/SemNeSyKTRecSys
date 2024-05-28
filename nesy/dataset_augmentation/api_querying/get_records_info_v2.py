@@ -63,7 +63,7 @@ async def get_records_info(record_titles: list[str]):
         )
         for title in record_titles
     ]
-    responses = await process_http_requests(
+    responses, graceful_exit = await process_http_requests(
         tasks=tasks, tqdm_desc="Querying MusicBrainz..."
     )
 
@@ -71,4 +71,4 @@ async def get_records_info(record_titles: list[str]):
     return {
         title: {"title": title, "person": artist, "year": year, "err": err}
         for title, artist, year, err in music_info
-    }
+    }, graceful_exit
