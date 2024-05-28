@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 
@@ -11,54 +11,68 @@ from .utils import (
 )
 
 
-def _extract_search_info(data: tuple[str, dict[str, Any]]):
-    item_id, year = None, None
+def _extract_search_info(data: Union[tuple[str, dict[str, Any]], tuple[str, None]]):
+    item_id, year, err = None, None, False
     title, res = data
-    try:
-        if len(res["results"]) == 0:
-            logger.warning(f"No results for {title}")
-            return title, (item_id, year)
-        base_body = res["results"][0]
-        media_type = base_body["media_type"]
+    err = False
+    if res is None:
+        err = True
+    else:
+        try:
+            if len(res["results"]) == 0:
+                logger.warning(f"No results for {title}")
+                return title, (item_id, year)
+            base_body = res["results"][0]
+            media_type = base_body["media_type"]
 
-        if media_type == "tv":
-            try:
-                first_air_date = base_body["first_air_date"]
-                year = first_air_date.split("-")[0]
-            except (KeyError, IndexError):
-                logger.warning(f"Failed to retrieve year for {title}")
-                year = None
-        elif media_type == "movie":
-            try:
-                item_id = base_body["id"]
-            except KeyError:
-                logger.warning(f"Failed to retrieve item id for {title}")
-                item_id = None
-            try:
-                release_date = base_body["release_date"]
-                year = release_date.split("-")[0]
-            except (KeyError, IndexError):
-                logger.warning(f"Failed to retrieve year for {title}")
-                year = None
-    except (TypeError, KeyError, IndexError) as e:
-        logger.error(f"There was error while processing {title}'s search response: {e}")
-    return title, (item_id, year)
+            if media_type == "tv":
+                try:
+                    first_air_date = base_body["first_air_date"]
+                    year = first_air_date.split("-")[0]
+                except (KeyError, IndexError):
+                    logger.warning(f"Failed to retrieve year for {title}")
+                    year = None
+            elif media_type == "movie":
+                try:
+                    item_id = base_body["id"]
+                except KeyError:
+                    logger.warning(f"Failed to retrieve item id for {title}")
+                    item_id = None
+                try:
+                    release_date = base_body["release_date"]
+                    year = release_date.split("-")[0]
+                except (KeyError, IndexError):
+                    logger.warning(f"Failed to retrieve year for {title}")
+                    year = None
+        except (TypeError, KeyError, IndexError) as e:
+            logger.error(
+                f"There was error while processing {title}'s search response: {e}"
+            )
+            err = True
+    return title, (item_id, year), err
 
 
-def _extract_movie_info(data: tuple[str, dict[str, Any]]):
+def _extract_movie_info(data: Union[tuple[str, dict[str, Any]], tuple[str, None]]):
     person = None
     title, res = data
-    try:
-        crew = res["crew"]
-        for crew_member in crew:
-            if crew_member["job"] == "Director":
-                person = crew_member["name"]
-                break
-    except TypeError as e:
-        logger.error(f"There was error while processing {title}'s info response: {e}")
-    except KeyError:
-        logger.warning(f"Failed to retrieve {title}'s director")
-    return title, person
+    err = False
+    if res is None:
+        err = True
+    else:
+        try:
+            crew = res["crew"]
+            for crew_member in crew:
+                if crew_member["job"] == "Director":
+                    person = crew_member["name"]
+                    break
+        except TypeError as e:
+            logger.error(
+                f"There was error while processing {title}'s info response: {e}"
+            )
+            err = True
+        except KeyError:
+            logger.warning(f"Failed to retrieve {title}'s director")
+    return title, person, err
 
 
 async def get_movies_and_tv_info(titles: list[str]):
@@ -77,7 +91,6 @@ async def get_movies_and_tv_info(titles: list[str]):
     search_tasks = [
         get_request_with_limiter(
             url="https://api.themoviedb.org/3/search/multi",
-            title=title,
             params={
                 "query": title,
                 "api_key": TMDB_API_KEY,
@@ -85,28 +98,32 @@ async def get_movies_and_tv_info(titles: list[str]):
                 "page": 1,
             },
             limiter=limiter,
+            title=title,
         )
         for title in titles
     ]
-    search_responses: list[tuple[str, dict[str, Any]]] = await process_http_requests(
+    search_responses = await process_http_requests(
         search_tasks, "Searching for movies and TV series on TMDB..."
     )
+
     search_results = process_responses_with_joblib(
         responses=search_responses, fn=_extract_search_info
     )
 
     # extract all the results
     movies_results = [
-        (title, movie) for title, movie in search_results if movie[0] is not None
+        (title, movie)
+        for title, movie, err in search_results
+        if movie[0] is not None and not err
     ]
 
     # query for all movies' directors
     movie_info_tasks = [
         get_request_with_limiter(
-            url="https://api.themoviedb.org/3/movie/{movie[0]}/credits",
-            title=title,
+            url=f"https://api.themoviedb.org/3/movie/{movie[0]}/credits",
             params={"api_key": TMDB_API_KEY},
             limiter=limiter,
+            title=title,
         )
         for title, movie in movies_results
     ]
@@ -119,9 +136,11 @@ async def get_movies_and_tv_info(titles: list[str]):
 
     # assemble the output dictionary
     movies_and_tv_dict = {
-        title: {"title": title, "person": None, "year": data[1]}
-        for title, data in search_results
+        title: {"title": title, "person": None, "year": data[1], "err": err}
+        for title, data, err in search_results
     }
-    for title, person in movie_info:
+    for title, person, err in movie_info:
         movies_and_tv_dict[title]["person"] = person
+        if err:
+            movies_and_tv_dict["err"] = err
     return movies_and_tv_dict
