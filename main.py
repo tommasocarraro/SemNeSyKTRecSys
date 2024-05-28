@@ -80,37 +80,16 @@
 # discorso componenti connesse ma forse piu' semplice fare con reachable-nodes API
 # PoC -> troviamo i path e se esiste usiamo chatGPT per capire la plausibilita', doppio checker, similarity di KGTK (metrica migliore e' la complex) + chatGPT
 
-import json
-import os
-
-import pandas as pd
-
-from nesy.data import (
-    create_asin_metadata_json,
-    create_pandas_dataset,
-    entity_linker_api,
-    entity_linker_api_query,
-    filter_metadata,
-    get_wid_per_cat,
-    metadata_cleaning,
-    metadata_stats,
-    get_cross_pairs,
-    remove_movies_from_music,
-    split_metadata,
-    entity_linker_title_person_year,
-    update_metadata
-)
-from nesy.paths import get_multiple_paths, get_paths
-from nesy.paths.merge_tsv_files import merge_tsv_from_directory
-from nesy.paths.labels import generate_all_labels
-from nesy.preprocess_kg import preprocess_kg
-from nesy.dataset_augmentation.utils import correct_missing_types, get_metadata_stats
+from nesy.data import update_metadata
 
 if __name__ == "__main__":
-    # update_metadata("./data/processed/legacy/complete-filtered-metadata.json", "./data/processed/missing-titles.json")
+    update_metadata(
+        "./data/processed/legacy/complete-filtered-metadata.json",
+        "./data/processed/missing-titles.json",
+    )
     # correct_missing_types("./data/processed/merged_metadata.json")
     # metadata_stats("./data/processed/filtered-metadata.json", errors=['no-title'], save_asins=False)
-    metadata_stats("./data/processed/legacy/complete-filtered-metadata.json", errors=['no-title', '404-error', 'captcha-or-DOM', 'captcha', ], save_asins=False)
+    # metadata_stats("./data/processed/legacy/complete-filtered-metadata.json", errors=['not-title', '404-error', 'captcha-or-DOM', 'captcha', ], save_asins=False)
     # correct_missing_types("./data/processed/merged_metadata.json")
     # entity_linker_title_person_year("./prova.json")
     # metadata_stats("./data/processed/complete-filtered-metadata.json",
