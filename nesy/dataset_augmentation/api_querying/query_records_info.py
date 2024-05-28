@@ -2,7 +2,7 @@ from typing import Any, Union
 
 from loguru import logger
 
-from .get_request import get_request_with_limiter
+from .get_request_with_limiter import get_request_with_limiter
 from .utils import (
     process_responses_with_joblib,
     get_async_limiter,

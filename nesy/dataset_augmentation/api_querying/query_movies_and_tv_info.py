@@ -3,7 +3,7 @@ from typing import Any, Union
 from loguru import logger
 
 from config import TMDB_API_KEY
-from .get_request import get_request_with_limiter
+from .get_request_with_limiter import get_request_with_limiter
 from .utils import (
     process_responses_with_joblib,
     process_http_requests,

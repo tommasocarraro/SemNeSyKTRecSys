@@ -11,7 +11,7 @@ from joblib import delayed, Parallel
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-import state
+from nesy.dataset_augmentation import state
 
 
 def process_responses_with_joblib(
@@ -39,6 +39,9 @@ def get_async_limiter(
     if eta > 60:
         eta /= 60
         unit = "hour" if eta == 1 else "hours"
+    elif eta < 1:
+        eta *= 60
+        unit = "second" if eta == 1 else "seconds"
     logger.info(
         f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} "
         f"{'second' if time_period==1 else 'seconds'}. This will take approximately {eta:.2f} {unit}"

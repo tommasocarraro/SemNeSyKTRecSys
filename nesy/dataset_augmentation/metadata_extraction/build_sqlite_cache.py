@@ -5,7 +5,9 @@ import sqlite3
 from loguru import logger
 from tqdm import tqdm
 
-from .utils import object_recursive_delete_fields
+from nesy.dataset_augmentation.metadata_extraction.utils import (
+    object_recursive_delete_fields,
+)
 
 FIELDS_TO_BE_REMOVED = [
     "subtitle",
