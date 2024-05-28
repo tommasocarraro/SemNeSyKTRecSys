@@ -2,13 +2,16 @@ from joblib import Parallel, delayed
 import json
 from multiprocessing import Manager
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 import os
 from bs4 import BeautifulSoup
+import time
+
+HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
 
 def scrape_title_google_search(asins: list[str],
+                               n_cores: int = 1,
                                batch_size: int = 100,
                                save_tmp: bool = True,
                                just_first: bool = True) -> dict[str, str]:
@@ -23,6 +26,7 @@ def scrape_title_google_search(asins: list[str],
     produce any results, the script keeps track of it.
 
     :param asins: list of ASINs for which the title has to be retrieved
+    :param n_cores: number of cores to use for multiprocessing
     :param batch_size: number of ASINs to be processed in each batch
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
     :param just_first: whether to save just the title of the first link of the search or all the titles that are found
@@ -56,14 +60,15 @@ def scrape_title_google_search(asins: list[str],
             # define dictionary for saving batch data
             batch_dict = {}
             # Set up the Chrome driver for the current batch
-            chrome_service = ChromeService(executable_path='./chromedriver')
-            driver = webdriver.Chrome(service=chrome_service, options=options)
+            driver = webdriver.Chrome(executable_path="./chromedriver", options=options)
             # start the scraping loop
             for counter, asin in enumerate(asins):
                 print_str = ""
                 # search for ASIN in Google Search
                 url = "http://www.google.com/search?as_q=" + asin
                 driver.get(url)
+                # wait five seconds to avoid being detected by Google
+                time.sleep(5)
                 # get page source
                 soup = BeautifulSoup(driver.page_source, 'html.parser')
                 # check if Google changed my search
@@ -76,15 +81,21 @@ def scrape_title_google_search(asins: list[str],
                     soup = BeautifulSoup(driver.page_source, 'html.parser')
                 # iterate over the links of the page
                 divs = soup.find_all('div', class_="yuRUbf")
-                link_list = []
+                title_list = []
                 for div in divs:
-                    link_list.append(div.h3.text)
-                if link_list and just_first:
-                    link_list = link_list[0]
-                print("%s - %s" % (asin, link_list))
-                if not link_list:
-                    link_list = "not-title"
-                batch_dict[asin] = link_list
+                    if asin in div.a["href"] and "review" not in div.a["href"]:
+                        if "..." not in div.h3.text:
+                            title = div.h3.text
+                            title = title.replace(" - Amazon.com", "").replace("Amazon.com: ", "").replace("Customer reviews: ", "")
+                            title_list.append(title)
+                            if just_first:
+                                title_list = title_list[0]
+                                break
+
+                if not title_list:
+                    title_list = "404-error"
+                batch_dict[asin] = title_list
+                print("%s - %s" % (asin, title_list))
             # Close the browser window
             driver.quit()
             if save_tmp:
@@ -99,8 +110,8 @@ def scrape_title_google_search(asins: list[str],
         title_dict.update(batch_dict)
 
     # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
-    Parallel(n_jobs=os.cpu_count())(delayed(batch_request)(batch_idx, a, title_dict)
-                                    for batch_idx, a in
-                                    enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
-                                               for i in range(0, len(asins), batch_size)]))
+    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
+                             for batch_idx, a in
+                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
+                                        for i in range(0, len(asins), batch_size)]))
     return title_dict.copy()

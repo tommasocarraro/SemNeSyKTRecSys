@@ -2,7 +2,6 @@ from joblib import Parallel, delayed
 import json
 from multiprocessing import Manager
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import os
@@ -43,14 +42,13 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
         # check if this batch has been already processed in another execution
         # if the path does not exist, we process the batch
         tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx,)
-        if not os.path.exists(tmp_path):
+        if not os.path.exists(tmp_path) or not save_tmp:
             # define dictionary for saving batch data
             batch_dict = {}
             # create the URLs for scraping
             urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
             # Set up the Chrome driver for the current batch
-            chrome_service = ChromeService(executable_path='./chromedriver')
-            driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
+            driver = webdriver.Chrome(executable_path="./chromedriver", options=chrome_options)
             # start the scraping loop
             for counter, url in enumerate(urls):
                 asin = url.split("/")[-1]
@@ -75,7 +73,7 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                         if error:
                             # if it is due to 404 error, keeps track of it
                             # items not found will be processed in another scraping loop that uses Wayback Machine
-                            print_str = "404 error"
+                            print_str = "404 error - url %s" % (url,)
                             batch_dict[asin] = "404-error"
                         else:
                             # if it is not a 404 error, the bot has been detected
@@ -87,7 +85,7 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                             batch_dict[asin] = "captcha-or-DOM"
                 except Exception as e:
                     print(e)
-                    print_str = "unknown error"
+                    print_str = "unknown error - url %s" % (url,)
                     # if an exception is thrown by the system, I am interested in knowing which ASIN caused that, so
                     # I keep track of the exception in the dictionary
                     batch_dict[asin] = "exception-error"
