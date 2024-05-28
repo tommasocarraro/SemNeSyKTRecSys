@@ -5,12 +5,10 @@ from typing import Any, Union, Literal
 
 from loguru import logger
 
-from nesy.dataset_augmentation.api_querying.get_movies_and_tv_info import (
+from nesy.dataset_augmentation.api_querying import (
+    get_books_info,
+    get_records_info,
     get_movies_and_tv_info,
-)
-from nesy.dataset_augmentation.api_querying.get_records_info_v2 import get_records_info
-from nesy.dataset_augmentation.api_querying.google_kg_search import (
-    google_kg_search as get_books_info,
 )
 
 
@@ -52,12 +50,13 @@ async def query_apis(
 
     # title is the same used for querying, the one provided by the response is disregarded
     for info in items_info.values():
-        asin = items[info["title"]]
-        if metadata[asin]["person"] is None:
-            metadata[asin]["person"] = info["person"]
-        if metadata[asin]["year"] is None:
-            metadata[asin]["year"] = info["year"]
-        metadata[asin]["queried"] = True
+        if not info["err"]:
+            asin = items[info["title"]]
+            if metadata[asin]["person"] is None:
+                metadata[asin]["person"] = info["person"]
+            if metadata[asin]["year"] is None:
+                metadata[asin]["year"] = info["year"]
+            metadata[asin]["queried"] = True
 
 
 async def main():
@@ -84,8 +83,10 @@ async def main():
             for k, v in metadata.items():
                 metadata[k]["queried"] = False
         g.seek(0)
-        # modify in-place
-        await query_apis(metadata, item_type="cds_and_vinyl", limit=50000)
+        # modify metadata in-place
+        # await query_apis(metadata, item_type="cds_and_vinyl", limit=5000)
+        # await query_apis(metadata, item_type="movies_and_tv", limit=5000)
+        await query_apis(metadata, item_type="books", limit=5000)
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 

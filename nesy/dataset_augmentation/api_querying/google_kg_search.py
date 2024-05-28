@@ -1,6 +1,6 @@
 import heapq
 import re
-from typing import Any, Optional
+from typing import Any, Union
 
 import jaro
 import regex
@@ -61,70 +61,78 @@ def _extract_info_movie_tvseries(res: Any):
     return director, year
 
 
-def _extract_books_info(
-    data: tuple[str, dict[str, Any]]
-) -> tuple[str, Optional[str], Optional[str]]:
+def _extract_books_info(data: Union[tuple[str, dict[str, Any]], tuple[str, None]]):
     author, year = None, None
     title, res = data
-    results_with_scores = []
-    counter = 0
-    try:
-        results = res["itemListElement"]
-        for result in results:
-            body = result["result"]
-            score = 0
-            try:
-                description = body["description"]
-                s = regex.search(r"\b(?<=by\s)(\w*\s\w*)\b", description)
-                if s:
-                    author = s.group(0)
-            except KeyError:
+    err = False
+    if res is None:
+        err = True
+    else:
+        results_with_scores = []
+        counter = 0
+        try:
+            results = res["itemListElement"]
+            for result in results:
+                body = result["result"]
+                score = 0
                 try:
-                    detailed_description = body["detailedDescription"]["articleBody"]
-                    s = regex.search(r"\b(?<=by\s)(\w*\s\w*)\b", detailed_description)
+                    description = body["description"]
+                    s = regex.search(r"\b(?<=by\s)(\w*\s\w*)\b", description)
                     if s:
                         author = s.group(0)
                 except KeyError:
-                    logger.warning(f"Failed to retrieve {title}'s author")
-            try:
-                detailed_description = body["detailedDescription"]["articleBody"]
-                s = regex.search(
-                    r"(?<=([Rr]eleased|[Pp]ublished).*\b)(\d{4})", detailed_description
+                    try:
+                        detailed_description = body["detailedDescription"][
+                            "articleBody"
+                        ]
+                        s = regex.search(
+                            r"\b(?<=by\s)(\w*\s\w*)\b", detailed_description
+                        )
+                        if s:
+                            author = s.group(0)
+                    except KeyError:
+                        logger.warning(f"Failed to retrieve {title}'s author")
+                try:
+                    detailed_description = body["detailedDescription"]["articleBody"]
+                    s = regex.search(
+                        r"(?<=([Rr]eleased|[Pp]ublished).*\b)(\d{4})",
+                        detailed_description,
+                    )
+                    if s:
+                        year = s.group(0)
+                except KeyError:
+                    logger.warning(f"Failed to retrieve {title}'s year")
+                try:
+                    name = body["name"]
+                    score = jaro.jaro_winkler_metric(title, name)
+                except KeyError:
+                    logger.warning(
+                        f"Failed to retrieve {title}'s name, using first result instead of computing the score"
+                    )
+                try:
+                    # TODO dunno if this is actually useful
+                    types = body["@type"]
+                    for dtype in types:
+                        if dtype not in ["Book", "Thing"]:
+                            score = score - 0.5 if score >= 0.5 else 0
+                except KeyError:
+                    logger.warning(f"Failed to retrieve {title}'s types")
+                # required because if the first element of the tuple is equal to another, the heap will use the second
+                # to compare and will throw an error if the types are not comparable
+                counter += 1
+                heapq.heappush(
+                    results_with_scores,
+                    (score, counter, (author, year)),
                 )
-                if s:
-                    year = s.group(0)
-            except KeyError:
-                logger.warning(f"Failed to retrieve {title}'s year")
-            try:
-                name = body["name"]
-                score = jaro.jaro_winkler_metric(title, name)
-            except KeyError:
-                logger.warning(
-                    f"Failed to retrieve {title}'s name, using first result instead of computing the score"
-                )
-            try:
-                # TODO dunno if this is actually useful
-                types = body["@type"]
-                for dtype in types:
-                    if dtype not in ["Book", "Thing"]:
-                        score = score - 0.5 if score >= 0.5 else 0
-            except KeyError:
-                logger.warning(f"Failed to retrieve {title}'s types")
-            # required because if the first element of the tuple is equal to another, the heap will use the second
-            # to compare and will throw an error if the types are not comparable
-            counter += 1
-            heapq.heappush(
-                results_with_scores,
-                (score, counter, (author, year)),
-            )
-    except KeyError as e:
-        logger.error(f"Failed to retrieve {title}'s information due to error: {e}")
+        except KeyError as e:
+            logger.error(f"Failed to retrieve {title}'s information due to error: {e}")
+            err = True
 
-    best_score = heapq.nlargest(1, results_with_scores)
-    if len(best_score) > 0:
-        author, year = best_score[0][2]
+        best_score = heapq.nlargest(1, results_with_scores)
+        if len(best_score) > 0:
+            author, year = best_score[0][2]
 
-    return title, author, year
+    return title, author, year, err
 
 
 async def google_kg_search(
@@ -169,6 +177,6 @@ async def google_kg_search(
 
     info_list = process_responses_with_joblib(responses=responses, fn=extract_info_cb)
     return {
-        title: {"title": title, "person": author, "year": year}
-        for title, author, year in info_list
+        title: {"title": title, "person": author, "year": year, "err": err}
+        for title, author, year, err in info_list
     }

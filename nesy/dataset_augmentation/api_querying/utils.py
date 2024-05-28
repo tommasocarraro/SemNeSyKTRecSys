@@ -1,7 +1,9 @@
 import asyncio
+import os
 import signal
+from asyncio import CancelledError
 from json import JSONDecodeError
-from typing import Sequence, Callable
+from typing import Sequence, Callable, Coroutine, Union, Generator, Any
 
 from aiohttp import ClientResponseError
 from aiolimiter import AsyncLimiter
@@ -36,44 +38,63 @@ def get_async_limiter(
         eta /= 60
         unit = "hour" if eta == 1 else "hours"
     logger.info(
-        f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} {'second' if time_period==1 else 'seconds'}. This will "
-        f"take approximately {eta:.2f} {unit}"
+        f"Currently retrieving {how_many} items at a rate of {max_rate} per {time_period} "
+        f"{'second' if time_period==1 else 'seconds'}. This will take approximately {eta:.2f} {unit}"
     )
     return AsyncLimiter(max_rate=max_rate, time_period=time_period)
 
 
-def _stop_querying():
-    for task in asyncio.all_tasks():
-        task.cancel()
+def _add_signal_handlers():
+    loop = asyncio.get_running_loop()
 
-
-async def process_http_requests(tasks: list, tqdm_desc: str):
-    loop = asyncio.get_event_loop()
+    def shutdown() -> None:
+        logger.warning("Cancelling all running async tasks")
+        for task in asyncio.all_tasks(loop):
+            if task is not asyncio.current_task(loop):
+                task.cancel()
 
     for sig in [signal.SIGINT, signal.SIGTERM]:
-        loop.add_signal_handler(sig, _stop_querying)
+        loop.add_signal_handler(sig, shutdown)
+
+
+def _manually_abort(pbar: Generator[Any, Any, None]) -> None:
+    pbar.close()
+    os.kill(os.getpid(), signal.SIGINT)
+
+
+async def process_http_requests(
+    tasks: list[Coroutine], tqdm_desc: str
+) -> list[Union[tuple[str, any], tuple[str, None]]]:
+    _add_signal_handlers()
 
     results = []
-    for res in (pbar := tqdm.as_completed(tasks, desc=tqdm_desc, dynamic_ncols=True)):
+    for response in (
+        pbar := tqdm.as_completed(tasks, desc=tqdm_desc, dynamic_ncols=True)
+    ):
+        title = None
         try:
-            result = await res
-            results.append(result)
-        except (ClientResponseError, JSONDecodeError) as e:
-            if isinstance(e, ClientResponseError):
-                if e.status == 404:
-                    logger.warning(f"Item not found: {e}")
-                elif e.status in [429, 503]:
-                    logger.error(f"Too many requests to the server: {e}")
-                    _stop_querying()
-                    pbar.close()
-                elif e.status >= 500:
-                    logger.warning(f"Server error: {e}")
-                elif e.status == 401:
-                    logger.error(f"Unauthorized: {e}")
-                    _stop_querying()
-                    pbar.close()
-                else:
-                    logger.error(f"Unknown error: {e}")
-            elif isinstance(e, JSONDecodeError):
-                logger.error(f"Failed to parse response: {e}")
+            title, body = await response
+            results.append((title, body))
+        except CancelledError:
+            results.append((title, None))
+            pbar.close()
+        except ClientResponseError as e:
+            if e.status == 404:
+                logger.warning(f"Item not found: {e}")
+            elif e.status in [429, 503]:
+                _manually_abort(pbar)
+                logger.error(f"Too many requests to the server: {e}")
+                results.append((title, None))
+            elif e.status >= 500:
+                logger.warning(f"Server error: {e}")
+            elif e.status == 401:
+                _manually_abort(pbar)
+                logger.error(f"Unauthorized: {e}")
+                results.append((title, None))
+            else:
+                logger.error(f"Unknown error: {e}")
+        except JSONDecodeError as e:
+            _manually_abort(pbar)
+            logger.error(f"JSON decoding error: {e}")
+            results.append((title, None))
     return results
