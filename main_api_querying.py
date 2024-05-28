@@ -1,10 +1,13 @@
 import asyncio
 import json
+import os
 import os.path
+import signal
 from typing import Any, Union, Literal
 
 from loguru import logger
 
+import state
 from nesy.dataset_augmentation.api_querying import (
     get_books_info,
     get_records_info,
@@ -48,7 +51,7 @@ async def query_apis(
             f"Remaining items: {len(titles) - i}, processing: {limit if limit <= len(titles) else len(titles)}..."
         )
         batch = titles[i : i + limit]
-        items_info, graceful_exit = await query_fn(batch, *args)
+        items_info = await query_fn(batch, *args)
 
         # title is the same used for querying, the one provided by the response is disregarded
         for info in items_info.values():
@@ -60,11 +63,18 @@ async def query_apis(
                     metadata[asin]["year"] = info["year"]
                 metadata[asin]["queried"] = True
 
-        if graceful_exit:
+        if state.GRACEFUL_EXIT:
             break
 
 
 async def main():
+    # attach hooks for signal handling
+    def _signal_handler(_sig, _frame):
+        state.GRACEFUL_EXIT = True
+
+    for sig in [signal.SIGINT, signal.SIGTERM]:
+        signal.signal(sig, _signal_handler)
+
     merged_metadata_file_path = os.path.join(
         "data", "processed", "merged_metadata.json"
     )

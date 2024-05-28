@@ -1,7 +1,5 @@
-import asyncio
 from typing import Any, Union
 
-from aiolimiter import AsyncLimiter
 from loguru import logger
 
 from config import LAST_FM_API_KEY
