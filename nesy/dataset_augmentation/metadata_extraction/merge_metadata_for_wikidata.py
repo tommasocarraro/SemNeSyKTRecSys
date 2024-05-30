@@ -1,81 +1,51 @@
 import json
 import os
 from typing import Any, Union
-
+from tqdm.auto import tqdm
 import regex as re
 
 from nesy.dataset_augmentation.metadata_extraction.utils import correct_missing_types
 
 
+def _extract_year(title: Union[str, None]) -> Union[int, None]:
+    if title is None:
+        return None
+
+    year = None
+    year_groups = re.search(r"\((19\d{2}|20\d{2})\)|\[(19\d{2}|20\d{2})\]", title)
+    if year_groups is not None:
+        year = year_groups.group(1) or year_groups.group(2)
+        year = int(year)
+    return year
+
+
 def _clean_title(title: Union[str, None]) -> Union[str, None]:
-    if title is not None:
-        # remove tags between square and round braces
-        title_clean = re.sub(r"[\[\(].*?[\]\)]", "", title)
-        # remove tags without braces
-        if title_clean.endswith("DVD") or title_clean.endswith("VHS"):
-            title_clean = title_clean[:-3].rstrip()
-        # remove explicit lyrics warning
-        elif title_clean.endswith("explicit_lyrics"):
-            title_clean = title_clean[: -len("explicit_lyrics")].rstrip()
-        # TODO optimize regexps
-        # remove the complete x season
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))([Tt]he\s)?[Cc]omplete\s[\w\d]*\s[Ss]eason\b",
-            "",
-            title_clean,
-        )
-        # remove the complete season x
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))([Tt]he\s)?[Cc]omplete\s[Ss]eason\s\d*\b",
-            "",
-            title_clean,
-        )
-        # remove season x
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Ss]eason\s\d*\b", "", title_clean
-        )
-        # remove seasons x-y
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Ss]easons\s\d*-\d*\b", "", title_clean
-        )
-        # remove vol. x
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Vv]ol.\s\d*\b", "", title_clean
-        )
-        # remove volume x
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Vv]olume\s\d*\b", "", title_clean
-        )
-        # remove volume(s) x&y
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Vv]olumes?\s\d*\s?&\s?\d*\b", "", title_clean
-        )
-        # remove the complete series
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Tt]he\s[Cc]omplete\s[Ss]eries\b",
-            "",
-            title_clean,
-        )
-        # remove complete set
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Cc]omplete\s[Ss]et\b", "", title_clean
-        )
-        # remove programs x-y
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Pp]rograms?\s\d*-\d*\b", "", title_clean
-        )
-        # remove set x
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Ss]et\s\d*\b", "", title_clean
-        )
-        # remove complete
-        title_clean = re.sub(
-            r"\b(\s|(\s-\s)|(:\s)|(,\s))[Cc]omplete\b", "", title_clean
-        )
-        # remove trailing special character
-        title_clean = re.sub(r"[^\w\s]$", "", title_clean)
-        # remove any remaining whitespace
-        return title_clean.rstrip()
+    if title is None:
+        return None
+
+    # remove tags between square and round braces
+    title = re.sub(r"[\[\(].*?[\]\)]", "", title)
+
+    # remove tags without braces
+    if title.endswith("DVD") or title.endswith("VHS"):
+        title = title[:-3].rstrip()
+
+    # remove explicit lyrics warning
+    elif title.endswith("explicit_lyrics"):
+        title = title[: -len("explicit_lyrics")].rstrip()
+
+    # remove common patterns
+    all_pattern = re.compile(
+        r"^.*?(?=\s*(?:the\s)?(?:volume|season|vol\.|complete|programs|set)|\s*$)",
+        re.IGNORECASE,
+    )
+    groups = re.match(all_pattern, title)
+    if groups:
+        title = groups.group(0)
+
+    # remove trailing special character and whitespace
+    title = re.sub(r"\s*[\W\D]\s*$", "", title)
+    return title
 
 
 def merge_metadata_for_wikidata(
@@ -89,7 +59,11 @@ def merge_metadata_for_wikidata(
 
     output_data = {}
 
-    for asin in complete_filtered_metadata.keys():
+    for asin in tqdm(
+        complete_filtered_metadata.keys(),
+        desc="Merging metadata...",
+        dynamic_ncols=True,
+    ):
         title, person, year, mtype = None, None, None, None
 
         # set title initially as fallback in case it's found in complete filtered metadata
@@ -141,11 +115,12 @@ def merge_metadata_for_wikidata(
                 else:
                     raise RuntimeError("Unrecognized metadata type")
 
+        year_from_title = _extract_year(title)
         title = _clean_title(title)
         output_data[asin] = {
             "title": title,
             "person": person,
-            "year": year,
+            "year": year if year is not None else year_from_title,
             "type": mtype,
         }
 
