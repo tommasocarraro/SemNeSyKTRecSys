@@ -1,19 +1,17 @@
 import heapq
-import re
 from typing import Any, Union
 
 import jaro
-import regex
 from loguru import logger
 
 from config import GOOGLE_API_KEY
 from .get_request_with_limiter import get_request_with_limiter
+from .query_google_kg_search_utils import extract_book_author, extract_book_year
 from .utils import (
     process_responses_with_joblib,
     get_async_limiter,
     process_http_requests,
 )
-from .query_google_kg_search_utils import extract_book_author, extract_book_year
 
 
 def _extract_books_info(data: Union[tuple[str, dict[str, Any]], tuple[str, None]]):
@@ -31,7 +29,9 @@ def _extract_books_info(data: Union[tuple[str, dict[str, Any]], tuple[str, None]
                 body = result["result"]
                 author = extract_book_author(body, "description")
                 if author is None:
-                    author = extract_book_author(body, "detailedDescription")
+                    author = extract_book_author(
+                        body, ["detailedDescription", "articleBody"]
+                    )
                 year = extract_book_year(body)
                 try:
                     name = body["name"]
@@ -82,12 +82,6 @@ async def google_kg_search(
         a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
     limiter = get_async_limiter(how_many=len(titles), max_rate=10, time_period=1)
-    if "Book" in query_types:
-        extract_info_cb = _extract_books_info
-    elif "CDs" in query_types:
-        extract_info_cb = _extract_info_music
-    else:
-        extract_info_cb = _extract_info_movie_tvseries
     tasks = [
         get_request_with_limiter(
             limiter=limiter,
@@ -106,7 +100,9 @@ async def google_kg_search(
     ]
     responses = await process_http_requests(tasks, tqdm_desc="Querying Google KG...")
 
-    info_list = process_responses_with_joblib(responses=responses, fn=extract_info_cb)
+    info_list = process_responses_with_joblib(
+        responses=responses, fn=_extract_books_info
+    )
     return {
         title: {"title": title, "person": author, "year": year, "err": err}
         for title, author, year, err in info_list
