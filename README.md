@@ -8,3 +8,5 @@ Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
 - try to look for date before removing parentheses
 - google scraping should be improved by checking if the page is an Amazon page and include the ASIN in the URL
 - queries should check against already available data
+- inspect why certain queries are failing
+- reject API matches if title overlap is too small
