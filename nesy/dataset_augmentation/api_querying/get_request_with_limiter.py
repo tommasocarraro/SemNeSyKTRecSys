@@ -66,7 +66,7 @@ async def _handle_success(details: dict[str, Any]):
     on_backoff=_handle_backoff,
     on_success=_handle_success,
     jitter=random_jitter,
-    giveup=lambda e: e.status not in [429, 503],  # retry only on 429 and 503
+    giveup=lambda e: e.status not in [429, 500, 502, 503, 504],
     logger=logger,
 )
 async def _fetch(
