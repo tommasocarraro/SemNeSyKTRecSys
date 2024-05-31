@@ -37,8 +37,8 @@ async def main():
         g.seek(0)
 
         # modify metadata in-place
-        # await query_apis(metadata, item_type="cds_and_vinyl", limit=5000)
-        await query_apis(metadata, item_type="movies_and_tv", batch_size=500)
+        await query_apis(metadata, item_type="cds_and_vinyl", batch_size=5000)
+        # await query_apis(metadata, item_type="movies_and_tv", batch_size=500)
         # await query_apis(metadata, item_type="books", batch_size=500)
 
         logger.info(f"Writing updated metadata to {merged_metadata_aug_file_path}")

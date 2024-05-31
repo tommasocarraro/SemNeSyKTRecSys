@@ -18,7 +18,7 @@ def _extract_books_info(
     data: Union[
         tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any]],
         tuple[None, None],
-    ],
+    ]
 ):
     query, response = data
     if query is None:  # TODO fix up
@@ -27,7 +27,7 @@ def _extract_books_info(
     person_r, year_r = None, None
     err = False
     if response is None:
-        return title_q, person_r, year_r, True
+        return title_q, person_q, year_q, True
 
     results_with_scores = []
 
