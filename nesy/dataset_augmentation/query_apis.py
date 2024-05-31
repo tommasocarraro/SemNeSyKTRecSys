@@ -60,7 +60,7 @@ async def query_apis(
     ]
 
     query_fn, args = _get_query_fn(item_type)
-    if batch_size == -1:
+    if batch_size == -1 or batch_size > len(query_data):
         batch_size = len(query_data)
     for i in range(0, len(query_data), batch_size):
         logger.info(
@@ -81,10 +81,14 @@ async def query_apis(
                     metadata[asin]["queried"] = True
                     metadata[asin]["err"] = err.name
             else:
-                if metadata[asin]["person"] is None:
-                    metadata[asin]["person"] = info["person"]
-                if metadata[asin]["year"] is None:
-                    metadata[asin]["year"] = info["year"]
+                person = info["person"]
+                if metadata[asin]["person"] is None and person is not None:
+                    metadata[asin]["person"] = person
+                    metadata[asin]["from_api"] = metadata[asin]["from_api"] + ["person"]
+                year = info["year"]
+                if metadata[asin]["year"] is None and year is not None:
+                    metadata[asin]["year"] = year
+                    metadata[asin]["from_api"] = metadata[asin]["from_api"] + ["year"]
                 metadata[asin]["queried"] = True
 
         if state.GRACEFUL_EXIT:

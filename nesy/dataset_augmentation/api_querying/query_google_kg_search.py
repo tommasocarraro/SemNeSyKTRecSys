@@ -36,7 +36,7 @@ def _extract_books_info(
         return title_q, person_q, year_q, ErrorCode.JsonProcess
     if len(results) == 0:
         logger.warning(f"Title '{title_q}' had no matches")
-        return title_q, person_q, year_q, None, ErrorCode.NotFound
+        return title_q, person_q, year_q, ErrorCode.NotFound
     for result in results:
         try:
             body = result["result"]
@@ -46,7 +46,8 @@ def _extract_books_info(
             score = compute_score_triple(
                 (title_q, person_q, year_q), (title_r_i, person_r_i, year_r_i)
             )
-            push_to_heap(results_with_scores, (person_r_i, year_r_i), score)
+            if score > 0:
+                push_to_heap(results_with_scores, (person_r_i, year_r_i), score)
         except KeyError as e:
             logger.warning(f"Something went wrong: {e}")
 

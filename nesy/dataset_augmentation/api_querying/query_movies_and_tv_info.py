@@ -59,7 +59,8 @@ def _extract_search_info(
             else:
                 raise ValueError("Unexpected media type")
             score = compute_score_pair((title_q, year_q), (title_r_i, year_r_i))
-            push_to_heap(results_with_scores, (year_r_i, movie_id_i), score)
+            if score > 0:
+                push_to_heap(results_with_scores, (year_r_i, movie_id_i), score)
         except KeyError as e:
             logger.warning(f"Something went wrong: {e}")
 

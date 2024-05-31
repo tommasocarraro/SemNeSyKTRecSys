@@ -42,7 +42,10 @@ def _extract_info(
         score = compute_score_triple(
             (title_q, person_q, year_q), (title_r_i, person_r_i, year_r_i)
         )
-        push_to_heap(results_with_scores, (person_r_i, year_r_i), score + person_score)
+        if score > 0:
+            push_to_heap(
+                results_with_scores, (person_r_i, year_r_i), score + person_score
+            )
 
     n_best = heapq.nlargest(1, results_with_scores)
     if len(n_best) > 0:
