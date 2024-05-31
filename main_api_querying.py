@@ -3,6 +3,8 @@ import json
 import os
 import os.path
 
+from loguru import logger
+
 from nesy.dataset_augmentation import query_apis
 
 
@@ -36,9 +38,10 @@ async def main():
 
         # modify metadata in-place
         # await query_apis(metadata, item_type="cds_and_vinyl", limit=5000)
-        # await query_apis(metadata, item_type="movies_and_tv", limit=5000)
-        await query_apis(metadata, item_type="books", batch_size=500)
+        await query_apis(metadata, item_type="movies_and_tv", batch_size=500)
+        # await query_apis(metadata, item_type="books", batch_size=500)
 
+        logger.info(f"Writing updated metadata to {merged_metadata_aug_file_path}")
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 

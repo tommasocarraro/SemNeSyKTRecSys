@@ -70,7 +70,7 @@ async def query_apis(
 
         # title is the same used for querying, the one provided by the response is disregarded
         for info in items_info.values():
-            if not info["err"]:
+            if not info["err"] and info["title"] is not None:
                 asin, _ = items[info["title"]]
                 if metadata[asin]["person"] is None:
                     metadata[asin]["person"] = info["person"]
@@ -79,4 +79,5 @@ async def query_apis(
                 metadata[asin]["queried"] = True
 
         if state.GRACEFUL_EXIT:
+            logger.info("Terminating early due to interrupt")
             break
