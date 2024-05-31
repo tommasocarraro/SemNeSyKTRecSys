@@ -29,11 +29,11 @@ def _extract_info(
     results_with_scores = []
     try:
         results = response["releases"]
-    except KeyError:
-        logger.error(f"Failed to retrieve {title_q}'s information due to error: {e}")
+    except KeyError as e:
+        logger.error(f"Failed to retrieve '{title_q}' information due to error: {e}")
         return title_q, person_q, year_q, ErrorCode.JsonProcess
     if len(results) == 0:
-        logger.warning(f"Title '{title_q}' had no matches")
+        logger.debug(f"Title '{title_q}' had no matches")
         return title_q, person_q, year_q, None, ErrorCode.NotFound
     for result in results:
         title_r_i = extract_title(result)
@@ -42,19 +42,22 @@ def _extract_info(
         score = compute_score_triple(
             (title_q, person_q, year_q), (title_r_i, person_r_i, year_r_i)
         )
-        if score > 0:
+        if score >= 0.4:
             push_to_heap(
                 results_with_scores, (person_r_i, year_r_i), score + person_score
             )
 
+    if len(results_with_scores) == 0:
+        logger.debug(f"Title '{title_q}' had no matches")
+        return title_q, person_q, year_q, ErrorCode.NotFound
     n_best = heapq.nlargest(1, results_with_scores)
     if len(n_best) > 0:
         best = n_best[0]
         person_r, year_r = best[-1]
     if person_q is None and person_r is None:
-        logger.warning(f"Failed to retrieve {title_q}'s author")
+        logger.warning(f"Failed to retrieve artist for '{title_q}'")
     if year_q is None and year_r is None:
-        logger.warning(f"Failed to retrieve {title_q}'s year")
+        logger.warning(f"Failed to retrieve year for '{title_q}'")
 
     return (
         title_q,
