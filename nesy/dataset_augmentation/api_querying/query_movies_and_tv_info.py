@@ -41,7 +41,7 @@ def _extract_search_info(
         )
         return title_q, person_r, year_r, None, ErrorCode.JsonProcess
     if len(results) == 0:
-        logger.warning(f"Title '{title_q}' had no matches")
+        logger.debug(f"Title '{title_q}' had no matches")
         return title_q, person_q, year_q, None, ErrorCode.NotFound
     for result in results:
         try:
@@ -59,17 +59,22 @@ def _extract_search_info(
             else:
                 raise ValueError("Unexpected media type")
             score = compute_score_pair((title_q, year_q), (title_r_i, year_r_i))
-            if score > 0:
+            if score >= 0.4:
                 push_to_heap(results_with_scores, (year_r_i, movie_id_i), score)
-        except KeyError as e:
-            logger.warning(f"Something went wrong: {e}")
+        except KeyError:
+            continue
 
+    if len(results_with_scores) == 0:
+        logger.debug(f"Title '{title_q}' had no matches")
+        return title_q, person_q, year_q, ErrorCode.NotFound
     n_best = heapq.nlargest(1, results_with_scores)
     if len(n_best) > 0:
         best = n_best[0]
         year_r, movie_id = best[-1]
+    if person_q is None and movie_id is None:
+        logger.warning(f"Failed to retrieve director for '{title_q}'")
     if year_q is None and year_r is None:
-        logger.warning(f"Failed to retrieve {title_q}'s year")
+        logger.warning(f"Failed to retrieve year for '{title_q}'")
 
     return (
         title_q,

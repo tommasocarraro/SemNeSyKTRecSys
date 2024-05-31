@@ -51,7 +51,7 @@ async def _handle_success(details: dict[str, Any]):
             )
             and limiter._rate_per_sec < original_rate
         ):
-            logger.debug(
+            logger.warning(
                 f"Increasing rate per second from {limiter._rate_per_sec} to {limiter._rate_per_sec * growth_factor}"
             )
             last_time_success = current_time
