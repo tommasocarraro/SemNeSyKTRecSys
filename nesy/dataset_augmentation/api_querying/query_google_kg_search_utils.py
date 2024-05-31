@@ -1,29 +1,29 @@
-from typing import Any, Union
+from typing import Any
 
 import regex as re
 
 
-def get_nested_value(dictionary, keys):
-    value = dictionary
-    for key in keys:
-        value = value[key]
-    return value
-
-
-def extract_book_author(item: dict[str, Any], desc_field: Union[str, list[str]]):
-    author = None
-    try:
-        if isinstance(desc_field, str):
-            description = item[desc_field]
-        else:
-            description = get_nested_value(item, desc_field)
-        s = re.search(r"\b(?<=by\s)(\w*\s\w*)\b", description)
-        if s:
-            author = s.group(0)
-    except KeyError:
-        pass
-    finally:
+def _search_author_reg(desc: str):
+    s = re.search(r"(?<=\bby\b\s)(\s?\b[A-Z][a-z]*\b)+", desc)
+    if s:
+        author = s.group(0)
         return author
+    return None
+
+
+def extract_book_author(item: dict[str, Any]):
+    author = None
+    if "description" in item:
+        description = item["description"]
+        author = _search_author_reg(description)
+    if (
+        author is None
+        and "detailedDescription" in item
+        and "articleBody" in item["detailedDescription"]
+    ):
+        description = item["detailedDescription"]["articleBody"]
+        author = _search_author_reg(description)
+    return author
 
 
 def extract_book_year(item: dict[str, Any]):

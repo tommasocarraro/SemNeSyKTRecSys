@@ -1,5 +1,5 @@
 import signal
-from typing import Any, Union, Literal
+from typing import Any, Union, Literal, Callable
 
 from loguru import logger
 
@@ -11,32 +11,11 @@ from nesy.dataset_augmentation.api_querying import (
 )
 
 
-async def query_apis(
-    metadata: dict[str, Any],
+def _get_query_fn(
     item_type: Union[
         Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
-    ],
-    limit: int = -1,
-) -> None:
-    # attach hooks for signal handling
-    def _signal_handler(_sig, _frame):
-        state.GRACEFUL_EXIT = True
-
-    for sig in [signal.SIGINT, signal.SIGTERM]:
-        signal.signal(sig, _signal_handler)
-
-    # dictionary for reverse lookup
-    items = {
-        v["title"]: k
-        for k, v in metadata.items()
-        if v["type"] == item_type
-        and v["title"] is not None
-        and (v["person"] is None or v["year"] is None)
-        and not v["queried"]
-    }
-
-    titles = list(items.keys())
-
+    ]
+) -> tuple[Callable, list]:
     if item_type == "movies_and_tv":
         query_fn = get_movies_and_tv_info
         args = []
@@ -48,18 +27,51 @@ async def query_apis(
         args = []
     else:
         raise ValueError("Unsupported item type")
+    return query_fn, args
 
-    for i in range(0, len(titles), limit):
+
+async def query_apis(
+    metadata: dict[str, Any],
+    item_type: Union[
+        Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
+    ],
+    batch_size: int = -1,
+) -> None:
+    # attach hooks for signal handling
+    def _signal_handler(_sig, _frame):
+        state.GRACEFUL_EXIT = True
+
+    for sig in [signal.SIGINT, signal.SIGTERM]:
+        signal.signal(sig, _signal_handler)
+
+    # dictionary for reverse lookup
+    items = {
+        v["title"]: (k, v)
+        for k, v in metadata.items()
+        if v["type"] == item_type
+        and v["title"] is not None
+        and (v["person"] is None or v["year"] is None)
+        and not v["queried"]
+    }
+
+    query_data = [
+        (item["title"], item["person"], item["year"]) for _, item in items.values()
+    ]
+
+    query_fn, args = _get_query_fn(item_type)
+    if batch_size == -1:
+        batch_size = len(query_data)
+    for i in range(0, len(query_data), batch_size):
         logger.info(
-            f"Remaining items: {len(titles) - i}, processing: {limit if limit <= len(titles) else len(titles)}..."
+            f"Remaining items: {len(query_data) - i}, processing: {batch_size if batch_size <= len(query_data) else len(query_data)}..."
         )
-        batch = titles[i : i + limit]
+        batch = query_data[i : i + batch_size]
         items_info = await query_fn(batch, *args)
 
         # title is the same used for querying, the one provided by the response is disregarded
         for info in items_info.values():
             if not info["err"]:
-                asin = items[info["title"]]
+                asin, _ = items[info["title"]]
                 if metadata[asin]["person"] is None:
                     metadata[asin]["person"] = info["person"]
                 if metadata[asin]["year"] is None:
