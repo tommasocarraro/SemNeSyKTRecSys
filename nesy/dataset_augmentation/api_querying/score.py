@@ -5,15 +5,15 @@ from jaro import jaro_winkler_metric
 
 
 def _is_year_match(year_q: Optional[str], year_r: Optional[str]) -> bool:
-    return year_q is not None and year_r is not None and year_q == year_r
+    if year_q is not None and year_r is not None:
+        return year_q == year_r
+    return True
 
 
 def _is_person_match(person_q: Optional[str], person_r: Optional[str]) -> bool:
-    return (
-        person_q is not None
-        and person_r is not None
-        and jaro_winkler_metric(person_q, person_r) >= 0.8
-    )
+    if person_q is not None and person_r is not None:
+        return jaro_winkler_metric(person_q, person_r) >= 0.8
+    return True
 
 
 def compute_score_pair(
@@ -35,7 +35,6 @@ def compute_score_triple(
 
     if not _is_person_match(person_q, person_r) or not _is_year_match(year_q, year_r):
         return 0
-
     return jaro_winkler_metric(title_q, title_r)
 
 
