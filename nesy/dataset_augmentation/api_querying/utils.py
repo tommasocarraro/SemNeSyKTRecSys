@@ -82,7 +82,6 @@ async def process_http_requests(tasks: list[tuple[tuple, Coroutine]], tqdm_desc:
         try:
             req_index, body = await response
             query_tuple = tasks[req_index][0]
-            results.append((query_tuple, body, None))
         except CancelledError:
             err = ErrorCode.Cancelled
             pbar.close()
