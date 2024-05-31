@@ -1,23 +1,39 @@
 import heapq
-from typing import Union
+from typing import Union, Optional
 
 from jaro import jaro_winkler_metric
 
 
-def compute_score(
+def _is_year_match(year_q: Optional[str], year_r: Optional[str]) -> bool:
+    return year_q is not None and year_r is not None and year_q == year_r
+
+
+def _is_person_match(person_q: Optional[str], person_r: Optional[str]) -> bool:
+    return (
+        person_q is not None
+        and person_r is not None
+        and jaro_winkler_metric(person_q, person_r) >= 0.8
+    )
+
+
+def compute_score_pair(
+    query: tuple[str, Union[str, None]], response: tuple[str, Union[str, None]]
+):
+    title_q, year_q = query
+    title_r, year_r = response
+    if not _is_year_match(year_q, year_r):
+        return 0
+    return jaro_winkler_metric(title_q, title_r)
+
+
+def compute_score_triple(
     query: tuple[str, Union[str, None], Union[str, None]],
     response: tuple[str, Union[str, None], Union[str, None]],
 ) -> float:
     title_q, person_q, year_q = query
     title_r, person_r, year_r = response
 
-    author_no_match = (
-        person_q is not None
-        and person_r is not None
-        and jaro_winkler_metric(person_q, person_r) < 0.8
-    )
-    year_no_match = year_q is not None and year_r is not None and year_q != year_r
-    if author_no_match or year_no_match:
+    if not _is_person_match(person_q, person_r) or not _is_year_match(year_q, year_r):
         return 0
 
     return jaro_winkler_metric(title_q, title_r)
@@ -27,8 +43,8 @@ counter = 0
 
 
 def push_to_heap(
-    heap: list[tuple[float, int, tuple[Union[str, None], Union[str, None]]]],
-    item: tuple[Union[str, None], Union[str, None]],
+    heap: list,
+    item: tuple,
     score: float,
 ) -> None:
     global counter

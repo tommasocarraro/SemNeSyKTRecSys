@@ -53,7 +53,7 @@ def _add_signal_handlers():
     loop = asyncio.get_running_loop()
 
     def shutdown() -> None:
-        logger.warning("Cancelling all running async tasks")
+        logger.info("Interrupt received: cancelling all running async tasks")
         for task in asyncio.all_tasks(loop):
             if task is not asyncio.current_task(loop):
                 task.cancel()

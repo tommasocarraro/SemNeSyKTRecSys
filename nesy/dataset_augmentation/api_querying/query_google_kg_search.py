@@ -6,7 +6,7 @@ from loguru import logger
 from config import GOOGLE_API_KEY
 from .get_request_with_limiter import get_request_with_limiter
 from .query_google_kg_search_utils import extract_book_author, extract_book_year
-from .score import compute_score, push_to_heap
+from .score import compute_score_triple, push_to_heap
 from .utils import (
     process_responses_with_joblib,
     get_async_limiter,
@@ -33,26 +33,29 @@ def _extract_books_info(
 
     try:
         results = response["itemListElement"]
+    except KeyError as e:
+        logger.error(f"Failed to retrieve {title_q}'s information due to error: {e}")
+        return title_q, person_q, year_q, True
+    try:
         for result in results:
             body = result["result"]
             title_r_i = body["name"]
             person_r_i = extract_book_author(body)
             year_r_i = extract_book_year(body)
-            score = compute_score(
+            score = compute_score_triple(
                 (title_q, person_q, year_q), (title_r_i, person_r_i, year_r_i)
             )
             push_to_heap(results_with_scores, (person_r_i, year_r_i), score)
     except KeyError as e:
-        logger.error(f"Failed to retrieve {title_q}'s information due to error: {e}")
-        err = True
+        logger.warning(f"Something went wrong: {e}")
 
     n_best = heapq.nlargest(1, results_with_scores)
     if len(n_best) > 0:
         best = n_best[0]
         person_r, year_r = best[-1]
-    if person_r is None:
+    if person_q is None and person_r is None:
         logger.warning(f"Failed to retrieve {title_q}'s author")
-    if year_r is None:
+    if year_q is None and year_r is None:
         logger.warning(f"Failed to retrieve {title_q}'s year")
 
     return (
