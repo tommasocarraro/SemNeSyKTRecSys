@@ -1,7 +1,7 @@
 from asyncio.exceptions import CancelledError
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Union, Any
+from typing import Union, Any, Optional
 
 import aiohttp
 from aiohttp import ClientResponseError
@@ -66,6 +66,8 @@ async def _fetch(
 async def get_request_with_limiter(
     url: str,
     title: str,
+    person: Optional[str],
+    year: Optional[str],
     params: Union[dict[str, str], list[tuple[str, str]]],
     limiter: AsyncLimiter,
 ):
@@ -73,7 +75,9 @@ async def get_request_with_limiter(
     Runs a GET request against the provided URL's API with the provided params
     Args:
         url: target URL
-        title: title to be searched, only used for debugging purposes
+        title: title to be searched
+        person: person who authored title
+        year: year of release of title
         params: dictionary of HTTP parameters
         limiter: an aiolimiter AsyncLimiter
 
@@ -83,7 +87,7 @@ async def get_request_with_limiter(
     try:
         async with limiter:
             body = await _fetch(url=url, params=params, _limiter=limiter)
-            return title, body
+            return (title, person, year), body
     except (CancelledError, ClientResponseError, JSONDecodeError) as e:
         raise e
     finally:

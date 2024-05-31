@@ -3,7 +3,7 @@ import os
 import signal
 from asyncio import CancelledError
 from json import JSONDecodeError
-from typing import Sequence, Callable, Coroutine, Union, Generator, Any
+from typing import Sequence, Callable, Coroutine, Union, Generator, Any, Optional
 
 from aiohttp import ClientResponseError
 from aiolimiter import AsyncLimiter
@@ -68,21 +68,19 @@ def _manually_abort(pbar: Generator[Any, Any, None]) -> None:
     os.kill(os.getpid(), signal.SIGINT)
 
 
-async def process_http_requests(
-    tasks: list[Coroutine], tqdm_desc: str
-) -> tuple[list[Union[tuple[str, any], tuple[str, None]]], bool]:
+async def process_http_requests(tasks: list[Coroutine], tqdm_desc: str):
     _add_signal_handlers()
 
     results = []
     for response in (
         pbar := tqdm.as_completed(tasks, desc=tqdm_desc, dynamic_ncols=True)
     ):
-        title = None
+        query_tuple: Union[tuple[str, Optional[str], Optional[str]], None] = None
         try:
-            title, body = await response
-            results.append((title, body))
+            query_tuple, body = await response
+            results.append((query_tuple, body))
         except CancelledError:
-            results.append((title, None))
+            results.append((query_tuple, None))
             pbar.close()
         except ClientResponseError as e:
             if e.status == 404:
@@ -90,17 +88,17 @@ async def process_http_requests(
             elif e.status in [429, 503]:
                 _manually_abort(pbar)
                 logger.error(f"Too many requests to the server: {e}")
-                results.append((title, None))
+                results.append((query_tuple, None))
             elif e.status >= 500:
                 logger.warning(f"Server error: {e}")
             elif e.status == 401:
                 _manually_abort(pbar)
                 logger.error(f"Unauthorized: {e}")
-                results.append((title, None))
+                results.append((query_tuple, None))
             else:
                 logger.error(f"Unknown error: {e}")
         except JSONDecodeError as e:
             _manually_abort(pbar)
             logger.error(f"JSON decoding error: {e}")
-            results.append((title, None))
+            results.append((query_tuple, None))
     return results

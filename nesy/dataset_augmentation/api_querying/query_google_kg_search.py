@@ -1,12 +1,12 @@
 import heapq
-from typing import Any, Union
+from typing import Any, Union, Optional
 
-import jaro
 from loguru import logger
 
 from config import GOOGLE_API_KEY
 from .get_request_with_limiter import get_request_with_limiter
 from .query_google_kg_search_utils import extract_book_author, extract_book_year
+from .score import compute_score, push_to_heap
 from .utils import (
     process_responses_with_joblib,
     get_async_limiter,
@@ -14,79 +14,78 @@ from .utils import (
 )
 
 
-def _extract_books_info(data: Union[tuple[str, dict[str, Any]], tuple[str, None]]):
-    author, year = None, None
-    title, res = data
+def _extract_books_info(
+    data: Union[
+        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any]],
+        tuple[None, None],
+    ],
+):
+    query, response = data
+    if query is None:  # TODO fix up
+        return None, None, None, None
+    title_q, person_q, year_q = query
+    person_r, year_r = None, None
     err = False
-    if res is None:
+    if response is None:
+        return title_q, person_r, year_r, True
+
+    results_with_scores = []
+
+    try:
+        results = response["itemListElement"]
+        for result in results:
+            body = result["result"]
+            title_r_i = body["name"]
+            person_r_i = extract_book_author(body)
+            year_r_i = extract_book_year(body)
+            score = compute_score(
+                (title_q, person_q, year_q), (title_r_i, person_r_i, year_r_i)
+            )
+            push_to_heap(results_with_scores, (person_r_i, year_r_i), score)
+    except KeyError as e:
+        logger.error(f"Failed to retrieve {title_q}'s information due to error: {e}")
         err = True
-    else:
-        results_with_scores = []
-        counter = 0
-        try:
-            results = res["itemListElement"]
-            for result in results:
-                body = result["result"]
-                author = extract_book_author(body, "description")
-                if author is None:
-                    author = extract_book_author(
-                        body, ["detailedDescription", "articleBody"]
-                    )
-                year = extract_book_year(body)
-                try:
-                    name = body["name"]
-                    score = jaro.jaro_winkler_metric(title, name)
-                except KeyError:
-                    continue
-                try:
-                    # TODO dunno if this is actually useful
-                    types = body["@type"]
-                    for dtype in types:
-                        if dtype not in ["Book", "Thing"]:
-                            score = max(score - 0.1, 0)
-                except KeyError:
-                    pass
-                # counter is required because if the first element of the tuple is equal to another, the heap will
-                # use the second to compare and will throw an error if the types are not comparable
-                counter += 1
-                heapq.heappush(results_with_scores, (score, counter, (author, year)))
-        except KeyError as e:
-            logger.error(f"Failed to retrieve {title}'s information due to error: {e}")
-            err = True
 
-        n_best = heapq.nlargest(1, results_with_scores)
-        if len(n_best) > 0:
-            best = n_best[0]
-            author, year = best[-1]
-        if author is None:
-            logger.warning(f"Failed to retrieve {title}'s author")
-        if year is None:
-            logger.warning(f"Failed to retrieve {title}'s year")
+    n_best = heapq.nlargest(1, results_with_scores)
+    if len(n_best) > 0:
+        best = n_best[0]
+        person_r, year_r = best[-1]
+    if person_r is None:
+        logger.warning(f"Failed to retrieve {title_q}'s author")
+    if year_r is None:
+        logger.warning(f"Failed to retrieve {title_q}'s year")
 
-    return title, author, year, err
+    return (
+        title_q,
+        person_r if person_q is None else person_q,
+        year_r if year_q is None else year_q,
+        err,
+    )
 
 
 async def google_kg_search(
-    titles: list[str],
+    query_data: list[tuple[str, Union[str, None], Union[str, None]]],
     query_types: list[str],
     language: str = "en",
 ):
     """
     Given a list of titles, asynchronously queries the Google Graph Search API.
     Args:
-        titles: list of titles to be searched
+        query_data: list of titles to be searched
         query_types: types of entities to be searched
         language: languages of the results, defaults to "en"
 
     Returns:
         a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
-    limiter = get_async_limiter(how_many=len(titles), max_rate=10, time_period=1)
+    limiter = get_async_limiter(how_many=len(query_data), max_rate=10, time_period=1)
     tasks = [
         get_request_with_limiter(
             limiter=limiter,
             url="https://kgsearch.googleapis.com/v1/entities:search",
             title=title,
+            person=person,
+            year=year,
             params=[
                 ("query", title),
                 ("key", GOOGLE_API_KEY),
@@ -96,7 +95,7 @@ async def google_kg_search(
                 *list(zip(["types" for _ in range(len(query_types))], query_types)),
             ],
         )
-        for title in titles
+        for title, person, year in query_data
     ]
     responses = await process_http_requests(tasks, tqdm_desc="Querying Google KG...")
 
@@ -106,4 +105,5 @@ async def google_kg_search(
     return {
         title: {"title": title, "person": author, "year": year, "err": err}
         for title, author, year, err in info_list
+        if title is not None
     }
