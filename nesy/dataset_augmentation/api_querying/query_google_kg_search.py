@@ -83,7 +83,7 @@ async def google_kg_search(
     Returns:
         a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
-    limiter = get_async_limiter(how_many=len(query_data), max_rate=10, time_period=1)
+    limiter = get_async_limiter(how_many=len(query_data), max_rate=9, time_period=1)
 
     tasks = [
         (
