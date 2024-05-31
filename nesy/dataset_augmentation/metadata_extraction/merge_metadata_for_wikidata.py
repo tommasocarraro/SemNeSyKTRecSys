@@ -36,7 +36,7 @@ def _clean_title(title: Union[str, None]) -> Union[str, None]:
 
     # remove common patterns
     all_pattern = re.compile(
-        r"^.*?(?=\s*(?:the\s)?(?:volume|season|vol\.|complete|programs|set)|\s*$)",
+        r"^.*?(?=\s*(?:\bthe\b\s)?[.,:-]?\s?(?:\bvolume\b|\bseason\b|\bvol\b\.?|\bcomplete\b|\bprograms\b|\bset\b|(?:\s*\b\w*[^\s\w]\w*\b|\b\w+\b\s*){0,2}\bedition\b|\bcollection\b\s*$|\bcollector(?:\'s)?\b\s\b\w*\b|\bwidescreen\b)|\s*$)",
         re.IGNORECASE,
     )
     groups = re.match(all_pattern, title)
@@ -44,7 +44,11 @@ def _clean_title(title: Union[str, None]) -> Union[str, None]:
         title = groups.group(0)
 
     # remove trailing special character and whitespace
-    title = re.sub(r"\s*[\W\D]\s*$", "", title)
+    title = re.sub(
+        r"[\,\.\\\<\>\?\;\:\'\"\[\{\]\}\`\~\!\@\#\$\%\^\&\*\(\)\-\_\=\+\|\s]*$",
+        "",
+        title,
+    )
     return title
 
 
@@ -117,12 +121,13 @@ def merge_metadata_for_wikidata(
 
         year_from_title = _extract_year(title)
         title = _clean_title(title)
-        output_data[asin] = {
-            "title": title,
-            "person": person,
-            "year": year if year is not None else year_from_title,
-            "type": mtype,
-        }
+        if title is not None and title != "":
+            output_data[asin] = {
+                "title": title,
+                "person": person,
+                "year": year if year is not None else year_from_title,
+                "type": mtype,
+            }
 
     correct_missing_types(output_data)
 
