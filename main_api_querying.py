@@ -22,17 +22,19 @@ async def main():
             metadata = json.load(f)
         for k, v in metadata.items():
             metadata[k]["queried"] = False
+            metadata[k]["err"] = None
         with open(merged_metadata_aug_file_path, "w", encoding="utf-8") as g:
             json.dump(metadata, g, indent=4, ensure_ascii=False)
 
     # set this to True if you want to requery previously queried items
-    reset_queried = False
+    retry = False
 
     with open(merged_metadata_aug_file_path, "r+", encoding="utf-8") as g:
         metadata = json.load(g)
-        if reset_queried:
+        if retry:
             for k, v in metadata.items():
                 metadata[k]["queried"] = False
+                metadata[k]["err"] = None
         # reset file cursor position so writing the data back will overwrite previous contents
         g.seek(0)
 

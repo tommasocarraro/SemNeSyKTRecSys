@@ -8,6 +8,7 @@ from .utils import (
     process_responses_with_joblib,
     get_async_limiter,
     process_http_requests,
+    ErrorCode,
 )
 from .query_records_utils import extract_artist, extract_title, extract_year
 from .score import compute_score_triple, push_to_heap
@@ -15,25 +16,25 @@ from .score import compute_score_triple, push_to_heap
 
 def _extract_info(
     data: Union[
-        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any]],
-        tuple[None, None],
+        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any], ErrorCode],
+        tuple[tuple[str, Optional[str], Optional[str]], None, ErrorCode],
     ]
 ):
-    query, response = data
-    if query is None:  # TODO fix up
-        return None, None, None, None
-    title_q, person_q, year_q = query
+    query_tuple, response, err = data
+    title_q, person_q, year_q = query_tuple
     person_r, year_r = None, None
-    err = False
-    if response is None:
-        return title_q, person_q, year_q, True
+    if err is not None:
+        return title_q, person_q, year_q, err
 
     results_with_scores = []
     try:
         results = response["releases"]
     except KeyError:
-        logger.info(f"No results found for {title_q}")
-        return title_q, person_q, year_q, True
+        logger.error(f"Failed to retrieve {title_q}'s information due to error: {e}")
+        return title_q, person_q, year_q, ErrorCode.JsonProcess
+    if len(results) == 0:
+        logger.warning(f"Title '{title_q}' had no matches")
+        return title_q, person_q, year_q, None, ErrorCode.NotFound
     for result in results:
         title_r_i = extract_title(result)
         person_r_i, person_score = extract_artist(result, person_q)
@@ -73,15 +74,16 @@ async def get_records_info(
     """
     limiter = get_async_limiter(how_many=len(query_data), max_rate=1, time_period=1)
     tasks = [
-        get_request_with_limiter(
-            url="https://musicbrainz.org/ws/2/release",
-            title=title,
-            params={"query": title, "limit": 10, "fmt": "json"},
-            limiter=limiter,
-            person=person,
-            year=year,
+        (
+            (title, person, year),
+            get_request_with_limiter(
+                url="https://musicbrainz.org/ws/2/release",
+                params={"query": title, "limit": 10, "fmt": "json"},
+                limiter=limiter,
+                index=i,
+            ),
         )
-        for title, person, year in query_data
+        for i, (title, person, year) in enumerate(query_data)
     ]
     responses = await process_http_requests(
         tasks=tasks, tqdm_desc="Querying MusicBrainz..."
