@@ -2,7 +2,13 @@ from typing import Any, Optional
 
 
 def extract_movie_director(item: dict[str, Any]) -> Optional[str]:
-    pass
+    try:
+        crew = item["crew"]
+        for member in crew:
+            if member["job"] == "Director":
+                return member["name"]
+    except (KeyError, TypeError, IndexError):
+        return None
 
 
 def extract_movie_year(item: dict[str, Any]) -> Optional[str]:

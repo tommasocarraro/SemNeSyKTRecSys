@@ -8,6 +8,7 @@ from .utils import (
     process_responses_with_joblib,
     process_http_requests,
     get_async_limiter,
+    ErrorCode,
 )
 from .query_movies_and_tv_utils import (
     extract_movie_year,
@@ -21,18 +22,15 @@ from .score import compute_score_pair, push_to_heap
 
 def _extract_search_info(
     data: Union[
-        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any]],
-        tuple[None, None],
+        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any], ErrorCode],
+        tuple[tuple[str, Optional[str], Optional[str]], None, ErrorCode],
     ]
 ):
-    query, response = data
-    if query is None:  # TODO fix up
-        return None, None, None, None, None
-    title_q, person_q, year_q = query
-    err = False
-    if response is None:
-        return title_q, person_q, year_q, None, True
+    query_tuple, response, err = data
+    title_q, person_q, year_q = query_tuple
     person_r, year_r, movie_id = None, None, None
+    if err is not None:
+        return title_q, person_q, year_q, None, err
 
     results_with_scores = []
     try:
@@ -41,10 +39,10 @@ def _extract_search_info(
         logger.error(
             f"There was error while processing {title_q}'s search response: {e}"
         )
-        return title_q, person_r, year_r, None, True
+        return title_q, person_r, year_r, None, ErrorCode.JsonProcess
     if len(results) == 0:
         logger.warning(f"Title '{title_q}' had no matches")
-        return title_q, person_q, year_q, None, True
+        return title_q, person_q, year_q, None, ErrorCode.NotFound
     for result in results:
         try:
             media_type = result["media_type"]
@@ -83,27 +81,16 @@ def _extract_search_info(
 
 def _extract_movie_info(
     data: Union[
-        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any]],
+        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any], ErrorCode],
         tuple[None, None],
     ]
 ):
-    query, response = data
-    err = False
+    query, response, err = data
     person = None
-    if query is None or response is None:
-        return person, True
     title = query[0]
-    try:
-        crew = response["crew"]
-        for crew_member in crew:
-            if crew_member["job"] == "Director":
-                person = crew_member["name"]
-                break
-    except TypeError as e:
-        logger.error(f"There was error while processing {title}'s info response: {e}")
-        err = True
-    except KeyError:
-        logger.warning(f"Failed to retrieve {title}'s director")
+    if err is not None:
+        return title, person, err
+    person = extract_movie_director(response)
     return title, person, err
 
 
@@ -123,19 +110,20 @@ async def get_movies_and_tv_info(
 
     # search TMDB
     search_tasks = [
-        get_request_with_limiter(
-            url="https://api.themoviedb.org/3/search/multi",
-            params={
-                "query": title,
-                "api_key": TMDB_API_KEY,
-                "include_adult": "false",
-            },
-            limiter=limiter,
-            title=title,
-            person=person,
-            year=year,
+        (
+            (title, person, year),
+            get_request_with_limiter(
+                url="https://api.themoviedb.org/3/search/multi",
+                params={
+                    "query": title,
+                    "api_key": TMDB_API_KEY,
+                    "include_adult": "false",
+                },
+                limiter=limiter,
+                index=i,
+            ),
         )
-        for title, person, year in query_data
+        for i, (title, person, year) in enumerate(query_data)
     ]
     search_responses = await process_http_requests(
         search_tasks, "Searching for movies and TV series on TMDB..."
@@ -154,15 +142,16 @@ async def get_movies_and_tv_info(
 
     # query for all movies' directors
     movie_info_tasks = [
-        get_request_with_limiter(
-            url=f"https://api.themoviedb.org/3/movie/{movie_id}/credits",
-            params={"api_key": TMDB_API_KEY},
-            limiter=limiter,
-            title=title,
-            person=None,
-            year=None,
+        (
+            (title, movie_id),
+            get_request_with_limiter(
+                url=f"https://api.themoviedb.org/3/movie/{movie_id}/credits",
+                params={"api_key": TMDB_API_KEY},
+                limiter=limiter,
+                index=i,
+            ),
         )
-        for title, movie_id in movies_results
+        for i, (title, movie_id) in enumerate(movies_results)
     ]
     movies_info_responses = await process_http_requests(
         movie_info_tasks, "Retrieving movies directors from TMDB..."
@@ -178,6 +167,6 @@ async def get_movies_and_tv_info(
     }
     for title, person, err in movie_info:
         movies_and_tv_dict[title]["person"] = person
-        if err:
+        if err is not None:
             movies_and_tv_dict["err"] = err
     return movies_and_tv_dict

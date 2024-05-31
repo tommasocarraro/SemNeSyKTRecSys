@@ -9,6 +9,7 @@ from nesy.dataset_augmentation.api_querying import (
     get_records_info,
     get_movies_and_tv_info,
 )
+from nesy.dataset_augmentation.api_querying.utils import ErrorCode
 
 
 def _get_query_fn(
@@ -70,8 +71,16 @@ async def query_apis(
 
         # title is the same used for querying, the one provided by the response is disregarded
         for info in items_info.values():
-            if not info["err"] and info["title"] is not None:
-                asin, _ = items[info["title"]]
+            title = info["title"]
+            asin, _ = items[title]
+            err = info["err"]
+            if err is not None:
+                if err in [ErrorCode.Cancelled, ErrorCode.Throttled]:
+                    continue
+                else:
+                    metadata[asin]["queried"] = True
+                    metadata[asin]["err"] = err.name
+            else:
                 if metadata[asin]["person"] is None:
                     metadata[asin]["person"] = info["person"]
                 if metadata[asin]["year"] is None:

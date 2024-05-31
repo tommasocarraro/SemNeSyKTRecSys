@@ -11,23 +11,21 @@ from .utils import (
     process_responses_with_joblib,
     get_async_limiter,
     process_http_requests,
+    ErrorCode,
 )
 
 
 def _extract_books_info(
     data: Union[
-        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any]],
-        tuple[None, None],
+        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any], ErrorCode],
+        tuple[tuple[str, Optional[str], Optional[str]], None, ErrorCode],
     ]
 ):
-    query, response = data
-    if query is None:  # TODO fix up
-        return None, None, None, None
-    title_q, person_q, year_q = query
+    query_tuple, response, err = data
+    title_q, person_q, year_q = query_tuple
     person_r, year_r = None, None
-    err = False
-    if response is None:
-        return title_q, person_q, year_q, True
+    if err is not None:
+        return title_q, person_q, year_q, err
 
     results_with_scores = []
 
@@ -35,9 +33,12 @@ def _extract_books_info(
         results = response["itemListElement"]
     except KeyError as e:
         logger.error(f"Failed to retrieve {title_q}'s information due to error: {e}")
-        return title_q, person_q, year_q, True
-    try:
-        for result in results:
+        return title_q, person_q, year_q, ErrorCode.JsonProcess
+    if len(results) == 0:
+        logger.warning(f"Title '{title_q}' had no matches")
+        return title_q, person_q, year_q, None, ErrorCode.NotFound
+    for result in results:
+        try:
             body = result["result"]
             title_r_i = body["name"]
             person_r_i = extract_book_author(body)
@@ -46,8 +47,8 @@ def _extract_books_info(
                 (title_q, person_q, year_q), (title_r_i, person_r_i, year_r_i)
             )
             push_to_heap(results_with_scores, (person_r_i, year_r_i), score)
-    except KeyError as e:
-        logger.warning(f"Something went wrong: {e}")
+        except KeyError as e:
+            logger.warning(f"Something went wrong: {e}")
 
     n_best = heapq.nlargest(1, results_with_scores)
     if len(n_best) > 0:
@@ -82,23 +83,25 @@ async def google_kg_search(
         a coroutine which provides all the responses\' bodies\' in json format when awaited
     """
     limiter = get_async_limiter(how_many=len(query_data), max_rate=10, time_period=1)
+
     tasks = [
-        get_request_with_limiter(
-            limiter=limiter,
-            url="https://kgsearch.googleapis.com/v1/entities:search",
-            title=title,
-            person=person,
-            year=year,
-            params=[
-                ("query", title),
-                ("key", GOOGLE_API_KEY),
-                ("limit", 10),
-                ("indent", "True"),
-                ("languages", language),
-                *list(zip(["types" for _ in range(len(query_types))], query_types)),
-            ],
+        (
+            (title, person, year),
+            get_request_with_limiter(
+                limiter=limiter,
+                url="https://kgsearch.googleapis.com/v1/entities:search",
+                params=[
+                    ("query", title),
+                    ("key", GOOGLE_API_KEY),
+                    ("limit", 10),
+                    ("indent", "True"),
+                    ("languages", language),
+                    *list(zip(["types" for _ in range(len(query_types))], query_types)),
+                ],
+                index=i,
+            ),
         )
-        for title, person, year in query_data
+        for i, (title, person, year) in enumerate(query_data)
     ]
     responses = await process_http_requests(tasks, tqdm_desc="Querying Google KG...")
 
