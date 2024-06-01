@@ -19,7 +19,7 @@ def _extract_year(title: Union[str, None]) -> Union[int, None]:
     return year
 
 
-def _clean_title(title: Union[str, None]) -> Union[str, None]:
+def _clean_title(title: Union[str, None], mtype: str) -> Union[str, None]:
     if title is None:
         return None
 
@@ -30,26 +30,28 @@ def _clean_title(title: Union[str, None]) -> Union[str, None]:
     if title.endswith("DVD") or title.endswith("VHS"):
         title = title[:-3].rstrip()
 
-    # remove explicit lyrics warning
-    elif title.endswith("explicit_lyrics"):
-        title = title[: -len("explicit_lyrics")].rstrip()
+    if mtype == "cds_and_vinyl":
+        # remove explicit lyrics warning
+        if title.endswith("explicit_lyrics"):
+            title = title[: -len("explicit_lyrics")].rstrip()
 
-    # remove common patterns
-    all_pattern = re.compile(
-        r"^.*?(?=\s*(?:\bthe\b\s)?[.,:-]?\s?(?:\bvolume\b|\bseason\b|\bvol\b\.?|\bcomplete\b|\bprograms\b|\bset\b|(?:\s*\b\w*[^\s\w]\w*\b|\b\w+\b\s*){0,2}\bedition\b|\bcollection\b\s*$|\bcollector(?:\'s)?\b\s\b\w*\b|\bwidescreen\b)|\s*$)",
-        re.IGNORECASE,
-    )
-    groups = re.match(all_pattern, title)
-    if groups:
-        title = groups.group(0)
+    if mtype != "books":
+        # remove common patterns
+        all_pattern = re.compile(
+            r"^.*?(?=\s*(?:\bthe\b\s)?[.,:-]?\s?(?:\bvolume\b|\bseason\b|\bvol\b\.?|\bcomplete\b|\bprograms\b|\bset\b|(?:\s*\b\w*[^\s\w]\w*\b|\b\w+\b\s*){0,2}\bedition\b|\bcollection\b\s*$|\bcollector(?:\'s)?\b\s\b\w*\b|\bwidescreen\b)|\s*$)",
+            re.IGNORECASE,
+        )
+        groups = re.match(all_pattern, title)
+        if groups:
+            title = groups.group(0)
 
-    # remove trailing special character and whitespace
-    title = re.sub(
-        r"[\,\.\\\<\>\?\;\:\'\"\[\{\]\}\`\~\!\@\#\$\%\^\&\*\(\)\-\_\=\+\|\s]*$",
-        "",
-        title,
-    )
-    return title
+        # remove trailing special character and whitespace
+        title = re.sub(
+            r"[\,\.\\\<\>\?\;\:\'\"\[\{\]\}\`\~\!\@\#\$\%\^\&\*\(\)\-\_\=\+\|\s]*$",
+            "",
+            title,
+        )
+    return title.rstrip()
 
 
 def merge_metadata_for_wikidata(
@@ -120,7 +122,7 @@ def merge_metadata_for_wikidata(
                     raise RuntimeError("Unrecognized metadata type")
 
         year_from_title = _extract_year(title)
-        title = _clean_title(title)
+        title = _clean_title(title, mtype)
         if title is not None and title != "":
             output_data[asin] = {
                 "title": title,
