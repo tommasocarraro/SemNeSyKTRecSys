@@ -44,7 +44,7 @@ def scrape_title_wayback(asins: list[str],
         """
         # check if this batch has been already processed in another execution
         # if the path does not exist, we process the batch
-        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx,)
+        tmp_path = "./data/processed/tmp/metadata-batch-%s" % (batch_idx,)
         if not os.path.exists(tmp_path):
             # define dictionary for saving batch data
             batch_dict = {}
