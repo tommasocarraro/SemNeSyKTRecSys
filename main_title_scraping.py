@@ -64,7 +64,7 @@ def metadata_scraping(metadata: str,
         updated_dict = scrape_title_captcha(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp,
                                             use_solver=use_solver)
     else:
-        updated_dict = scrape_title_google_search(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
+        updated_dict = scrape_title_google_search(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp, timer=0)
     # update of the metadata
     m_data.update(updated_dict)
     # generate the new and complete metadata file
@@ -73,5 +73,5 @@ def metadata_scraping(metadata: str,
 
 
 if __name__ == "__main__":
-    metadata_scraping("./data/processed/legacy/complete-filtered-metadata.json", motivation="captcha-or-DOM",
-                      mode="standard", save_tmp=True, batch_size=100, use_solver=False)
+    metadata_scraping("./data/processed/legacy/complete-filtered-metadata.json", motivation="404-error",
+                      mode="captcha", save_tmp=True, batch_size=20, use_solver=False)
