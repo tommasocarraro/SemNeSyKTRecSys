@@ -14,7 +14,8 @@ def scrape_title_google_search(asins: list[str],
                                n_cores: int = 1,
                                batch_size: int = 100,
                                save_tmp: bool = True,
-                               just_first: bool = True) -> dict[str, str]:
+                               just_first: bool = True,
+                               timer: int = 5) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests to the Google Search
     to get the title of the ASIN. It simply searches on the Google Search text area and iterates over the results to get
@@ -31,6 +32,7 @@ def scrape_title_google_search(asins: list[str],
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
     :param just_first: whether to save just the title of the first link of the search or all the titles that are found
     by Google for this specific search
+    :param timer: seconds to wait between a http request and the following one
     :return: new dictionary containing key-value pairs with ASIN-title
     """
     # define dictionary suitable for parallel storing of information
@@ -55,7 +57,7 @@ def scrape_title_google_search(asins: list[str],
         """
         # check if this batch has been already processed in another execution
         # if the path does not exist, we process the batch
-        tmp_path = "./data/processed/metadata-batch-%s" % (batch_idx,)
+        tmp_path = "./data/processed/tmp/metadata-batch-%s" % (batch_idx,)
         if not os.path.exists(tmp_path):
             # define dictionary for saving batch data
             batch_dict = {}
@@ -68,7 +70,7 @@ def scrape_title_google_search(asins: list[str],
                 url = "http://www.google.com/search?as_q=" + asin
                 driver.get(url)
                 # wait five seconds to avoid being detected by Google
-                time.sleep(5)
+                time.sleep(timer)
                 # get page source
                 soup = BeautifulSoup(driver.page_source, 'html.parser')
                 # check if Google changed my search
