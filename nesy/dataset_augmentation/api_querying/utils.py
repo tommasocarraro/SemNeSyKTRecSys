@@ -2,8 +2,9 @@ import asyncio
 import os
 import signal
 from asyncio import CancelledError
+from enum import Enum
 from json import JSONDecodeError
-from typing import Sequence, Callable, Coroutine, Union, Generator, Any
+from typing import Sequence, Callable, Coroutine, Generator, Any
 
 from aiohttp import ClientResponseError
 from aiolimiter import AsyncLimiter
@@ -53,7 +54,7 @@ def _add_signal_handlers():
     loop = asyncio.get_running_loop()
 
     def shutdown() -> None:
-        logger.warning("Cancelling all running async tasks")
+        logger.info("Interrupt received: cancelling all running async tasks")
         for task in asyncio.all_tasks(loop):
             if task is not asyncio.current_task(loop):
                 task.cancel()
@@ -68,39 +69,55 @@ def _manually_abort(pbar: Generator[Any, Any, None]) -> None:
     os.kill(os.getpid(), signal.SIGINT)
 
 
-async def process_http_requests(
-    tasks: list[Coroutine], tqdm_desc: str
-) -> tuple[list[Union[tuple[str, any], tuple[str, None]]], bool]:
+async def process_http_requests(tasks: list[tuple[tuple, Coroutine]], tqdm_desc: str):
     _add_signal_handlers()
+
+    aws = [task[1] for task in tasks]
 
     results = []
     for response in (
-        pbar := tqdm.as_completed(tasks, desc=tqdm_desc, dynamic_ncols=True)
+        pbar := tqdm.as_completed(aws, desc=tqdm_desc, dynamic_ncols=True)
     ):
-        title = None
+        body, err = None, None
         try:
-            title, body = await response
-            results.append((title, body))
+            req_index, body = await response
+            query_tuple = tasks[req_index][0]
         except CancelledError:
-            results.append((title, None))
+            err = ErrorCode.Cancelled
             pbar.close()
         except ClientResponseError as e:
             if e.status == 404:
                 logger.warning(f"Item not found: {e}")
+                err = ErrorCode.NotFound
             elif e.status in [429, 503]:
                 _manually_abort(pbar)
                 logger.error(f"Too many requests to the server: {e}")
-                results.append((title, None))
+                err = ErrorCode.Throttled
             elif e.status >= 500:
                 logger.warning(f"Server error: {e}")
+                err = ErrorCode.RemoteServer
             elif e.status == 401:
                 _manually_abort(pbar)
                 logger.error(f"Unauthorized: {e}")
-                results.append((title, None))
+                err = ErrorCode.Unauthorized
             else:
                 logger.error(f"Unknown error: {e}")
+                err = ErrorCode.Unknown
         except JSONDecodeError as e:
             _manually_abort(pbar)
             logger.error(f"JSON decoding error: {e}")
-            results.append((title, None))
+            err = ErrorCode.JSONDecode
+        finally:
+            results.append((query_tuple, body, err))
     return results
+
+
+class ErrorCode(Enum):
+    NotFound = 1
+    Cancelled = 2
+    Throttled = 3
+    Unauthorized = 4
+    RemoteServer = 5
+    JSONDecode = 6
+    Unknown = 7
+    JsonProcess = 8
