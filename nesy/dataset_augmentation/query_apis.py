@@ -1,8 +1,9 @@
+import asyncio
 import signal
 from typing import Any, Union, Literal, Callable
 
 from loguru import logger
-
+import inspect
 from nesy.dataset_augmentation import state
 from nesy.dataset_augmentation.api_querying import (
     get_books_info,
@@ -10,25 +11,38 @@ from nesy.dataset_augmentation.api_querying import (
     get_movies_and_tv_info,
 )
 from nesy.dataset_augmentation.api_querying.utils import ErrorCode
+from nesy.dataset_augmentation.api_querying.open_library import get_books_info
 
 
-def _get_query_fn(
+def _is_async_function(func: Callable) -> bool:
+    return inspect.iscoroutinefunction(func)
+
+
+async def _run_query(
+    batch,
     item_type: Union[
         Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
-    ]
-) -> tuple[Callable, list]:
+    ],
+):
     if item_type == "movies_and_tv":
         query_fn = get_movies_and_tv_info
         args = []
     elif item_type == "books":
         query_fn = get_books_info
-        args = [["Book"]]
+        args = []
+        # query_fn = get_books_info
+        # args = [["Book"]]
     elif item_type == "cds_and_vinyl":
         query_fn = get_records_info
         args = []
     else:
         raise ValueError("Unsupported item type")
-    return query_fn, args
+
+    if _is_async_function(query_fn):
+        return await query_fn(batch, *args)
+    else:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, query_fn, batch, *args)
 
 
 async def query_apis(
@@ -59,7 +73,6 @@ async def query_apis(
         (item["title"], item["person"], item["year"]) for _, item in items.values()
     ]
 
-    query_fn, args = _get_query_fn(item_type)
     if batch_size == -1 or batch_size > len(query_data):
         batch_size = len(query_data)
     for i in range(0, len(query_data), batch_size):
@@ -67,7 +80,10 @@ async def query_apis(
             f"Remaining items: {len(query_data) - i}, processing: {batch_size if batch_size <= len(query_data) else len(query_data)}..."
         )
         batch = query_data[i : i + batch_size]
-        items_info = await query_fn(batch, *args)
+        items_info = await _run_query(batch, item_type)
+
+        logger.info(items_info)
+        exit(0)
 
         # title is the same used for querying, the one provided by the response is disregarded
         for info in items_info.values():
@@ -94,3 +110,5 @@ async def query_apis(
         if state.GRACEFUL_EXIT:
             logger.info("Terminating early due to interrupt")
             break
+
+    exit(1)
