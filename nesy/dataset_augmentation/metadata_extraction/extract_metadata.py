@@ -1,7 +1,7 @@
 import json
 import os.path
 from typing import Any
-
+from tqdm.auto import tqdm
 from .query_by_asin import query_by_asin
 
 
@@ -18,12 +18,12 @@ def extract_metadata(
     # read all ASIN codes from the ASIN file
     with open(asin_file_path) as asin_file:
         json_obj = json.load(asin_file)
-        asin_list = (key for key in json_obj.keys())
+        asin_list = [key for key in json_obj.keys()]
 
     # extract the input metadata file names without extensions
     file_names = [os.path.basename(file).split(".")[0] for file in metadata_files]
     output_data = {}
-    for asin in asin_list:
+    for asin in tqdm(asin_list, desc="Extracting metadata...", dynamic_ncols=True):
         found = False
         for file_name in file_names:
             if not found:

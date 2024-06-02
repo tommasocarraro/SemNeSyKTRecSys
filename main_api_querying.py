@@ -3,6 +3,8 @@ import json
 import os
 import os.path
 
+from loguru import logger
+
 from nesy.dataset_augmentation import query_apis
 
 
@@ -20,25 +22,28 @@ async def main():
             metadata = json.load(f)
         for k, v in metadata.items():
             metadata[k]["queried"] = False
+            metadata[k]["err"] = None
+            metadata[k]["from_api"] = []
         with open(merged_metadata_aug_file_path, "w", encoding="utf-8") as g:
             json.dump(metadata, g, indent=4, ensure_ascii=False)
 
     # set this to True if you want to requery previously queried items
-    reset_queried = False
+    retry = False
 
     with open(merged_metadata_aug_file_path, "r+", encoding="utf-8") as g:
         metadata = json.load(g)
-        if reset_queried:
+        if retry:
             for k, v in metadata.items():
                 metadata[k]["queried"] = False
         # reset file cursor position so writing the data back will overwrite previous contents
         g.seek(0)
 
         # modify metadata in-place
-        # await query_apis(metadata, item_type="cds_and_vinyl", limit=5000)
-        # await query_apis(metadata, item_type="movies_and_tv", limit=5000)
-        await query_apis(metadata, item_type="books", limit=500)
+        # await query_apis(metadata, item_type="cds_and_vinyl", batch_size=5000)
+        await query_apis(metadata, item_type="movies_and_tv", batch_size=20000)
+        # await query_apis(metadata, item_type="books", batch_size=20000)
 
+        logger.info(f"Writing updated metadata to {merged_metadata_aug_file_path}")
         json.dump(metadata, g, indent=4, ensure_ascii=False)
         g.truncate()
 
