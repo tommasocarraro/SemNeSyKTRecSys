@@ -2,6 +2,7 @@ from joblib import Parallel, delayed
 import json
 from multiprocessing import Manager
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import os
@@ -49,7 +50,8 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
             # create the URLs for scraping
             urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
             # Set up the Chrome driver for the current batch
-            driver = webdriver.Chrome(executable_path="./chromedriver", options=chrome_options)
+            chrome_service = ChromeService(executable_path='./chromedriver')
+            driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
             # start the scraping loop
             for counter, url in enumerate(urls):
                 asin = url.split("/")[-1]
