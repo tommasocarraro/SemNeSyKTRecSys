@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import os
+import re
 
 
 def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True) -> dict[str, str]:
@@ -64,7 +65,55 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                     if title_element:
                         # the title has been found and we save it in the dictionary
                         print_str = title_element.text.strip()
-                        batch_dict[asin] = title_element.text.strip()
+                        batch_dict[asin] = {}
+                        batch_dict[asin]["title"] = title_element.text.strip()
+                        # get person information
+                        person = soup.find('span', {'class': 'author'})
+                        # this is used in a second step
+                        person_year_div = soup.find('div', {'id': 'detailBullets_feature_div'})
+                        if person:
+                            batch_dict[asin]["person"] = person.a.text
+                        else:
+                            found_person = False
+                            if person_year_div:
+                                spans = person_year_div.find_all('span')
+                                for i, span in enumerate(spans):
+                                    if "Director" in span.text:
+                                        batch_dict[asin]["person"] = spans[i + 2].text
+                                        found_person = True
+                                        break
+                                    if "Actors" in span.text:
+                                        batch_dict[asin]["person"] = spans[i + 2].text
+                                        found_person = True
+                                        break
+                                if not found_person:
+                                    # look for contributor
+                                    person = soup.find('tr', {'class': 'po-contributor'})
+                                    if person:
+                                        person = person.find('span', {'class': 'po-break-word'})
+                                        if person:
+                                            batch_dict[asin]["person"] = person.text
+                                        else:
+                                            batch_dict[asin]["person"] = None
+                                    else:
+                                        batch_dict[asin]["person"] = None
+                            else:
+                                batch_dict[asin]["person"] = None
+                        # get year information
+                        found_year = False
+                        if person_year_div:
+                            spans = person_year_div.find_all('span')
+                            year_pattern = re.compile(r'\b\d{4}\b')
+                            for span in spans:
+                                year_match = year_pattern.search(span.text)
+                                if year_match:
+                                    batch_dict[asin]["year"] = year_match.group()
+                                    found_year = True
+                                    break
+                            if not found_year:
+                                batch_dict[asin]["year"] = None
+                        else:
+                            batch_dict[asin]["year"] = None
                     else:
                         # the title has not been found
                         # check if it is due to a 404 error
