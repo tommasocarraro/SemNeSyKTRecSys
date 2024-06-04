@@ -59,7 +59,6 @@ def metadata_scraping(metadata: str,
         no_titles = [k for k, v in m_data.items() if v == motivation]
     else:
         no_titles = list(m_data.keys())
-        no_titles = ["0307142477", "0307142477", "0307142477"]
     # update the metadata with the scraped titles
     if mode is None or mode == "standard":
         updated_dict = scrape_title_amazon(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
