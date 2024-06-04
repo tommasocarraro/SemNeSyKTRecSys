@@ -80,4 +80,4 @@ def metadata_scraping(metadata: str,
 
 if __name__ == "__main__":
     metadata_scraping("./data/processed/legacy/complete-filtered-metadata.json", motivation=None,
-                      mode="standard", save_tmp=True, batch_size=100, use_solver=False, n_cores=10)
+                      mode="standard", save_tmp=True, batch_size=20, use_solver=False, n_cores=10)
