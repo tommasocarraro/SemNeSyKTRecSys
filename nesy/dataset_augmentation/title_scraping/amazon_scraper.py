@@ -52,6 +52,7 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
             # Set up the Chrome driver for the current batch
             chrome_service = ChromeService(executable_path='./chromedriver')
             driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
+            bot_counter = 0
             # start the scraping loop
             for counter, url in enumerate(urls):
                 asin = url.split("/")[-1]
@@ -65,6 +66,7 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                     # Find the product title
                     title_element = soup.find('span', {'id': 'productTitle'})
                     if title_element:
+                        bot_counter = 0
                         # the title has been found and we save it in the dictionary
                         print_str = title_element.text.strip()
                         batch_dict[asin] = {}
@@ -127,6 +129,9 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                             print_str = "404 error - url %s" % (url,)
                             batch_dict[asin] = "404-error"
                         else:
+                            bot_counter += 1
+                            if bot_counter == 20:
+                                raise Exception("Bot detection")
                             # if it is not a 404 error, the bot has been detected
                             print_str = "Bot detected - url %s" % (url,)
                             # it could be because of a captcha from Amazon or also because there is not productTitle
@@ -135,6 +140,8 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                             # if the problem is related to the DOM, the web page has to be investigated
                             batch_dict[asin] = "captcha-or-DOM"
                 except Exception as e:
+                    if bot_counter == 20:
+                        raise Exception("Bot detection")
                     print(e)
                     print_str = "unknown error - url %s" % (url,)
                     # if an exception is thrown by the system, I am interested in knowing which ASIN caused that, so
