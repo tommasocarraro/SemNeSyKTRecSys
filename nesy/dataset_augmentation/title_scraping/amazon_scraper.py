@@ -7,6 +7,9 @@ from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import os
 import re
+from fake_useragent import UserAgent
+import time
+import random
 
 
 def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True) -> dict[str, str]:
@@ -32,6 +35,9 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
     chrome_options = Options()
     chrome_options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
     chrome_options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
+    ua = UserAgent()
+    chrome_options.add_argument(f"user-agent={ua.random}")  # random user agent
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     def batch_request(batch_idx: int, asins: list[str], title_dict: dict[str, str]) -> None:
         """
@@ -57,6 +63,8 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
             for counter, url in enumerate(urls):
                 asin = url.split("/")[-1]
                 try:
+                    # wait some time to avoid detection
+                    time.sleep(random.uniform(1, 3))
                     # Load the Amazon product page
                     driver.get(url)
                     # get the page
