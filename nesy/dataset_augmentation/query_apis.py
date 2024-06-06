@@ -82,9 +82,6 @@ async def query_apis(
         batch = query_data[i : i + batch_size]
         items_info = await _run_query(batch, item_type)
 
-        logger.info(items_info)
-        exit(0)
-
         # title is the same used for querying, the one provided by the response is disregarded
         for info in items_info.values():
             title = info["title"]
