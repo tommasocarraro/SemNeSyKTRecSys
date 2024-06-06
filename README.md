@@ -11,3 +11,8 @@ Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
   - tie in with the rest of api querying program
 - implement driver to launch cypher queries from python on neo4j
 - understand how to rank paths and the desired path length
+- Books:
+  - First query on KG graph and try to find a plausible match
+  - Then if information is still missing try to complete with open library
+- Metadata after matching against APIs:
+  - show where each piece of information came from

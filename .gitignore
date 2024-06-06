@@ -161,6 +161,7 @@ cython_debug/
 
 **/*.tsv
 **/*.gz
+**/*.txt
 **/*.db
 **/*.db-journal
 **/*.db-shm
@@ -168,4 +169,5 @@ cython_debug/
 
 .idea
 data/**/**.jsonl
+data/**/**.json
 **/extracted_metadata_*.json
