@@ -2,9 +2,14 @@ from joblib import Parallel, delayed
 import json
 from multiprocessing import Manager
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 import os
+import re
+from fake_useragent import UserAgent
+import time
+import random
 
 
 def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True) -> dict[str, str]:
@@ -30,6 +35,9 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
     chrome_options = Options()
     chrome_options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
     chrome_options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
+    ua = UserAgent()
+    chrome_options.add_argument(f"user-agent={ua.random}")  # random user agent
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     def batch_request(batch_idx: int, asins: list[str], title_dict: dict[str, str]) -> None:
         """
@@ -48,11 +56,15 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
             # create the URLs for scraping
             urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
             # Set up the Chrome driver for the current batch
-            driver = webdriver.Chrome(executable_path="./chromedriver", options=chrome_options)
+            chrome_service = ChromeService(executable_path='./chromedriver')
+            driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
+            bot_counter = 0
             # start the scraping loop
             for counter, url in enumerate(urls):
                 asin = url.split("/")[-1]
                 try:
+                    # wait some time to avoid detection
+                    time.sleep(random.uniform(1, 3))
                     # Load the Amazon product page
                     driver.get(url)
                     # get the page
@@ -62,9 +74,58 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                     # Find the product title
                     title_element = soup.find('span', {'id': 'productTitle'})
                     if title_element:
+                        bot_counter = 0
                         # the title has been found and we save it in the dictionary
                         print_str = title_element.text.strip()
-                        batch_dict[asin] = title_element.text.strip()
+                        batch_dict[asin] = {}
+                        batch_dict[asin]["title"] = title_element.text.strip()
+                        # get person information
+                        person = soup.find('span', {'class': 'author'})
+                        # this is used in a second step
+                        person_year_div = soup.find('div', {'id': 'detailBullets_feature_div'})
+                        if person:
+                            batch_dict[asin]["person"] = person.a.text
+                        else:
+                            found_person = False
+                            if person_year_div:
+                                spans = person_year_div.find_all('span')
+                                for i, span in enumerate(spans):
+                                    if "Director" in span.text:
+                                        batch_dict[asin]["person"] = spans[i + 2].text
+                                        found_person = True
+                                        break
+                                    if "Actors" in span.text:
+                                        batch_dict[asin]["person"] = spans[i + 2].text
+                                        found_person = True
+                                        break
+                                if not found_person:
+                                    # look for contributor
+                                    person = soup.find('tr', {'class': 'po-contributor'})
+                                    if person:
+                                        person = person.find('span', {'class': 'po-break-word'})
+                                        if person:
+                                            batch_dict[asin]["person"] = person.text
+                                        else:
+                                            batch_dict[asin]["person"] = None
+                                    else:
+                                        batch_dict[asin]["person"] = None
+                            else:
+                                batch_dict[asin]["person"] = None
+                        # get year information
+                        found_year = False
+                        if person_year_div:
+                            spans = person_year_div.find_all('span')
+                            year_pattern = re.compile(r'\b\d{4}\b')
+                            for span in spans:
+                                year_match = year_pattern.search(span.text)
+                                if year_match:
+                                    batch_dict[asin]["year"] = year_match.group()
+                                    found_year = True
+                                    break
+                            if not found_year:
+                                batch_dict[asin]["year"] = None
+                        else:
+                            batch_dict[asin]["year"] = None
                     else:
                         # the title has not been found
                         # check if it is due to a 404 error
@@ -76,6 +137,9 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                             print_str = "404 error - url %s" % (url,)
                             batch_dict[asin] = "404-error"
                         else:
+                            bot_counter += 1
+                            if bot_counter == 20:
+                                raise Exception("Bot detection")
                             # if it is not a 404 error, the bot has been detected
                             print_str = "Bot detected - url %s" % (url,)
                             # it could be because of a captcha from Amazon or also because there is not productTitle
@@ -84,6 +148,8 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                             # if the problem is related to the DOM, the web page has to be investigated
                             batch_dict[asin] = "captcha-or-DOM"
                 except Exception as e:
+                    if bot_counter == 20:
+                        raise Exception("Bot detection")
                     print(e)
                     print_str = "unknown error - url %s" % (url,)
                     # if an exception is thrown by the system, I am interested in knowing which ASIN caused that, so

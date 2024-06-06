@@ -2,6 +2,7 @@ from joblib import Parallel, delayed
 import json
 from multiprocessing import Manager
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 import os
 from selenium.webdriver.common.by import By
@@ -72,7 +73,8 @@ def scrape_title_captcha(asins: list[str],
             # define dictionary for saving batch data
             batch_dict = {}
             # Set up the Chrome driver for the current batch
-            driver = webdriver.Chrome(executable_path="./chromedriver", options=options)
+            chrome_service = ChromeService(executable_path='./chromedriver')
+            driver = webdriver.Chrome(service=chrome_service, options=options)
             if use_solver:
                 # config the extension
                 driver.get(url_api)
