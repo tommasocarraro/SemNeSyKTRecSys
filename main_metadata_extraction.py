@@ -14,8 +14,7 @@ def main():
         os.path.join("data", "amazon2023", "meta_Movies_and_TV.jsonl"),
     ]
     cache_path = os.path.join("data", "amazon2023", "meta_cache.sqlite3.db")
-    cache_fail_path = os.path.join("data", "amazon2023", "meta_cache_failures.jsonl")
-    build_sqlite_cache(file_paths, cache_path, cache_fail_path)
+    # build_sqlite_cache(file_paths, cache_path)
 
     asin_file_path = os.path.join("data", "processed", "filtered-metadata.json")
     extracted_metadata = extract_metadata(asin_file_path, file_paths, cache_path)

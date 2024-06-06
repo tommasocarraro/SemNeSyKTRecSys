@@ -7,7 +7,6 @@ from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation.api_querying.open_library import (
     set_sim_threshold,
     fuzzy_search_titles,
-    fuzzy_search_on_works,
 )
 from nesy.dataset_augmentation.metadata_extraction.open_library import (
     process_dump,
@@ -57,18 +56,19 @@ def main():
     if query_flag:
 
         titles = [
-            # "Eragon",
-            # "The Lord of the Rings",
-            # "Dracula",
-            # "Uomini che Odiano le Donne",
-            # "Il Battesimo del Fuoco",
-            # "Baptism of Fire",
-            "Paul Anderson: The Mightiest Minister"
+            # ("Doctor Who - An Unearthly Child", None, None)
+            # ("Eragon", None, "2002"),
+            ("The Lord of the Rings", None, None),
+            # ("Dracula", "Bram Stoker", None),
+            # ("Uomini che Odiano le Donne", "Stieg Larsson", None),
+            # ("Il Battesimo del Fuoco", "Andrzej Sapkowski", None),
+            # ("Baptism of Fire", "Andrzej Sapkowski", None),
+            # ("Paul Anderson: The Mightiest Minister", None, None),
         ]
         with ConnectionPool(PSQL_CONN_STRING) as pool:
             pool.wait()  # waiting for the pool to start up
             set_sim_threshold(0.8, pool)
-            results = fuzzy_search_on_works(titles, pool)
+            results = fuzzy_search_titles(titles, pool)
             pretty_print_results(results)
 
 
