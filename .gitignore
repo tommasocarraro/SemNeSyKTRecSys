@@ -169,4 +169,5 @@ cython_debug/
 
 .idea
 data/**/**.jsonl
+data/**/**.json
 **/extracted_metadata_*.json
