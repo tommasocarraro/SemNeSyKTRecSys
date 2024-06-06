@@ -16,3 +16,5 @@ Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
   - Then if information is still missing try to complete with open library
 - Metadata after matching against APIs:
   - show where each piece of information came from
+- import of the new wikidata file (check filtered relationships carefully)
+- import labels and put labels in paths
