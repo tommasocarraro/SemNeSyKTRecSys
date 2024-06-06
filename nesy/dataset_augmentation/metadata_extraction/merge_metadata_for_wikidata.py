@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any, Union
 from tqdm.auto import tqdm
-import regex as re
+import re
 
 from nesy.dataset_augmentation.metadata_extraction.utils import correct_missing_types
 
@@ -30,27 +30,27 @@ def _clean_title(title: Union[str, None], mtype: str) -> Union[str, None]:
     if title.endswith("DVD") or title.endswith("VHS"):
         title = title[:-3].rstrip()
 
-    if mtype == "cds_and_vinyl":
         # remove explicit lyrics warning
-        if title.endswith("explicit_lyrics"):
-            title = title[: -len("explicit_lyrics")].rstrip()
+    if mtype == "cds_and_vinyl" and title.endswith("explicit_lyrics"):
+        title = title[: -len("explicit_lyrics")].rstrip()
 
-    if mtype != "books":
-        # remove common patterns
-        all_pattern = re.compile(
-            r"^.*?(?=\s*(?:\bthe\b\s)?[.,:-]?\s?(?:\bvolume\b|\bseason\b|\bvol\b\.?|\bcomplete\b|\bprograms\b|\bset\b|(?:\s*\b\w*[^\s\w]\w*\b|\b\w+\b\s*){0,2}\bedition\b|\bcollection\b\s*$|\bcollector(?:\'s)?\b\s\b\w*\b|\bwidescreen\b)|\s*$)",
-            re.IGNORECASE,
-        )
-        groups = re.match(all_pattern, title)
-        if groups:
-            title = groups.group(0)
+    # remove common patterns
+    all_pattern = re.compile(
+        r"^.*?(?=\s*(?:\bthe\b\s)?[.,:-]?\s?(?:\bvolume\b|\bseason\b|\bvol\b\.?|\bcomplete\b|\bprograms\b|\bset\b|("
+        r"?:\s*\b\w*[^\s\w]\w*\b|\b\w+\b\s*){0,2}\bedition\b|\bcollection\b\s*$|\bcollector("
+        r"?:\'s)?\b\s\b\w*\b|\bwidescreen\b)|\s*$)",
+        re.IGNORECASE,
+    )
+    groups = re.match(all_pattern, title)
+    if groups:
+        title = groups.group(0)
 
-        # remove trailing special character and whitespace
-        title = re.sub(
-            r"[\,\.\\\<\>\?\;\:\'\"\[\{\]\}\`\~\!\@\#\$\%\^\&\*\(\)\-\_\=\+\|\s]*$",
-            "",
-            title,
-        )
+    # remove trailing special character and whitespace
+    title = re.sub(
+        r"[,.\\<>?;:\'\"\[{\]}`~!@#$%^&*()\-_=+|\s]*$",
+        "",
+        title,
+    )
     return title.rstrip()
 
 

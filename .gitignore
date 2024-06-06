@@ -161,6 +161,7 @@ cython_debug/
 
 **/*.tsv
 **/*.gz
+**/*.txt
 **/*.db
 **/*.db-journal
 **/*.db-shm
