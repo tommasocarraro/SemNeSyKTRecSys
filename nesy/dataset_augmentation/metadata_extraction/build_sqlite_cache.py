@@ -45,45 +45,37 @@ FIELDS_TO_BE_REMOVED = [
 
 
 def _insert_file_into_database(
-    file_path: str, cursor: sqlite3.Cursor, failure_path: str, table_name: str
+    file_path: str, cursor: sqlite3.Cursor, table_name: str
 ) -> None:
     # read the JSONL file and insert data into the SQLite table
     with open(file_path, "r") as file:
-        with open(failure_path, "w") as failure:
-            for line in tqdm(file, desc=f"Importing JSONL data from {file_path}"):
-                try:
-                    json_obj = json.loads(line.strip())
+        for line in tqdm(file, desc=f"Importing JSONL data from {file_path}"):
+            try:
+                json_obj = json.loads(line.strip())
 
-                    # filter unneeded information
-                    object_recursive_delete_fields(json_obj, FIELDS_TO_BE_REMOVED)
+                # filter unneeded information
+                object_recursive_delete_fields(json_obj, FIELDS_TO_BE_REMOVED)
 
-                    #
-                    if "title" not in json_obj or json_obj["title"] is None:
-                        failure.write(json.dumps(json_obj, ensure_ascii=False) + "\n")
-                    else:
-                        parent_asin = json_obj.get("parent_asin")
-                        data = json.dumps(json_obj, indent=4, ensure_ascii=False)
-                        cursor.execute(
-                            f"INSERT INTO {table_name} (parent_asin, data) VALUES (?, ?)",
-                            (parent_asin, data),
-                        )
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        f"There was en error while decoding the JSON object: {e}"
+                #
+                if "title" in json_obj and json_obj["title"] is not None:
+                    parent_asin = json_obj.get("parent_asin")
+                    data = json.dumps(json_obj, indent=4, ensure_ascii=False)
+                    cursor.execute(
+                        f"INSERT INTO {table_name} (parent_asin, data) VALUES (?, ?)",
+                        (parent_asin, data),
                     )
-                    continue
+            except json.JSONDecodeError as e:
+                logger.error(f"There was en error while decoding the JSON object: {e}")
+                continue
 
 
-def build_sqlite_cache(
-    file_paths: list[str], cache_path: str, failure_path: str
-) -> None:
+def build_sqlite_cache(file_paths: list[str], cache_path: str) -> None:
     """
     Build a sqlite cache containing the data from each file in file_paths, using the file_name without
     extension as table name.
     Args:
         file_paths: list of file paths.
         cache_path: path to save the sqlite cache to.
-        failure_path: path to save the failures (ASIN without title) to.
     """
     # delete old cache if it already exists
     if os.path.exists(cache_path):
@@ -110,7 +102,7 @@ def build_sqlite_cache(
         conn.commit()
 
         # insert current file into the database
-        _insert_file_into_database(file_path, cursor, failure_path, table_name)
+        _insert_file_into_database(file_path, cursor, table_name)
 
         # create an index on the parent_asin field for faster queries
         cursor.execute(

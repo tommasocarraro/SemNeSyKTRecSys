@@ -1,13 +1,14 @@
 import json
 import os
-from typing import Any, Union
-from tqdm.auto import tqdm
 import re
+from typing import Any, Optional
+
+from tqdm.auto import tqdm
 
 from nesy.dataset_augmentation.metadata_extraction.utils import correct_missing_types
 
 
-def _extract_year(title: Union[str, None]) -> Union[int, None]:
+def _extract_year_from_title_tags(title: Optional[str]) -> Optional[int]:
     if title is None:
         return None
 
@@ -19,12 +20,13 @@ def _extract_year(title: Union[str, None]) -> Union[int, None]:
     return year
 
 
-def _clean_title(title: Union[str, None], mtype: str) -> Union[str, None]:
+def _remove_tags(title: Optional[str], mtype: str) -> Optional[str]:
     if title is None:
         return None
 
     # remove tags between square and round braces
     title = re.sub(r"[\[\(].*?[\]\)]", "", title)
+    title = title.rstrip()
 
     # remove tags without braces
     if title.endswith("DVD") or title.endswith("VHS"):
@@ -33,6 +35,13 @@ def _clean_title(title: Union[str, None], mtype: str) -> Union[str, None]:
         # remove explicit lyrics warning
     if mtype == "cds_and_vinyl" and title.endswith("explicit_lyrics"):
         title = title[: -len("explicit_lyrics")].rstrip()
+
+    return title.rstrip()
+
+
+def _clean_title(title: Optional[str]) -> Optional[str]:
+    if title is None:
+        return None
 
     # remove common patterns
     all_pattern = re.compile(
@@ -121,13 +130,25 @@ def merge_metadata_for_wikidata(
                 else:
                     raise RuntimeError("Unrecognized metadata type")
 
-        year_from_title = _extract_year(title)
-        title = _clean_title(title, mtype)
+        title_without_tags = _remove_tags(title, mtype)
+        title_cleaned = _clean_title(title_without_tags)
+        person = person if isinstance(person, list) else [person]
+        if year is None:
+            year = _extract_year_from_title_tags(title_cleaned)
+        metadata_source = {
+            "title": "Amazon dataset",
+            "person": "Amazon dataset" if len(person) > 0 else None,
+            "year": "Amazon dataset" if year is not None else None,
+        }
+
         if title is not None and title != "":
             output_data[asin] = {
                 "title": title,
+                "title_without_tags": title_without_tags,
+                "title_cleaned": title_cleaned,
                 "person": person,
-                "year": year if year is not None else year_from_title,
+                "year": year,
+                "metadata_source": metadata_source,
                 "type": mtype,
             }
 
