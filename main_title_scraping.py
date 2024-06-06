@@ -7,7 +7,7 @@ from nesy.dataset_augmentation.title_scraping.wayback_machine_scraper import scr
 
 def metadata_scraping(metadata: str,
                       n_cores: int = 1,
-                      motivation: str = "no-title",
+                      motivation: str = None,
                       save_tmp: bool = True,
                       batch_size: int = 100,
                       mode: str = None,
@@ -38,6 +38,7 @@ def metadata_scraping(metadata: str,
         ASIN is not on Amazon anymore. If this motivation is selected, the script will take all the ASINs related to
         this error code and will perform a scraping loop using Wayback Machine. Remember to put wayback=True
         - exception-error: in the first scraping job, the title retrieval failed due to an exception
+        - if None is given, then the scraping is performed on the entire file
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
     :param batch_size: number of ASINs that have to be processed for each batch. Keep this number under 100 to avoid
     disk memory problems due to temporary files memorization by Selenium. Keep this number equal to 20 when wayback=True
@@ -54,7 +55,12 @@ def metadata_scraping(metadata: str,
         m_data = json.load(json_file)
     # take the ASINs for the products that have a missing title in the metadata file
     # only the items with the selected motivation will be picked
-    no_titles = [k for k, v in m_data.items() if v == motivation]
+    if motivation is not None:
+        no_titles = [k for k, v in m_data.items() if v == motivation]
+    else:
+        no_titles = list(m_data.keys())
+    # order the list
+    no_titles = sorted(no_titles)
     # update the metadata with the scraped titles
     if mode is None or mode == "standard":
         updated_dict = scrape_title_amazon(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
@@ -73,5 +79,5 @@ def metadata_scraping(metadata: str,
 
 
 if __name__ == "__main__":
-    metadata_scraping("./data/processed/legacy/complete-filtered-metadata.json", motivation="404-error",
-                      mode="captcha", save_tmp=True, batch_size=20, use_solver=False)
+    metadata_scraping("./data/processed/legacy/complete-filtered-metadata.json", motivation=None,
+                      mode="standard", save_tmp=True, batch_size=100, use_solver=False, n_cores=10)
