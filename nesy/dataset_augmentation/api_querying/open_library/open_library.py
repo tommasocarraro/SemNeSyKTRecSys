@@ -11,13 +11,21 @@ psql_pool: Optional[Pool] = None
 
 
 async def _execute_queries(pool: Pool, params_list: list[dict[str, str]]):
-    queries = []
-    for params_dict in params_list:
-        queries.append(make_query(params_dict))
     query_results = []
-    for query in queries:
+    for params_dict in params_list:
+        query = make_query(params_dict)
+        query_index = params_dict["idx"]
+        title = params_dict["title"]
+        authors = params_dict.get("authors", None)
+        year = params_dict.get("year", None)
+        params = [query_index, title]
+        if authors is not None:
+            params.append(*authors)
+        if year is not None:
+            params.append(year)
         async with pool.acquire() as conn:
-            res = await conn.fetch(query)
+            statement = await conn.prepare(query)
+            res = await statement.fetch(*params)
             query_results.append(res)
     return query_results
 
@@ -38,11 +46,11 @@ async def _fuzzy_search_titles(
     params_list = []
     for i, (title, person, year) in enumerate(query_data):
         if person is None and year is None:
-            params_list.append({"idx": i, "title": title, "kind": "titles"})
+            params_list.append({"idx": f"{i}", "title": title, "kind": "titles"})
         elif year is None:
             params_list.append(
                 {
-                    "idx": i,
+                    "idx": f"{i}",
                     "title": title,
                     "authors": person if isinstance(person, list) else [person],
                     "kind": "titles_authors",
@@ -50,7 +58,7 @@ async def _fuzzy_search_titles(
             )
         elif person is None:
             params_list.append(
-                {"idx": i, "title": title, "year": year, "kind": "titles_year"}
+                {"idx": f"{i}", "title": title, "year": year, "kind": "titles_year"}
             )
 
     results = await _execute_queries(pool=pool, params_list=params_list)

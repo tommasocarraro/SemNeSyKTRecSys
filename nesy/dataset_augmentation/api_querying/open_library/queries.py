@@ -1,18 +1,14 @@
 from typing import Any
 
 
-def make_title_authors_query(params_dict: dict[str, Any]) -> str:
-    title = params_dict["title"]
-    authors = params_dict["authors"]
-    idx = params_dict["idx"]
-
+def make_title_authors_query(how_many_authors: int) -> str:
     from_clauses = ""
     where_clauses = ""
     group_by_clauses = ""
     authors_select = ""
     distance_select = ""
 
-    for i, author in enumerate(authors):
+    for i in range(how_many_authors):
         if from_clauses == "":
             from_clauses = f"combined_materialized_view c{i}"
         else:
@@ -20,9 +16,11 @@ def make_title_authors_query(params_dict: dict[str, Any]) -> str:
                 f" JOIN combined_materialized_view c{i} ON c0.key = c{i}.key"
             )
         if where_clauses == "":
-            where_clauses = f"c{i}.title % LOWER('{title}') AND c{i}.author_name % LOWER('{author}')"
+            where_clauses = (
+                f"c{i}.title % LOWER($2) AND c{i}.author_name % LOWER(${i+3})"
+            )
         else:
-            where_clauses += f" AND c{i}.author_name % LOWER('{author}')"
+            where_clauses += f" AND c{i}.author_name % LOWER(${i+3})"
         if group_by_clauses == "":
             group_by_clauses = f"c{i}.title, c{i}.author_name"
         else:
@@ -31,17 +29,19 @@ def make_title_authors_query(params_dict: dict[str, Any]) -> str:
             authors_select = f"c{i}.author_name"
         else:
             authors_select += f" || ', ' || c{i}.author_name"
-        if i == len(authors) - 1:
+        if i == how_many_authors - 1:
             authors_select += " AS authors"
 
         if distance_select == "":
-            distance_select = f"(c{i}.title <-> LOWER('{title}')) + (c{i}.author_name <-> LOWER('{author}'))"
+            distance_select = (
+                f"(c{i}.title <-> LOWER($2)) + (c{i}.author_name <-> LOWER(${i+3}))"
+            )
         else:
-            distance_select += f" + (c{i}.author_name <-> LOWER('{author}')"
-        if i == len(authors) - 1:
+            distance_select += f" + (c{i}.author_name <-> LOWER(${i+3})"
+        if i == how_many_authors - 1:
             where_clauses += f" AND {distance_select} < 0.5"
             distance_select += " AS distance"
-    select_clauses = f"{idx} as query_index, c0.title, {authors_select}, MIN(c0.year) AS year, {distance_select}"
+    select_clauses = f"$1 as query_index, c0.title, {authors_select}, MIN(c0.year) AS year, {distance_select}"
 
     query = f"""
         SELECT
@@ -58,23 +58,19 @@ def make_title_authors_query(params_dict: dict[str, Any]) -> str:
     return query
 
 
-def make_title_year_query(params_dict: dict[str, Any]) -> str:
-    title = params_dict["title"]
-    year = params_dict["year"]
-    idx = params_dict["idx"]
-
+def make_title_year_query() -> str:
     query = f"""
         SELECT
-            {idx} AS query_index,
+            $1 AS query_index,
             title,
             STRING_AGG(author_name, ', ') as authors,
             year,
-            (title <-> LOWER('{title}')) as distance
+            (title <-> LOWER($2)) as distance
         FROM combined_materialized_view
         WHERE
-            title % LOWER('{title}')
-            AND title <-> LOWER(%(title)s) < 0.5
-        AND year ilike '{year}'
+            title % LOWER($2)
+            AND title <-> LOWER($2) < 0.5
+        AND year ilike $3
         GROUP BY title, year
         ORDER BY distance
         LIMIT 10
@@ -83,21 +79,18 @@ def make_title_year_query(params_dict: dict[str, Any]) -> str:
     return query
 
 
-def make_title_query(params_dict: dict[str, Any]) -> str:
-    title = params_dict["title"]
-    idx = params_dict["idx"]
-
+def make_title_query() -> str:
     query = f"""
     SELECT
-        {idx} AS query_index,
+        $1 AS query_index,
         title,
         MIN(year) as year,
         STRING_AGG(DISTINCT author_name, ', ') as authors,
-        title <-> LOWER('{title}') as distance
+        title <-> LOWER($2) as distance
     FROM combined_materialized_view
     WHERE 
-        title % LOWER('{title}')
-        AND title <-> LOWER('{title}') < 0.5
+        title % LOWER($2)
+        AND title <-> LOWER($2) < 0.5
     GROUP BY key, title
     ORDER BY distance
     LIMIT 10
@@ -111,11 +104,14 @@ def make_query(params_dict: dict[str, Any]):
 
     if kind == "titles":
         make_query_fn = make_title_query
+        args = []
     elif kind == "titles_authors":
         make_query_fn = make_title_authors_query
-    elif kind == "titles_authors":
+        args = [len(params_dict["authors"])]
+    elif kind == "titles_year":
         make_query_fn = make_title_year_query
+        args = []
     else:
         raise ValueError(f"kind {kind} not supported")
 
-    return make_query_fn(params_dict)
+    return make_query_fn(*args)
