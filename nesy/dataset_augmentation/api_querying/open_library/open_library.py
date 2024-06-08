@@ -1,41 +1,29 @@
 from typing import Optional
 
 from loguru import logger
-from psycopg import cursor
-
-from psycopg_pool import ConnectionPool
+from asyncpg import Pool, create_pool
 
 from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation import state
 from .queries import make_query
 
-psql_pool: Optional[ConnectionPool] = None
+psql_pool: Optional[Pool] = None
 
 
-def get_books_info(query_data: list[tuple[str, Optional[str], Optional[str]]]):
-    global psql_pool
-    if psql_pool is None:
-        psql_pool = ConnectionPool(PSQL_CONN_STRING)
-    psql_pool.wait()
-    if not state.SET_SIM_THRESHOLD:
-        set_sim_threshold(0.9, psql_pool)
-    data = fuzzy_search_titles(query_data, psql_pool)
-    return data
-
-
-def _execute_queries(cur: cursor, params_list: list[dict[str, str]]):
+async def _execute_queries(pool: Pool, params_list: list[dict[str, str]]):
     queries = []
     for params_dict in params_list:
         queries.append(make_query(params_dict))
     query_results = []
     for query in queries:
-        cur.execute(query)
-        query_results.append(cur.fetchall())
+        async with pool.acquire() as conn:
+            res = await conn.fetch(query)
+            query_results.append(res)
     return query_results
 
 
-def fuzzy_search_titles(
-    query_data: list[tuple[str, Optional[str], Optional[str]]], pool: ConnectionPool
+async def _fuzzy_search_titles(
+    query_data: list[tuple[str, Optional[str], Optional[str]]], pool: Pool
 ) -> list[list[tuple]]:
     """
     Performs an asynchronous fuzzy search against the PostgreSQL database through the provided connection pool
@@ -65,14 +53,12 @@ def fuzzy_search_titles(
                 {"idx": i, "title": title, "year": year, "kind": "titles_year"}
             )
 
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-            results = _execute_queries(cur=cur, params_list=params_list)
+    results = await _execute_queries(pool=pool, params_list=params_list)
 
     return results
 
 
-def set_sim_threshold(thresh: float, connection_pool: ConnectionPool) -> None:
+async def _set_sim_threshold(thresh: float, connection_pool: Pool) -> None:
     """
     Sets the similarity threshold to be used when performing fuzzy queries. Needs to be set each time the
     database is spun up
@@ -83,7 +69,16 @@ def set_sim_threshold(thresh: float, connection_pool: ConnectionPool) -> None:
     Returns:
         None
     """
-    with connection_pool.connection() as conn:
-        cur = conn.execute(f"SET pg_trgm.similarity_threshold = {thresh}")
-        conn.commit()
-        cur.close()
+    async with connection_pool.acquire() as conn:
+        await conn.execute(f"SET pg_trgm.similarity_threshold = {thresh}")
+
+
+async def get_books_info(query_data: list[tuple[str, Optional[str], Optional[str]]]):
+    global psql_pool
+    if psql_pool is None:
+        psql_pool = await create_pool(
+            dsn=PSQL_CONN_STRING, max_size=20, max_queries=100000
+        )
+    if not state.SET_SIM_THRESHOLD:
+        await _set_sim_threshold(0.9, psql_pool)
+    return await _fuzzy_search_titles(query_data, psql_pool)

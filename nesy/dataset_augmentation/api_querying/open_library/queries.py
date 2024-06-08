@@ -93,11 +93,11 @@ def make_title_query(params_dict: dict[str, Any]) -> str:
         title,
         MIN(year) as year,
         STRING_AGG(DISTINCT author_name, ', ') as authors,
-        title <-> LOWER({title}) as distance
+        title <-> LOWER('{title}') as distance
     FROM combined_materialized_view
     WHERE 
-        title % LOWER({title})
-        AND title <-> LOWER({title}) < 0.5
+        title % LOWER('{title}')
+        AND title <-> LOWER('{title}') < 0.5
     GROUP BY key, title
     ORDER BY distance
     LIMIT 10
