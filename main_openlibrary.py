@@ -1,12 +1,10 @@
+from asyncio import run
 from os.path import join
 
 from loguru import logger
-from psycopg_pool import ConnectionPool
 
-from config import PSQL_CONN_STRING
-from nesy.dataset_augmentation.api_querying.open_library import (
-    set_sim_threshold,
-    fuzzy_search_titles,
+from nesy.dataset_augmentation.api_querying.open_library.open_library import (
+    get_books_info,
 )
 from nesy.dataset_augmentation.metadata_extraction.open_library import (
     process_dump,
@@ -19,7 +17,7 @@ def pretty_print_results(results: list[list[tuple]]) -> None:
         logger.info(result)
 
 
-def main():
+async def main():
     process_dump_flag = False
     build_cache_flag = False
     query_flag = True
@@ -29,13 +27,13 @@ def main():
     works_processed_file_path = join("data", "open_library", "works.jsonl")
     if process_dump_flag:
         editions_in_file_path = join(
-            "data", "open_library", "ol_dump_editions_2024-04-30.txt"
+            "data", "open_library", "ol_dump_editions_2024-05-31.txt"
         )
         authors_in_file_path = join(
-            "data", "open_library", "ol_dump_authors_2024-04-30.txt"
+            "data", "open_library", "ol_dump_authors_2024-05-31.txt"
         )
         works_in_file_path = join(
-            "data", "open_library", "ol_dump_works_2024-04-30.txt"
+            "data", "open_library", "ol_dump_works_2024-05-31.txt"
         )
         process_dump(
             editions_in_file_path=editions_in_file_path,
@@ -56,21 +54,18 @@ def main():
     if query_flag:
 
         titles = [
-            # ("Doctor Who - An Unearthly Child", None, None)
-            # ("Eragon", None, "2002"),
+            ("Doctor Who - An Unearthly Child", None, None),
+            ("Eragon", None, "2002"),
             ("The Lord of the Rings", None, None),
-            # ("Dracula", "Bram Stoker", None),
-            # ("Uomini che Odiano le Donne", "Stieg Larsson", None),
-            # ("Il Battesimo del Fuoco", "Andrzej Sapkowski", None),
-            # ("Baptism of Fire", "Andrzej Sapkowski", None),
-            # ("Paul Anderson: The Mightiest Minister", None, None),
+            ("Dracula", "Bram Stoker", None),
+            ("Uomini che Odiano le Donne", "Stieg Larsson", None),
+            ("Il Battesimo del Fuoco", "Andrzej Sapkowski", None),
+            ("Baptism of Fire", "Andrzej Sapkowski", None),
+            ("Paul Anderson: The Mightiest Minister", None, None),
         ]
-        with ConnectionPool(PSQL_CONN_STRING) as pool:
-            pool.wait()  # waiting for the pool to start up
-            set_sim_threshold(0.8, pool)
-            results = fuzzy_search_titles(titles, pool)
-            pretty_print_results(results)
+        results = await get_books_info(titles)
+        pretty_print_results(results)
 
 
 if __name__ == "__main__":
-    main()
+    run(main())
