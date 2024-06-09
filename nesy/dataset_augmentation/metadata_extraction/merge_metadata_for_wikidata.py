@@ -132,8 +132,8 @@ def merge_metadata_for_wikidata(
 
         title_without_tags = _remove_tags(title, mtype)
         title_cleaned = _clean_title(title_without_tags)
-        if not isinstance(person, list):
-            person = [] if person is None else [person]
+        if not isinstance(person, list) and person is not None:
+            person = [person]
         if year is None:
             year = _extract_year_from_title_tags(title_cleaned)
         metadata_source = {
