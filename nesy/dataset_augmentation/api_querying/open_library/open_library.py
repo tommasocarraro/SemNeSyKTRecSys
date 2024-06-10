@@ -1,38 +1,69 @@
-from typing import Optional
+import asyncio
+from typing import Optional, Union, Literal
 
-from loguru import logger
 from asyncpg import Pool, create_pool
+from loguru import logger
 
 from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation import state
-from .queries import make_query
-
-psql_pool: Optional[Pool] = None
+from .queries import get_statement
 
 
-async def _execute_queries(pool: Pool, params_list: list[dict[str, str]]):
-    query_results = []
-    for params_dict in params_list:
-        query = make_query(params_dict)
-        query_index = params_dict["idx"]
-        title = params_dict["title"]
-        authors = params_dict.get("authors", None)
-        year = params_dict.get("year", None)
-        params = [query_index, title]
-        if authors is not None:
-            params.append(*authors)
-        if year is not None:
-            params.append(year)
-        async with pool.acquire() as conn:
-            statement = await conn.prepare(query)
-            res = await statement.fetch(*params)
-            query_results.append(res)
-    return query_results
+async def _execute_prepared(
+    psql_pool: Pool,
+    params_list: list[list[str]],
+    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
+    how_many_authors: Optional[int] = None,
+):
+    results = []
+    async with psql_pool.acquire() as conn:
+        statement = await get_statement(
+            kind=kind, psql_conn=conn, how_many_authors=how_many_authors
+        )
+        for params in params_list:
+            tasks = statement.fetch(*params)
+            results = await asyncio.gather(tasks)
+    return results
+
+
+async def _execute_queries(
+    psql_pool: Pool,
+    params_list: list[list[str]],
+    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
+):
+    results = []
+    if kind == "title_authors":
+        params_dict: dict[int, list[list[str]]] = {}
+        for params in params_list:
+            authors = params[2]
+            if isinstance(authors, list):
+                how_many_authors = len(authors)
+            elif isinstance(authors, str):
+                how_many_authors = 1
+            else:
+                raise TypeError("Wrong type for person")
+            if how_many_authors not in params_dict:
+                params_dict[how_many_authors] = [params]
+            else:
+                params_dict[how_many_authors].append(params)
+        for k, v in params_dict.items():
+            results.append(
+                await _execute_prepared(
+                    psql_pool=psql_pool, params_list=v, kind=kind, how_many_authors=k
+                )
+            )
+    else:
+        results.append(
+            await _execute_prepared(
+                psql_pool=psql_pool, params_list=params_list, kind=kind
+            )
+        )
+    return results
 
 
 async def _fuzzy_search_titles(
     query_data: list[tuple[str, Optional[str], Optional[str]]], pool: Pool
-) -> list[list[tuple]]:
+):
     """
     Performs an asynchronous fuzzy search against the PostgreSQL database through the provided connection pool
     Args:
@@ -43,25 +74,31 @@ async def _fuzzy_search_titles(
         TODO
     """
     logger.info(f"Performing {len(query_data)} fuzzy searches against Open Library")
-    params_list = []
+    params_lists = [[], [], []]
     for i, (title, person, year) in enumerate(query_data):
         if person is None and year is None:
-            params_list.append({"idx": f"{i}", "title": title, "kind": "titles"})
+            params_lists[0].append([f"{i}", title])
         elif year is None:
-            params_list.append(
-                {
-                    "idx": f"{i}",
-                    "title": title,
-                    "authors": person if isinstance(person, list) else [person],
-                    "kind": "titles_authors",
-                }
-            )
+            if isinstance(person, list):
+                person_l = person
+            else:
+                person_l = [person]
+            params_lists[1].append([f"{i}", title, *person_l])
         elif person is None:
-            params_list.append(
-                {"idx": f"{i}", "title": title, "year": year, "kind": "titles_year"}
-            )
+            params_lists[2].append([f"{i}", title, year])
 
-    results = await _execute_queries(pool=pool, params_list=params_list)
+    tasks = [
+        _execute_queries(psql_pool=pool, params_list=params_lists[0], kind="title"),
+        _execute_queries(
+            psql_pool=pool, params_list=params_lists[1], kind="title_authors"
+        ),
+        _execute_queries(
+            psql_pool=pool, params_list=params_lists[2], kind="title_year"
+        ),
+    ]
+    results = await asyncio.gather(*tasks)
+
+    # TODO process results
 
     return results
 
@@ -82,11 +119,9 @@ async def _set_sim_threshold(thresh: float, connection_pool: Pool) -> None:
 
 
 async def get_books_info(query_data: list[tuple[str, Optional[str], Optional[str]]]):
-    global psql_pool
-    if psql_pool is None:
-        psql_pool = await create_pool(
-            dsn=PSQL_CONN_STRING, max_size=20, max_queries=100000
-        )
+    psql_pool = await create_pool(dsn=PSQL_CONN_STRING, max_size=20, max_queries=100000)
     if not state.SET_SIM_THRESHOLD:
         await _set_sim_threshold(0.9, psql_pool)
-    return await _fuzzy_search_titles(query_data, psql_pool)
+    books_info = await _fuzzy_search_titles(query_data, psql_pool)
+    await psql_pool.close()
+    return books_info

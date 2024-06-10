@@ -57,14 +57,13 @@ async def main():
             ("Doctor Who - An Unearthly Child", None, None),
             ("Eragon", None, "2002"),
             ("The Lord of the Rings", None, None),
-            ("Dracula", "Bram Stoker", None),
-            ("Uomini che Odiano le Donne", "Stieg Larsson", None),
-            ("Il Battesimo del Fuoco", "Andrzej Sapkowski", None),
-            ("Baptism of Fire", "Andrzej Sapkowski", None),
+            ("Dracula", ["Bram Stoker"], None),
+            ("Uomini che Odiano le Donne", ["Stieg Larsson"], None),
+            ("Il Battesimo del Fuoco", ["Andrzej Sapkowski"], None),
+            ("Baptism of Fire", ["Andrzej Sapkowski"], None),
             ("Paul Anderson: The Mightiest Minister", None, None),
         ]
         results = await get_books_info(titles)
-        pretty_print_results(results)
 
 
 if __name__ == "__main__":
