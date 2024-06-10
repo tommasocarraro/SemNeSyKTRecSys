@@ -1,4 +1,7 @@
-from typing import Any
+from typing import Union, Literal, Optional
+
+from asyncpg import Connection, PostgresSyntaxError
+from asyncpg.prepared_stmt import PreparedStatement
 
 
 def make_title_authors_query(how_many_authors: int) -> str:
@@ -37,7 +40,7 @@ def make_title_authors_query(how_many_authors: int) -> str:
                 f"(c{i}.title <-> LOWER($2)) + (c{i}.author_name <-> LOWER(${i+3}))"
             )
         else:
-            distance_select += f" + (c{i}.author_name <-> LOWER(${i+3})"
+            distance_select += f" + (c{i}.author_name <-> LOWER(${i+3}))"
         if i == how_many_authors - 1:
             where_clauses += f" AND {distance_select} < 0.5"
             distance_select += " AS distance"
@@ -99,19 +102,43 @@ def make_title_query() -> str:
     return query
 
 
-def make_query(params_dict: dict[str, Any]):
-    kind = params_dict["kind"]
+_statements: dict[str, Optional[PreparedStatement]] = {
+    "title": None,
+    "title_year": None,
+    "title_authors": None,
+}
 
-    if kind == "titles":
-        make_query_fn = make_title_query
-        args = []
-    elif kind == "titles_authors":
-        make_query_fn = make_title_authors_query
-        args = [len(params_dict["authors"])]
-    elif kind == "titles_year":
-        make_query_fn = make_title_year_query
-        args = []
-    else:
-        raise ValueError(f"kind {kind} not supported")
 
-    return make_query_fn(*args)
+def _get_query(
+    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
+    how_many_authors: Optional[int],
+) -> str:
+    if kind == "title":
+        return make_title_query()
+    elif kind == "title_authors":
+        if how_many_authors is None:
+            raise ValueError(
+                "Trying to get titles_authors query but how_many_authors is None"
+            )
+        return make_title_authors_query(how_many_authors)
+    elif kind == "title_year":
+        return make_title_year_query()
+
+
+async def get_statement(
+    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
+    psql_conn: Connection,
+    how_many_authors: Optional[int] = None,
+) -> PreparedStatement:
+    try:
+        if _statements[kind] is None:
+            query = _get_query(kind, how_many_authors)
+            try:
+                _statements[kind] = await psql_conn.prepare(query)
+            except PostgresSyntaxError as e:
+                print(query)
+                print(e)
+                exit(1)
+        return _statements[kind]
+    except KeyError:
+        raise ValueError(f"Query kind '{kind}' is not supported")
