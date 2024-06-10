@@ -1,12 +1,15 @@
 import asyncio
-from typing import Optional, Union, Literal
+from typing import Optional, Any
+from typing import Union, Literal
 
 from asyncpg import Pool, create_pool
+from joblib import Parallel, delayed
 from loguru import logger
 
 from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation import state
 from .queries import get_statement
+from ...query_apis import QueryResults
 
 
 async def _execute_prepared(
@@ -61,9 +64,13 @@ async def _execute_queries(
     return results
 
 
+def _process_query_results(results: Any) -> dict[str, QueryResults]:
+    pass  # TODO
+
+
 async def _fuzzy_search_titles(
     query_data: list[tuple[str, Optional[str], Optional[str]]], pool: Pool
-):
+) -> dict[str, QueryResults]:
     """
     Performs an asynchronous fuzzy search against the PostgreSQL database through the provided connection pool
     Args:
@@ -96,11 +103,24 @@ async def _fuzzy_search_titles(
             psql_pool=pool, params_list=params_lists[2], kind="title_year"
         ),
     ]
-    results = await asyncio.gather(*tasks)
+    query_results = await asyncio.gather(*tasks)
 
-    # TODO process results
+    joblib_pool = Parallel(n_jobs=-1, backend="loky")
+    processed_results = joblib_pool(
+        delayed(_process_query_results)(results) for results in query_results
+    )
 
-    return results
+    return {  # TODO
+        "title": {
+            "title": "title",
+            "person": ["person"],
+            "year": "year",
+            "err": None,
+            "api_name": "Open Library",
+        }
+        for res in processed_results
+        if res is not None
+    }
 
 
 async def _set_sim_threshold(thresh: float, connection_pool: Pool) -> None:
@@ -118,7 +138,9 @@ async def _set_sim_threshold(thresh: float, connection_pool: Pool) -> None:
         await conn.execute(f"SET pg_trgm.similarity_threshold = {thresh}")
 
 
-async def get_books_info(query_data: list[tuple[str, Optional[str], Optional[str]]]):
+async def get_books_info(
+    query_data: list[tuple[str, Optional[str], Optional[str]]]
+) -> dict[str, QueryResults]:
     psql_pool = await create_pool(dsn=PSQL_CONN_STRING, max_size=20, max_queries=100000)
     if not state.SET_SIM_THRESHOLD:
         await _set_sim_threshold(0.9, psql_pool)
