@@ -1,10 +1,6 @@
 import os
 
-from nesy.dataset_augmentation.metadata_extraction import (
-    build_sqlite_cache,
-    merge_metadata_for_wikidata,
-    extract_metadata,
-)
+from nesy.dataset_augmentation.metadata_extraction.amazon_dataset import merge_metadata_for_wikidata, extract_metadata
 
 
 def main():

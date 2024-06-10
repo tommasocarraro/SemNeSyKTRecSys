@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from tqdm.auto import tqdm
 
-from nesy.dataset_augmentation.metadata_extraction.utils import correct_missing_types
+from nesy.dataset_augmentation.metadata_extraction.amazon_dataset.utils import correct_missing_types
 
 
 def _extract_year_from_title_tags(title: Optional[str]) -> Optional[int]:
