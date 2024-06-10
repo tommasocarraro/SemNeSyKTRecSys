@@ -1,21 +1,23 @@
-import asyncio
 import signal
-from typing import Any, Union, Literal, Callable
+from typing import Any, Union, Literal, TypedDict, Optional
 
 from loguru import logger
-import inspect
+
 from nesy.dataset_augmentation import state
 from nesy.dataset_augmentation.api_querying import (
-    get_books_info,
     get_records_info,
     get_movies_and_tv_info,
 )
-from nesy.dataset_augmentation.api_querying.utils import ErrorCode
 from nesy.dataset_augmentation.api_querying.open_library import get_books_info
+from nesy.dataset_augmentation.api_querying.utils import ErrorCode
 
 
-def _is_async_function(func: Callable) -> bool:
-    return inspect.iscoroutinefunction(func)
+class QueryResults(TypedDict):
+    title: str
+    person: list[str]
+    year: str
+    err: Optional[ErrorCode]
+    api_name: str
 
 
 async def _run_query(
@@ -23,26 +25,17 @@ async def _run_query(
     item_type: Union[
         Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
     ],
-):
+) -> dict[str, QueryResults]:
     if item_type == "movies_and_tv":
         query_fn = get_movies_and_tv_info
-        args = []
     elif item_type == "books":
         query_fn = get_books_info
-        args = []
-        # query_fn = get_books_info
-        # args = [["Book"]]
     elif item_type == "cds_and_vinyl":
         query_fn = get_records_info
-        args = []
     else:
         raise ValueError("Unsupported item type")
 
-    if _is_async_function(query_fn):
-        return await query_fn(batch, *args)
-    else:
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, query_fn, batch, *args)
+    return await query_fn(batch)
 
 
 async def query_apis(
@@ -61,10 +54,10 @@ async def query_apis(
 
     # dictionary for reverse lookup
     items = {
-        v["title"]: (k, v)
+        v["title_cleaned"]: (k, v)
         for k, v in metadata.items()
         if v["type"] == item_type
-        and v["title"] is not None
+        and v["title_cleaned"] is not None
         and (v["person"] is None or v["year"] is None)
         and not v["queried"]
     }
@@ -94,18 +87,17 @@ async def query_apis(
                     metadata[asin]["queried"] = True
                     metadata[asin]["err"] = err.name
             else:
+                api_name = info["api_name"]
                 person = info["person"]
                 if metadata[asin]["person"] is None and person is not None:
                     metadata[asin]["person"] = person
-                    metadata[asin]["from_api"] = metadata[asin]["from_api"] + ["person"]
+                    metadata[asin]["metadata_source"]["person"] = api_name
                 year = info["year"]
                 if metadata[asin]["year"] is None and year is not None:
                     metadata[asin]["year"] = year
-                    metadata[asin]["from_api"] = metadata[asin]["from_api"] + ["year"]
+                    metadata[asin]["metadata_source"]["year"] = api_name
                 metadata[asin]["queried"] = True
 
         if state.GRACEFUL_EXIT:
             logger.info("Terminating early due to interrupt")
             break
-
-    exit(1)

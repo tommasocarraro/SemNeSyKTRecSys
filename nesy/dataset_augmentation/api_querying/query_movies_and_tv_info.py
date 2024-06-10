@@ -18,6 +18,7 @@ from .query_movies_and_tv_utils import (
     extract_title,
 )
 from .score import compute_score_pair, push_to_heap
+from ..query_apis import QueryResults
 
 
 def _extract_search_info(
@@ -102,7 +103,7 @@ def _extract_movie_info(
 
 async def get_movies_and_tv_info(
     query_data: list[tuple[str, Union[str, None], Union[str, None]]]
-):
+) -> dict[str, QueryResults]:
     """
     Given a list of book titles, asynchronously queries the TMDB API
     Args:
@@ -168,7 +169,13 @@ async def get_movies_and_tv_info(
 
     # assemble the output dictionary
     movies_and_tv_dict = {
-        title: {"title": title, "person": person, "year": year, "err": err}
+        title: {
+            "title": title,
+            "person": person,
+            "year": year,
+            "err": err,
+            "api_name": "The Movie Database",
+        }
         for title, person, year, _, err in search_results
     }
     for title, person, err in movie_info:
