@@ -23,7 +23,6 @@ async def main():
         for k, v in metadata.items():
             metadata[k]["queried"] = False
             metadata[k]["err"] = None
-            metadata[k]["from_api"] = []
         with open(merged_metadata_aug_file_path, "w", encoding="utf-8") as g:
             json.dump(metadata, g, indent=4, ensure_ascii=False)
 
@@ -35,6 +34,10 @@ async def main():
         if retry:
             for k, v in metadata.items():
                 metadata[k]["queried"] = False
+                metadata_source = metadata[k]["metadata_source"]
+                for field, value in metadata_source.items():
+                    if metadata_source[field] != "Amazon dataset":
+                        metadata_source[field] = None
         # reset file cursor position so writing the data back will overwrite previous contents
         g.seek(0)
 

@@ -12,6 +12,7 @@ from .utils import (
 )
 from .query_records_utils import extract_artist, extract_title, extract_year
 from .score import compute_score_triple, push_to_heap
+from ..query_apis import QueryResults
 
 
 def _extract_info(
@@ -69,7 +70,7 @@ def _extract_info(
 
 async def get_records_info(
     query_data: list[tuple[str, Union[str, None], Union[str, None]]]
-):
+) -> dict[str, QueryResults]:
     """
     Given a list of record titles, asynchronously queries the MusicBrainz v2 API
     Args:
@@ -97,6 +98,12 @@ async def get_records_info(
 
     music_info = process_responses_with_joblib(responses=responses, fn=_extract_info)
     return {
-        title: {"title": title, "person": person, "year": year, "err": err}
+        title: {
+            "title": title,
+            "person": person,
+            "year": year,
+            "err": err,
+            "api_name": "MusicBrainz",
+        }
         for title, person, year, err in music_info
     }

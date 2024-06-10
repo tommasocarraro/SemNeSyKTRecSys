@@ -1,11 +1,13 @@
-from typing import Optional
+from typing import Optional, Any
 
-from loguru import logger
 from asyncpg import Pool, create_pool
+from joblib import Parallel, delayed
+from loguru import logger
 
 from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation import state
 from .queries import make_query
+from ...query_apis import QueryResults
 
 psql_pool: Optional[Pool] = None
 
@@ -30,9 +32,13 @@ async def _execute_queries(pool: Pool, params_list: list[dict[str, str]]):
     return query_results
 
 
+def _process_query_results(results: Any) -> dict[str, QueryResults]:
+    pass  # TODO
+
+
 async def _fuzzy_search_titles(
     query_data: list[tuple[str, Optional[str], Optional[str]]], pool: Pool
-) -> list[list[tuple]]:
+) -> dict[str, QueryResults]:
     """
     Performs an asynchronous fuzzy search against the PostgreSQL database through the provided connection pool
     Args:
@@ -61,9 +67,24 @@ async def _fuzzy_search_titles(
                 {"idx": f"{i}", "title": title, "year": year, "kind": "titles_year"}
             )
 
-    results = await _execute_queries(pool=pool, params_list=params_list)
+    query_results = await _execute_queries(pool=pool, params_list=params_list)
 
-    return results
+    joblib_pool = Parallel(n_jobs=-1, backend="loky")
+    processed_results = joblib_pool(
+        delayed(_process_query_results)(results) for results in query_results
+    )
+
+    return {  # TODO
+        "title": {
+            "title": "title",
+            "person": ["person"],
+            "year": "year",
+            "err": None,
+            "api_name": "Open Library",
+        }
+        for res in processed_results
+        if res is not None
+    }
 
 
 async def _set_sim_threshold(thresh: float, connection_pool: Pool) -> None:
@@ -81,7 +102,9 @@ async def _set_sim_threshold(thresh: float, connection_pool: Pool) -> None:
         await conn.execute(f"SET pg_trgm.similarity_threshold = {thresh}")
 
 
-async def get_books_info(query_data: list[tuple[str, Optional[str], Optional[str]]]):
+async def get_books_info(
+    query_data: list[tuple[str, Optional[str], Optional[str]]]
+) -> dict[str, QueryResults]:
     global psql_pool
     if psql_pool is None:
         psql_pool = await create_pool(
