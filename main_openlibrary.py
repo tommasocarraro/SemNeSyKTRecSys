@@ -3,7 +3,7 @@ from os.path import join
 
 from loguru import logger
 
-from nesy.dataset_augmentation.api_querying.open_library.open_library import (
+from nesy.dataset_augmentation.api_querying.open_library.get_books_info import (
     get_books_info,
 )
 from nesy.dataset_augmentation.metadata_extraction.open_library import (
@@ -55,15 +55,18 @@ async def main():
 
         titles = [
             ("Doctor Who - An Unearthly Child", None, None),
+            ("Eragon", None, None),
+            ("Star Wars", None, None),
             ("Eragon", None, "2002"),
             ("The Lord of the Rings", None, None),
             ("Dracula", ["Bram Stoker"], None),
-            ("Uomini che Odiano le Donne", ["Stieg Larsson"], None),
+            ("The Girl with the Dragon Tattoo", ["Stieg Larsson"], None),
             ("Il Battesimo del Fuoco", ["Andrzej Sapkowski"], None),
             ("Baptism of Fire", ["Andrzej Sapkowski"], None),
             ("Paul Anderson: The Mightiest Minister", None, None),
         ]
         results = await get_books_info(titles)
+        print(results)
 
 
 if __name__ == "__main__":

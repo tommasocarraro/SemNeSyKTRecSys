@@ -1,6 +1,6 @@
 from typing import Union, Literal, Optional
 
-from asyncpg import Connection, PostgresSyntaxError
+from asyncpg import Connection
 from asyncpg.prepared_stmt import PreparedStatement
 
 
@@ -133,12 +133,12 @@ async def get_statement(
     try:
         if _statements[kind] is None:
             query = _get_query(kind, how_many_authors)
-            try:
-                _statements[kind] = await psql_conn.prepare(query)
-            except PostgresSyntaxError as e:
-                print(query)
-                print(e)
-                exit(1)
+            _statements[kind] = await psql_conn.prepare(query)
         return _statements[kind]
     except KeyError:
         raise ValueError(f"Query kind '{kind}' is not supported")
+
+
+def reset_statements():
+    for k in _statements.keys():
+        _statements[k] = None

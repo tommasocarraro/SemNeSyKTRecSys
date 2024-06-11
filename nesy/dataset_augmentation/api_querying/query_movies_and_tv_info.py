@@ -1,15 +1,11 @@
-from typing import Any, Union, Optional
 import heapq
+from typing import Any, Union, Optional
+
 from loguru import logger
 
 from config import TMDB_API_KEY
+from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .get_request_with_limiter import get_request_with_limiter
-from .utils import (
-    process_responses_with_joblib,
-    process_http_requests,
-    get_async_limiter,
-    ErrorCode,
-)
 from .query_movies_and_tv_utils import (
     extract_movie_year,
     extract_tv_year,
@@ -18,7 +14,12 @@ from .query_movies_and_tv_utils import (
     extract_title,
 )
 from .score import compute_score_pair, push_to_heap
-from ..query_apis import QueryResults
+from .utils import (
+    process_responses_with_joblib,
+    process_http_requests,
+    get_async_limiter,
+    ErrorCode,
+)
 
 
 def _extract_search_info(

@@ -140,7 +140,9 @@ def merge_metadata_for_wikidata(
             year = _extract_year_from_title_tags(title_cleaned)
         metadata_source = {
             "title": "Amazon dataset",
-            "person": "Amazon dataset" if len(person) > 0 else None,
+            "person": (
+                "Amazon dataset" if person is not None and len(person) > 0 else None
+            ),
             "year": "Amazon dataset" if year is not None else None,
         }
 

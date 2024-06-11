@@ -12,7 +12,7 @@ from .utils import (
 )
 from .query_records_utils import extract_artist, extract_title, extract_year
 from .score import compute_score_triple, push_to_heap
-from ..query_apis import QueryResults
+from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
 
 
 def _extract_info(
