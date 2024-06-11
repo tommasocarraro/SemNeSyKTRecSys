@@ -1,6 +1,7 @@
 import signal
-from typing import Any, Union, Literal, TypedDict, Optional
-
+from typing import Any, Union, Literal, Optional
+from config import PSQL_CONN_STRING
+from asyncpg import Pool, create_pool
 from loguru import logger
 
 from nesy.dataset_augmentation import state
@@ -8,34 +9,31 @@ from nesy.dataset_augmentation.api_querying import (
     get_records_info,
     get_movies_and_tv_info,
 )
+from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
 from nesy.dataset_augmentation.api_querying.open_library import get_books_info
 from nesy.dataset_augmentation.api_querying.utils import ErrorCode
 
 
-class QueryResults(TypedDict):
-    title: str
-    person: list[str]
-    year: str
-    err: Optional[ErrorCode]
-    api_name: str
-
-
-async def _run_query(
+async def _run_queries(
     batch,
     item_type: Union[
         Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
     ],
+    psql_pool: Optional[Pool] = None,
 ) -> dict[str, QueryResults]:
     if item_type == "movies_and_tv":
         query_fn = get_movies_and_tv_info
+        args = []
     elif item_type == "books":
         query_fn = get_books_info
+        args = [psql_pool]
     elif item_type == "cds_and_vinyl":
         query_fn = get_records_info
+        args = []
     else:
         raise ValueError("Unsupported item type")
 
-    return await query_fn(batch)
+    return await query_fn(batch, *args)
 
 
 async def query_apis(
@@ -63,8 +61,17 @@ async def query_apis(
     }
 
     query_data = [
-        (item["title"], item["person"], item["year"]) for _, item in items.values()
+        (item["title_cleaned"], item["person"], item["year"])
+        for _, item in items.values()
     ]
+
+    if item_type == "books":
+        logger.info("Establishing a new connection pool to PostgreSQL")
+        psql_pool = await create_pool(
+            PSQL_CONN_STRING, min_size=batch_size, max_size=batch_size
+        )
+    else:
+        psql_pool = None
 
     if batch_size == -1 or batch_size > len(query_data):
         batch_size = len(query_data)
@@ -73,7 +80,8 @@ async def query_apis(
             f"Remaining items: {len(query_data) - i}, processing: {batch_size if batch_size <= len(query_data) else len(query_data)}..."
         )
         batch = query_data[i : i + batch_size]
-        items_info = await _run_query(batch, item_type)
+
+        items_info = await _run_queries(batch, item_type, psql_pool)
 
         # title is the same used for querying, the one provided by the response is disregarded
         for info in items_info.values():
