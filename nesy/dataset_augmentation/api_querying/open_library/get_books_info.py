@@ -3,8 +3,7 @@ from typing import Optional, Any
 
 from asyncpg import Pool
 from joblib import Parallel, delayed
-from loguru import logger
-from tqdm.asyncio import tqdm
+
 from nesy.dataset_augmentation import state
 from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .execute_queries import execute_queries

@@ -1,22 +1,24 @@
-from joblib import Parallel, delayed
 import json
-from multiprocessing import Manager
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.chrome.options import Options
 import os
+from multiprocessing import Manager
+
+from joblib import Parallel, delayed
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import time
+from selenium.webdriver.support.ui import WebDriverWait
 
 
-def scrape_title_captcha(asins: list[str],
-                         n_cores: int = 1,
-                         batch_size: int = 100,
-                         save_tmp: bool = True,
-                         delay: int = 180,
-                         use_solver: bool = True) -> dict[str, str]:
+def scrape_title_captcha(
+    asins: list[str],
+    n_cores: int = 1,
+    batch_size: int = 100,
+    save_tmp: bool = True,
+    delay: int = 180,
+    use_solver: bool = True,
+) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests to the Rocket Source knowledge base
     to get the title of the ASIN. This is used for the ASINs that during the second scraping job (Wayback machine)
@@ -43,14 +45,18 @@ def scrape_title_captcha(asins: list[str],
     title_dict = manager.dict()
     # Set up the Chrome options for a headless browser
     options = Options()
-    options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
-    options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-infobars')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_experimental_option('excludeSwitches', ['enable-automation'])
-    options.add_experimental_option('useAutomationExtension', False)
+    options.add_argument(
+        "--disable-gpu"
+    )  # Disable GPU to avoid issues in headless mode
+    options.add_argument(
+        "--window-size=1920x1080"
+    )  # Set a window size to avoid responsive design
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
     if use_solver:
         options.add_extension("./nocaptcha/noCaptchaAi-chrome-v1.3.crx")
     # url for configuring the extension for captchas
@@ -58,7 +64,9 @@ def scrape_title_captcha(asins: list[str],
     # url of the webpage of Rocket Source knowledge base
     url = "https://www.rocketsource.io/asin-to-ean"
 
-    def batch_request(batch_idx: int, asins: list[str], title_dict: dict[str, str]) -> None:
+    def batch_request(
+        batch_idx: int, asins: list[str], title_dict: dict[str, str]
+    ) -> None:
         """
         This function performs a batch of HTTP requests to the Rocket Source knowledge base.
 
@@ -73,7 +81,7 @@ def scrape_title_captcha(asins: list[str],
             # define dictionary for saving batch data
             batch_dict = {}
             # Set up the Chrome driver for the current batch
-            chrome_service = ChromeService(executable_path='./chromedriver')
+            chrome_service = ChromeService(executable_path="./chromedriver")
             driver = webdriver.Chrome(service=chrome_service, options=options)
             if use_solver:
                 # config the extension
@@ -94,14 +102,23 @@ def scrape_title_captcha(asins: list[str],
                 # wait until the button becomes clickable - we have to wait for the captcha to be solved
                 try:
                     wait = WebDriverWait(driver, delay)
-                    button = wait.until(EC.presence_of_element_located((By.XPATH,
-                                                                        '//*[@id="__next"]/div/div[2]/div/div/div[3]/div[1]/div[1]/div[3]/div[2]/div[contains(@class, "cursor-pointer")]')))
+                    button = wait.until(
+                        EC.presence_of_element_located(
+                            (
+                                By.XPATH,
+                                '//*[@id="__next"]/div/div[2]/div/div/div[3]/div[1]/div[1]/div[3]/div[2]/div[contains(@class, "cursor-pointer")]',
+                            )
+                        )
+                    )
                 except Exception as e:
                     # if we enter here, it means that the timeout run out of time and the captcha has not be solved by
                     # the tool
                     print_str = "captcha not solved - ASIN %s" % (asin,)
                     batch_dict[asin] = "captcha"
-                    print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                    print(
+                        "batch %d / %d - asin %d / %d - %s"
+                        % (batch_idx, n_batches, counter, len(asins), print_str)
+                    )
                     # continue to the next ASIN
                     continue
                 # if we arrive here, the captcha has been solved
@@ -110,22 +127,34 @@ def scrape_title_captcha(asins: list[str],
                 try:
                     # wait for the title to appear
                     wait = WebDriverWait(driver, 10)
-                    title = wait.until(EC.presence_of_element_located(
-                        (By.XPATH, '//*[@id="__next"]/div/div[2]/div/div/div[3]/div[1]/div[2]/b')))
+                    title = wait.until(
+                        EC.presence_of_element_located(
+                            (
+                                By.XPATH,
+                                '//*[@id="__next"]/div/div[2]/div/div/div[3]/div[1]/div[2]/b',
+                            )
+                        )
+                    )
                 except Exception as e:
                     print_str = "not found - ASIN %s" % (asin,)
-                    print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                    print(
+                        "batch %d / %d - asin %d / %d - %s"
+                        % (batch_idx, n_batches, counter, len(asins), print_str)
+                    )
                     batch_dict[asin] = "404-error"
                     continue
                 # if we arrive here, the title has been correctly displayed
                 print_str = "%s - %s" % (asin, title.text)
-                print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                print(
+                    "batch %d / %d - asin %d / %d - %s"
+                    % (batch_idx, n_batches, counter, len(asins), print_str)
+                )
                 batch_dict[asin] = title.text
             # Close the browser window
             driver.quit()
             if save_tmp:
                 # save a json file dedicated to this specific batch
-                with open(tmp_path, 'w', encoding='utf-8') as f:
+                with open(tmp_path, "w", encoding="utf-8") as f:
                     json.dump(batch_dict, f, ensure_ascii=False, indent=4)
         else:
             # load the file and update the parallel dict
@@ -135,8 +164,15 @@ def scrape_title_captcha(asins: list[str],
         title_dict.update(batch_dict)
 
     # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
-    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
-                             for batch_idx, a in
-                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
-                                        for i in range(0, len(asins), batch_size)]))
+    Parallel(n_jobs=n_cores)(
+        delayed(batch_request)(batch_idx, a, title_dict)
+        for batch_idx, a in enumerate(
+            [
+                asins[
+                    i : (i + batch_size if i + batch_size < len(asins) else len(asins))
+                ]
+                for i in range(0, len(asins), batch_size)
+            ]
+        )
+    )
     return title_dict.copy()

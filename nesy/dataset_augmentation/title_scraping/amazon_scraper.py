@@ -1,18 +1,21 @@
-from joblib import Parallel, delayed
 import json
-from multiprocessing import Manager
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.chrome.options import Options
-from bs4 import BeautifulSoup
 import os
-import re
-from fake_useragent import UserAgent
-import time
 import random
+import re
+import time
+from multiprocessing import Manager
+
+from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
+from joblib import Parallel, delayed
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
 
 
-def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True) -> dict[str, str]:
+def scrape_title_amazon(
+    asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True
+) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests with Selenium to get the title
     corresponding to the ASIN from the Amazon website. Sometimes, the script is detected by Amazon and a captcha is
@@ -33,13 +36,19 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
     title_dict = manager.dict()
     # Set up the Chrome options for a headless browser
     chrome_options = Options()
-    chrome_options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
-    chrome_options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
+    chrome_options.add_argument(
+        "--disable-gpu"
+    )  # Disable GPU to avoid issues in headless mode
+    chrome_options.add_argument(
+        "--window-size=1920x1080"
+    )  # Set a window size to avoid responsive design
     ua = UserAgent()
     chrome_options.add_argument(f"user-agent={ua.random}")  # random user agent
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
-    def batch_request(batch_idx: int, asins: list[str], title_dict: dict[str, str]) -> None:
+    def batch_request(
+        batch_idx: int, asins: list[str], title_dict: dict[str, str]
+    ) -> None:
         """
         This function performs a batch of HTTP requests using Selenium.
 
@@ -54,9 +63,9 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
             # define dictionary for saving batch data
             batch_dict = {}
             # create the URLs for scraping
-            urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
+            urls = [f"https://www.amazon.com/dp/{asin}" for asin in asins]
             # Set up the Chrome driver for the current batch
-            chrome_service = ChromeService(executable_path='./chromedriver')
+            chrome_service = ChromeService(executable_path="./chromedriver")
             driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
             bot_counter = 0
             # start the scraping loop
@@ -70,9 +79,9 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                     # get the page
                     page = driver.page_source
                     # Parse the HTML content of the page
-                    soup = BeautifulSoup(page, 'html.parser')
+                    soup = BeautifulSoup(page, "html.parser")
                     # Find the product title
-                    title_element = soup.find('span', {'id': 'productTitle'})
+                    title_element = soup.find("span", {"id": "productTitle"})
                     if title_element:
                         bot_counter = 0
                         # the title has been found and we save it in the dictionary
@@ -80,15 +89,17 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                         batch_dict[asin] = {}
                         batch_dict[asin]["title"] = title_element.text.strip()
                         # get person information
-                        person = soup.find('span', {'class': 'author'})
+                        person = soup.find("span", {"class": "author"})
                         # this is used in a second step
-                        person_year_div = soup.find('div', {'id': 'detailBullets_feature_div'})
+                        person_year_div = soup.find(
+                            "div", {"id": "detailBullets_feature_div"}
+                        )
                         if person:
                             batch_dict[asin]["person"] = person.a.text
                         else:
                             found_person = False
                             if person_year_div:
-                                spans = person_year_div.find_all('span')
+                                spans = person_year_div.find_all("span")
                                 for i, span in enumerate(spans):
                                     if "Director" in span.text:
                                         batch_dict[asin]["person"] = spans[i + 2].text
@@ -100,9 +111,13 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                                         break
                                 if not found_person:
                                     # look for contributor
-                                    person = soup.find('tr', {'class': 'po-contributor'})
+                                    person = soup.find(
+                                        "tr", {"class": "po-contributor"}
+                                    )
                                     if person:
-                                        person = person.find('span', {'class': 'po-break-word'})
+                                        person = person.find(
+                                            "span", {"class": "po-break-word"}
+                                        )
                                         if person:
                                             batch_dict[asin]["person"] = person.text
                                         else:
@@ -114,8 +129,8 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                         # get year information
                         found_year = False
                         if person_year_div:
-                            spans = person_year_div.find_all('span')
-                            year_pattern = re.compile(r'\b\d{4}\b')
+                            spans = person_year_div.find_all("span")
+                            year_pattern = re.compile(r"\b\d{4}\b")
                             for span in spans:
                                 year_match = year_pattern.search(span.text)
                                 if year_match:
@@ -129,8 +144,13 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                     else:
                         # the title has not been found
                         # check if it is due to a 404 error
-                        error = soup.find('img', {'alt': "Sorry! We couldn't find that page. "
-                                                         "Try searching or go to Amazon's home page."})
+                        error = soup.find(
+                            "img",
+                            {
+                                "alt": "Sorry! We couldn't find that page. "
+                                "Try searching or go to Amazon's home page."
+                            },
+                        )
                         if error:
                             # if it is due to 404 error, keeps track of it
                             # items not found will be processed in another scraping loop that uses Wayback Machine
@@ -155,12 +175,15 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
                     # if an exception is thrown by the system, I am interested in knowing which ASIN caused that, so
                     # I keep track of the exception in the dictionary
                     batch_dict[asin] = "exception-error"
-                print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                print(
+                    "batch %d / %d - asin %d / %d - %s"
+                    % (batch_idx, n_batches, counter, len(asins), print_str)
+                )
             # after each batch, the resources allocated by Selenium have to be realised
             driver.quit()
             if save_tmp:
                 # save a json file dedicated to this specific batch
-                with open(tmp_path, 'w', encoding='utf-8') as f:
+                with open(tmp_path, "w", encoding="utf-8") as f:
                     json.dump(batch_dict, f, ensure_ascii=False, indent=4)
         else:
             # load the file and update the parallel dict
@@ -170,8 +193,15 @@ def scrape_title_amazon(asins: list[str], n_cores: int, batch_size: int, save_tm
         title_dict.update(batch_dict)
 
     # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
-    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
-                             for batch_idx, a in
-                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
-                                        for i in range(0, len(asins), batch_size)]))
+    Parallel(n_jobs=n_cores)(
+        delayed(batch_request)(batch_idx, a, title_dict)
+        for batch_idx, a in enumerate(
+            [
+                asins[
+                    i : (i + batch_size if i + batch_size < len(asins) else len(asins))
+                ]
+                for i in range(0, len(asins), batch_size)
+            ]
+        )
+    )
     return title_dict.copy()

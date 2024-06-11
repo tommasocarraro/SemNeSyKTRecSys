@@ -1,7 +1,9 @@
 import json
 import os.path
 from typing import Any
+
 from tqdm.auto import tqdm
+
 from .query_by_asin import query_by_asin
 
 

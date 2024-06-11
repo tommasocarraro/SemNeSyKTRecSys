@@ -1,22 +1,27 @@
-from joblib import Parallel, delayed
 import json
-from multiprocessing import Manager
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.chrome.options import Options
 import os
-from bs4 import BeautifulSoup
 import time
+from multiprocessing import Manager
 
-HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+from bs4 import BeautifulSoup
+from joblib import Parallel, delayed
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36"
+}
 
 
-def scrape_title_google_search(asins: list[str],
-                               n_cores: int = 1,
-                               batch_size: int = 100,
-                               save_tmp: bool = True,
-                               just_first: bool = True,
-                               timer: int = 5) -> dict[str, str]:
+def scrape_title_google_search(
+    asins: list[str],
+    n_cores: int = 1,
+    batch_size: int = 100,
+    save_tmp: bool = True,
+    just_first: bool = True,
+    timer: int = 5,
+) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests to the Google Search
     to get the title of the ASIN. It simply searches on the Google Search text area and iterates over the results to get
@@ -41,14 +46,20 @@ def scrape_title_google_search(asins: list[str],
     title_dict = manager.dict()
     # Set up the Chrome options for a headless browser
     options = Options()
-    options.add_argument('--disable-gpu')  # Disable GPU to avoid issues in headless mode
-    options.add_argument('--window-size=1920x1080')  # Set a window size to avoid responsive design
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-infobars')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument(
+        "--disable-gpu"
+    )  # Disable GPU to avoid issues in headless mode
+    options.add_argument(
+        "--window-size=1920x1080"
+    )  # Set a window size to avoid responsive design
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
 
-    def batch_request(batch_idx: int, asins: list[str], title_dict: dict[str, str]) -> None:
+    def batch_request(
+        batch_idx: int, asins: list[str], title_dict: dict[str, str]
+    ) -> None:
         """
         This function performs a batch of HTTP requests to the Google Search.
 
@@ -63,7 +74,7 @@ def scrape_title_google_search(asins: list[str],
             # define dictionary for saving batch data
             batch_dict = {}
             # Set up the Chrome driver for the current batch
-            chrome_service = ChromeService(executable_path='./chromedriver')
+            chrome_service = ChromeService(executable_path="./chromedriver")
             driver = webdriver.Chrome(service=chrome_service, options=options)
             # start the scraping loop
             for counter, asin in enumerate(asins):
@@ -74,23 +85,27 @@ def scrape_title_google_search(asins: list[str],
                 # wait five seconds to avoid being detected by Google
                 time.sleep(timer)
                 # get page source
-                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                soup = BeautifulSoup(driver.page_source, "html.parser")
                 # check if Google changed my search
-                a = soup.find('a', class_='spell_orig')
+                a = soup.find("a", class_="spell_orig")
                 if a is not None:
                     # get the link and go to the correct search
-                    url = a.get('href')
-                    driver.get('http://www.google.com' + url)
+                    url = a.get("href")
+                    driver.get("http://www.google.com" + url)
                     # get new page source
-                    soup = BeautifulSoup(driver.page_source, 'html.parser')
+                    soup = BeautifulSoup(driver.page_source, "html.parser")
                 # iterate over the links of the page
-                divs = soup.find_all('div', class_="yuRUbf")
+                divs = soup.find_all("div", class_="yuRUbf")
                 title_list = []
                 for div in divs:
                     if asin in div.a["href"] and "review" not in div.a["href"]:
                         if "..." not in div.h3.text:
                             title = div.h3.text
-                            title = title.replace(" - Amazon.com", "").replace("Amazon.com: ", "").replace("Customer reviews: ", "")
+                            title = (
+                                title.replace(" - Amazon.com", "")
+                                .replace("Amazon.com: ", "")
+                                .replace("Customer reviews: ", "")
+                            )
                             title_list.append(title)
                             if just_first:
                                 title_list = title_list[0]
@@ -104,7 +119,7 @@ def scrape_title_google_search(asins: list[str],
             driver.quit()
             if save_tmp:
                 # save a json file dedicated to this specific batch
-                with open(tmp_path, 'w', encoding='utf-8') as f:
+                with open(tmp_path, "w", encoding="utf-8") as f:
                     json.dump(batch_dict, f, ensure_ascii=False, indent=4)
         else:
             # load the file and update the parallel dict
@@ -114,8 +129,15 @@ def scrape_title_google_search(asins: list[str],
         title_dict.update(batch_dict)
 
     # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
-    Parallel(n_jobs=n_cores)(delayed(batch_request)(batch_idx, a, title_dict)
-                             for batch_idx, a in
-                             enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
-                                        for i in range(0, len(asins), batch_size)]))
+    Parallel(n_jobs=n_cores)(
+        delayed(batch_request)(batch_idx, a, title_dict)
+        for batch_idx, a in enumerate(
+            [
+                asins[
+                    i : (i + batch_size if i + batch_size < len(asins) else len(asins))
+                ]
+                for i in range(0, len(asins), batch_size)
+            ]
+        )
+    )
     return title_dict.copy()
