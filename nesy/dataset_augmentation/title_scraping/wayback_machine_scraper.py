@@ -1,14 +1,14 @@
 import json
-from bs4 import BeautifulSoup
 import os
-import wayback
 import time
 
+import wayback
+from bs4 import BeautifulSoup
 
-def scrape_title_wayback(asins: list[str],
-                         batch_size: int = 20,
-                         save_tmp: bool = True,
-                         delay: int = 60) -> dict[str, str]:
+
+def scrape_title_wayback(
+    asins: list[str], batch_size: int = 20, save_tmp: bool = True, delay: int = 60
+) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests with an unofficial Wayback API to get
     the title of the ASIN from the Wayback Machine website. This is used for the ASINs that during the first scraping
@@ -34,7 +34,9 @@ def scrape_title_wayback(asins: list[str],
     # define dictionary suitable for storing of information
     title_dict = dict()
 
-    def batch_request(batch_idx: int, asins: list[str], title_dict: dict[str, str]) -> None:
+    def batch_request(
+        batch_idx: int, asins: list[str], title_dict: dict[str, str]
+    ) -> None:
         """
         This function performs a batch of HTTP requests using an unofficial Wayback API.
 
@@ -49,7 +51,7 @@ def scrape_title_wayback(asins: list[str],
             # define dictionary for saving batch data
             batch_dict = {}
             # define the Amazon URLs that have to be searched in the Wayback Machine
-            urls = [f'https://www.amazon.com/dp/{asin}' for asin in asins]
+            urls = [f"https://www.amazon.com/dp/{asin}" for asin in asins]
             # define wayback API
             client = wayback.WaybackClient()
             # start the scraping loop
@@ -67,30 +69,44 @@ def scrape_title_wayback(asins: list[str],
                         # in Wayback Machine
                         found = True
                         # parse the saved page content
-                        soup = BeautifulSoup(page, 'html.parser')  # html.parser
+                        soup = BeautifulSoup(page, "html.parser")  # html.parser
                         # check if the page is a captcha page and discard it from the search
-                        if soup.find("h4") is not None and soup.find("h4").get_text() == ("Enter the characters you "
-                                                                                          "see below"):
+                        if soup.find("h4") is not None and soup.find(
+                            "h4"
+                        ).get_text() == ("Enter the characters you " "see below"):
                             batch_dict[asin] = "captcha"
                             print_str = "captcha problem - ASIN %s" % (url,)
                             # move to next snapshot in the for loop
                             continue
                         # check if it is a saved page with 404 error
-                        if ((soup.find("b", {"class": "h1"}) is not None and
-                             "Looking for something?" in soup.find("b", {"class": "h1"}).get_text()) or
-                                soup.find('img', {'alt': "Sorry! We couldn't find that page. "
-                                                         "Try searching or go to Amazon's home page."}) is not None):
+                        if (
+                            soup.find("b", {"class": "h1"}) is not None
+                            and "Looking for something?"
+                            in soup.find("b", {"class": "h1"}).get_text()
+                        ) or soup.find(
+                            "img",
+                            {
+                                "alt": "Sorry! We couldn't find that page. "
+                                "Try searching or go to Amazon's home page."
+                            },
+                        ) is not None:
                             batch_dict[asin] = "404-error"
                             print_str = "404 error - ASIN %s" % (url,)
                             # move to next snapshot in the for loop
                             continue
                         # if it is not a captcha page or 404 page, find this specific IDs (in order) while
                         # parsing the web page
-                        id_alternatives = ["btAsinTitle", "productTitle", "ebooksProductTitle"]
-                        title_element = soup.find('span', {'id': id_alternatives[0]})
+                        id_alternatives = [
+                            "btAsinTitle",
+                            "productTitle",
+                            "ebooksProductTitle",
+                        ]
+                        title_element = soup.find("span", {"id": id_alternatives[0]})
                         i = 1
                         while title_element is None and i < len(id_alternatives):
-                            title_element = soup.find('span', {'id': id_alternatives[i]})
+                            title_element = soup.find(
+                                "span", {"id": id_alternatives[i]}
+                            )
                             i += 1
                         if title_element is not None:
                             batch_dict[asin] = title_element.text.strip()
@@ -100,7 +116,7 @@ def scrape_title_wayback(asins: list[str],
                         else:
                             # if none of the IDs has been found, the page is very old and we need to search for
                             # a "b" with class "sans"
-                            title_element = soup.find('b', {'class': "sans"})
+                            title_element = soup.find("b", {"class": "sans"})
                             if title_element is not None:
                                 batch_dict[asin] = title_element.text.strip()
                                 print_str = title_element.text.strip()
@@ -118,10 +134,13 @@ def scrape_title_wayback(asins: list[str],
                     # if we enter here, it means that no web page has been saved in Wayback Machine for the given URL
                     print_str = "404 error - ASIN %s" % (url,)
                     batch_dict[asin] = "404-error"
-                print("batch %d / %d - asin %d / %d - %s" % (batch_idx, n_batches, counter, len(asins), print_str))
+                print(
+                    "batch %d / %d - asin %d / %d - %s"
+                    % (batch_idx, n_batches, counter, len(asins), print_str)
+                )
             if save_tmp:
                 # save a json file dedicated to this specific batch
-                with open(tmp_path, 'w', encoding='utf-8') as f:
+                with open(tmp_path, "w", encoding="utf-8") as f:
                     json.dump(batch_dict, f, ensure_ascii=False, indent=4)
             # wait some seconds between a batch and the other
             time.sleep(delay)
@@ -133,7 +152,11 @@ def scrape_title_wayback(asins: list[str],
         title_dict.update(batch_dict)
 
     # begin scraping loop
-    for batch_idx, batch_asins in enumerate([asins[i:(i + batch_size if i + batch_size < len(asins) else len(asins))]
-                                             for i in range(0, len(asins), batch_size)]):
+    for batch_idx, batch_asins in enumerate(
+        [
+            asins[i : (i + batch_size if i + batch_size < len(asins) else len(asins))]
+            for i in range(0, len(asins), batch_size)
+        ]
+    ):
         batch_request(batch_idx, batch_asins, title_dict)
     return title_dict.copy()

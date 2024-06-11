@@ -1,3 +1,3 @@
+from .query_google_kg_search import google_kg_search as get_books_info
 from .query_movies_and_tv_info import get_movies_and_tv_info
 from .query_records_info import get_records_info
-from .query_google_kg_search import google_kg_search as get_books_info

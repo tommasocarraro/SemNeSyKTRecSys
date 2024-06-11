@@ -1,9 +1,10 @@
 import signal
 from typing import Any, Union, Literal, Optional
-from config import PSQL_CONN_STRING
+
 from asyncpg import Pool, create_pool
 from loguru import logger
 
+from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation import state
 from nesy.dataset_augmentation.api_querying import (
     get_records_info,

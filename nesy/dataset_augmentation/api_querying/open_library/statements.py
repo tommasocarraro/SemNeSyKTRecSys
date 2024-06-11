@@ -73,7 +73,7 @@ def make_title_year_query() -> str:
         WHERE
             title % LOWER($2)
             AND title <-> LOWER($2) < 0.5
-        AND year ilike $3
+            AND year ilike $3
         GROUP BY title, year
         ORDER BY distance
         LIMIT 10

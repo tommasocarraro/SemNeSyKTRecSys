@@ -1,5 +1,6 @@
-import regex as re
 from typing import Any
+
+import regex as re
 from loguru import logger
 
 

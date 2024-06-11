@@ -3,16 +3,16 @@ from typing import Any, Union, Optional
 
 from loguru import logger
 
+from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .get_request_with_limiter import get_request_with_limiter
+from .query_records_utils import extract_artist, extract_title, extract_year
+from .score import compute_score_triple, push_to_heap
 from .utils import (
     process_responses_with_joblib,
     get_async_limiter,
     process_http_requests,
     ErrorCode,
 )
-from .query_records_utils import extract_artist, extract_title, extract_year
-from .score import compute_score_triple, push_to_heap
-from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
 
 
 def _extract_info(

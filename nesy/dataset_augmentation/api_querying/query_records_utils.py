@@ -1,5 +1,6 @@
-from typing import Any, Optional
 import heapq
+from typing import Any, Optional
+
 from jaro import jaro_winkler_metric
 
 
