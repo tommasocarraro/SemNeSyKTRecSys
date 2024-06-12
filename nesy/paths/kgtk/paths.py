@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 
 from .clauses import get_clauses
 from .merge_tsv_files import merge_tsv_from_directory
-from ..kgtk_wrappers import kgtk_query
+from nesy.kgtk_wrappers import kgtk_query
 
 
 def _run_query_job(
