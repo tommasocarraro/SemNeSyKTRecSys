@@ -1,18 +1,15 @@
-from typing import Optional
-from typing import Union, Literal
+from asyncio import CancelledError
+from typing import Optional, Any
 
 from asyncpg import Pool
 from tqdm.asyncio import tqdm
 
 from .statements import get_statement, reset_statements
-from .utils import flatmap
+from ..utils import _add_signal_handlers, ErrorCode
 
 
 async def _execute_prepared(
-    params: list,
-    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
-    psql_pool: Pool,
-    how_many_authors: Optional[int] = None,
+    params: list, kind: str, psql_pool: Pool, how_many_authors: Optional[int] = None
 ):
     async with psql_pool.acquire() as psql_conn:
         statement = await get_statement(
@@ -22,43 +19,48 @@ async def _execute_prepared(
 
 
 async def execute_queries(
-    params_list: list[list[str]],
-    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
-    psql_pool: Pool,
-):
+    params_list: list[list[str]], psql_pool: Pool
+) -> list[tuple[list[list[tuple[str, str, str, str]]], Optional[ErrorCode]]]:
+    _add_signal_handlers()
     tasks = []
-    if kind == "title_authors":
-        params_dict: dict[int, list[list[str]]] = {}
-        for params in params_list:
-            query_index = params[0]
-            title = params[1]
-            authors = params[2]
-            if isinstance(authors, list):
-                how_many_authors = len(authors)
-            elif isinstance(authors, str):
-                how_many_authors = 1
-            else:
-                raise TypeError("Wrong type for person")
-            params = [query_index, title, *authors]
-            if how_many_authors not in params_dict:
-                params_dict[how_many_authors] = [params]
-            else:
-                params_dict[how_many_authors].append(params)
-        for k, v in params_dict.items():
-            for params in v:
-                tasks.append(
-                    _execute_prepared(
-                        params=params,
-                        kind=kind,
-                        how_many_authors=k,
-                        psql_pool=psql_pool,
-                    )
-                )
-    else:
-        for params in params_list:
-            tasks.append(
-                _execute_prepared(params=params, kind=kind, psql_pool=psql_pool)
+    for params in params_list:
+        kind = params[0]
+        query_index = params[1]
+        title = params[2]
+        how_many_authors = None
+        if kind == "title_authors":
+            authors = params[3]
+            actual_params = [query_index, title, *authors]
+            how_many_authors = len(authors)
+        elif kind == "title_year":
+            year = params[3]
+            actual_params = [query_index, title, year]
+        else:
+            actual_params = [query_index, title]
+        tasks.append(
+            _execute_prepared(
+                params=actual_params,
+                kind=kind,
+                psql_pool=psql_pool,
+                how_many_authors=how_many_authors,
             )
-    results = await tqdm.gather(*tasks, dynamic_ncols=True, desc="Running queries...")
-    reset_statements()
-    return flatmap(results=results, f=lambda x: list(x.items()))
+        )
+    results = []
+    for response in (
+        pbar := tqdm.as_completed(
+            tasks,
+            dynamic_ncols=True,
+            desc="Running queries against Open Library...",
+        )
+    ):
+        data, err = None, None
+        try:
+            data = await response
+            data = [list(x.items()) for x in data]
+        except CancelledError:
+            pbar.close()
+            err = ErrorCode.Cancelled
+        finally:
+            reset_statements()
+            results.append((data, err))
+    return results

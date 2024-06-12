@@ -1,26 +1,15 @@
 from asyncio import run
 from os.path import join
 
-from loguru import logger
-
-from nesy.dataset_augmentation.api_querying.open_library.get_books_info import (
-    get_books_info,
-)
 from nesy.dataset_augmentation.metadata_extraction.open_library import (
     process_dump,
     build_cache,
 )
 
 
-def pretty_print_results(results: list[list[tuple]]) -> None:
-    for result in results:
-        logger.info(result)
-
-
 async def main():
     process_dump_flag = False
     build_cache_flag = False
-    query_flag = True
 
     editions_processed_file_path = join("data", "open_library", "editions.jsonl")
     authors_processed_file_path = join("data", "open_library", "authors.jsonl")
@@ -50,23 +39,6 @@ async def main():
             authors_dump_path=authors_processed_file_path,
             works_dump_path=works_processed_file_path,
         )
-
-    if query_flag:
-
-        titles = [
-            ("Doctor Who - An Unearthly Child", None, None),
-            ("Eragon", None, None),
-            ("Star Wars", None, None),
-            ("Eragon", None, "2002"),
-            ("The Lord of the Rings", None, None),
-            ("Dracula", ["Bram Stoker"], None),
-            ("The Girl with the Dragon Tattoo", ["Stieg Larsson"], None),
-            ("Il Battesimo del Fuoco", ["Andrzej Sapkowski"], None),
-            ("Baptism of Fire", ["Andrzej Sapkowski"], None),
-            ("Paul Anderson: The Mightiest Minister", None, None),
-        ]
-        results = await get_books_info(titles)
-        print(results)
 
 
 if __name__ == "__main__":
