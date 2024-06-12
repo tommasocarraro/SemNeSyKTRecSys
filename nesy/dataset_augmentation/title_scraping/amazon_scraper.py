@@ -12,9 +12,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service as ChromeService
 
-
 def scrape_title_amazon(
-    asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True, batch_i: int = 0
+    asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True, batch_i_start: int = 0, batch_i_end: int =0
 ) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests with Selenium to get the title
@@ -27,8 +26,10 @@ def scrape_title_amazon(
     :param batch_size: number of ASINs to be processed in each batch of parallel execution
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished. This
     allows saving everything in cases in which the script is interrupted by external forces.
-    :param batch_i: the batch index from which the scraping has to be started. This is useful to start the scraping
+    :param batch_i_start: the batch index from which the scraping has to be started. This is useful to start the scraping
     on multiple machines so that they can perform part of the scraping (kind of distributed computation)
+    :param batch_i_end: the index of the last batch of the scraping job. The job will execute all the batches from the
+    start index to this index
     :return: new dictionary containing key-value pairs with scraped ASIN-title
     """
     # get number of batches for printing information
@@ -58,9 +59,9 @@ def scrape_title_amazon(
         :param asins: list of ASINs of the products for which the title has to be retrieved in this batch
         :param title_dict: dictionary for parallel storing of the retrieved data
         """
-        # check if this batch has been already processed in another execution
-        # if the path does not exist, we process the batch
-        if batch_idx >= batch_i:
+        if batch_i_start <= batch_idx <= batch_i_end:
+            # check if this batch has been already processed in another execution
+            # if the path does not exist, we process the batch
             tmp_path = "./data/processed/tmp/metadata-batch-%s" % (batch_idx,)
             if not os.path.exists(tmp_path) or not save_tmp:
                 # define dictionary for saving batch data
@@ -201,7 +202,7 @@ def scrape_title_amazon(
             os.makedirs("./data/processed/tmp")
 
     # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
-    Parallel(n_jobs=n_cores)(
+    Parallel(n_jobs=n_cores, prefer="threads")(
         delayed(batch_request)(batch_idx, a, title_dict)
         for batch_idx, a in enumerate(
             [

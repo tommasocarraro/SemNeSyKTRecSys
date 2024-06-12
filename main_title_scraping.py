@@ -12,7 +12,8 @@ def metadata_scraping(metadata: str,
                       batch_size: int = 100,
                       mode: str = None,
                       use_solver: bool = True,
-                      batch_idx: int = 0) -> None:
+                      batch_idx_start: int = 0,
+                      batch_idx_end: int = 10000) -> None:
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
     titles from the Amazon website. It is possible to specify the type of scraping by changing the parameter 'mode'.
@@ -51,8 +52,10 @@ def metadata_scraping(metadata: str,
                  captchas automatically)
                  - "google" uses the Google Search to get the titles corresponding to the given ASINs
     :param use_solver: whether to use a captcha solver if the selected mode is catpcha
-    :param batch_idx: index of the batch from which the scraping has to be started (useful when doing distributed
+    :param batch_idx_start: index of the batch from which the scraping has to be started (useful when doing distributed
     computation)
+    :param batch_idx_end: the index of the last batch of the scraping job. The job will execute all the batches from the
+    start index to this index
     """
     with open(metadata) as json_file:
         m_data = json.load(json_file)
@@ -67,7 +70,7 @@ def metadata_scraping(metadata: str,
     # update the metadata with the scraped titles
     if mode is None or mode == "standard":
         updated_dict = scrape_title_amazon(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp,
-                                           batch_i=batch_idx)
+                                           batch_i_start=batch_idx_start, batch_i_end=batch_idx_end)
     elif mode == "wayback":
         updated_dict = scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp)
     elif mode == "captcha":
@@ -84,4 +87,5 @@ def metadata_scraping(metadata: str,
 
 if __name__ == "__main__":
     metadata_scraping("./data/processed/legacy/complete-filtered-metadata.json", motivation=None,
-                      mode="standard", save_tmp=True, batch_size=100, use_solver=False, n_cores=10, batch_idx=2000)
+                      mode="standard", save_tmp=True, batch_size=100, use_solver=False, n_cores=10,
+                      batch_idx_start=2000, batch_idx_end=2010)
