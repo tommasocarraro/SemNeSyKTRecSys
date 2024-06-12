@@ -1,5 +1,5 @@
 from nesy.paths import get_multiple_paths
-from nesy.paths.labels import create_wikidata_labels_sqlite, generate_all_labels
+from nesy.paths.kgtk.labels import create_wikidata_labels_sqlite, generate_all_labels
 from nesy.preprocess_kg import preprocess_kg
 import pandas as pd
 
