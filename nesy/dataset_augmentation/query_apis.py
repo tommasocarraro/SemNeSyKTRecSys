@@ -68,9 +68,13 @@ async def query_apis(
 
     if item_type == "books":
         logger.info("Establishing a new connection pool to PostgreSQL")
-        psql_pool = await create_pool(
-            PSQL_CONN_STRING, min_size=batch_size, max_size=batch_size
-        )
+        try:
+            psql_pool = await create_pool(
+                PSQL_CONN_STRING, min_size=batch_size, max_size=batch_size
+            )
+        except ConnectionRefusedError as e:
+            logger.error(f"Failed to establish a new connection pool: {e}")
+            exit(1)
     else:
         psql_pool = None
 

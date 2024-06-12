@@ -1,4 +1,3 @@
-import asyncio
 from typing import Optional, Any
 
 from asyncpg import Pool
@@ -7,12 +6,16 @@ from joblib import Parallel, delayed
 from nesy.dataset_augmentation import state
 from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .execute_queries import execute_queries
-from .utils import group_by_query_index, flatmap, set_sim_threshold
+from .utils import set_sim_threshold
+from ..utils import ErrorCode
 
 
 def _process_query_results(
-    rows: list[list[tuple[str, str, list[str], str]]]
+    result: tuple[list[list[tuple[str, str, str, str]]], Optional[ErrorCode]]
 ) -> Optional[tuple[str, dict[str, Any]]]:
+    rows, err = result
+    if rows is None:
+        return None
     # get distances
     distances = [float(row[-1][1]) for row in rows]
 
@@ -20,14 +23,14 @@ def _process_query_results(
     if distances.count(0) > 1:
         return None
 
-    def _make_return(candidate: list[tuple[str, str, list[str], str]]):
+    def _make_return(candidate: list[tuple[str, str, str, str]]):
         query_index = candidate[0][1]
         title = candidate[1][1]
         person = candidate[2][1]
         year = candidate[3][1]
         return (
             query_index,
-            {"title": title, "person": person, "year": year, "err": None},
+            {"title": title, "person": person, "year": year, "err": err},
         )
 
     # if there is only one row and its distance is at most significant_margin, or if there are more rows and the
@@ -53,44 +56,21 @@ async def _prepare_db_queries(
     Returns:
         A dictionary containing metadata from the successful queries
     """
-    params_lists = [[], [], []]
+    params_list = []
     query_lookup = {}
     for i, (title, person, year) in enumerate(query_data):
         query_lookup[i] = title
         if person is None and year is None:
-            params_lists[0].append([f"{i}", title])
+            params_list.append(["title", f"{i}", title])
         elif year is None:
-            params_lists[1].append([f"{i}", title, person])
+            params_list.append(["title_authors", f"{i}", title, person])
         elif person is None:
-            params_lists[2].append([f"{i}", title, year])
+            params_list.append(["title_year", f"{i}", title, year])
 
-    tasks = []
-    if len(params_lists[0]) > 0:
-        tasks.append(
-            execute_queries(
-                params_list=params_lists[0], kind="title", psql_pool=psql_pool
-            )
-        )
-    if len(params_lists[1]) > 0:
-        tasks.append(
-            execute_queries(
-                params_list=params_lists[1], kind="title_authors", psql_pool=psql_pool
-            )
-        )
-    if len(params_lists[2]) > 0:
-        tasks.append(
-            execute_queries(
-                params_list=params_lists[2], kind="title_year", psql_pool=psql_pool
-            )
-        )
-
-    query_results = await asyncio.gather(*tasks)
-
-    flattened_query_results = flatmap(query_results, f=lambda x: x)
-    query_results_by_index = group_by_query_index(flattened_query_results)
+    query_results = await execute_queries(params_list=params_list, psql_pool=psql_pool)
 
     processed_results = Parallel(n_jobs=-1, backend="loky")(
-        delayed(_process_query_results)(results) for results in query_results_by_index
+        delayed(_process_query_results)(results) for results in query_results
     )
 
     return {

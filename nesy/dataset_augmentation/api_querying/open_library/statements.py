@@ -55,7 +55,7 @@ def make_title_authors_query(how_many_authors: int) -> str:
             {where_clauses}
         GROUP BY {group_by_clauses}
         ORDER BY distance
-        LIMIT 10
+        LIMIT 2
     """
 
     return query
@@ -76,7 +76,7 @@ def make_title_year_query() -> str:
             AND year ilike $3
         GROUP BY title, year
         ORDER BY distance
-        LIMIT 10
+        LIMIT 2
     """
 
     return query
@@ -96,7 +96,7 @@ def make_title_query() -> str:
         AND title <-> LOWER($2) < 0.5
     GROUP BY key, title
     ORDER BY distance
-    LIMIT 10
+    LIMIT 2
     """
 
     return query
@@ -109,10 +109,7 @@ _statements: dict[str, Optional[PreparedStatement]] = {
 }
 
 
-def _get_query(
-    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
-    how_many_authors: Optional[int],
-) -> str:
+def _get_query(kind: str, how_many_authors: Optional[int]) -> str:
     if kind == "title":
         return make_title_query()
     elif kind == "title_authors":
@@ -126,9 +123,7 @@ def _get_query(
 
 
 async def get_statement(
-    kind: Union[Literal["title"], Literal["title_authors"], Literal["title_year"]],
-    psql_conn: Connection,
-    how_many_authors: Optional[int] = None,
+    kind: str, psql_conn: Connection, how_many_authors: Optional[int] = None
 ) -> PreparedStatement:
     try:
         if _statements[kind] is None:
