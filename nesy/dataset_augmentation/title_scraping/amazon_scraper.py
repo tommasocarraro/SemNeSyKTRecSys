@@ -45,8 +45,7 @@ def scrape_title_amazon(
     chrome_options.add_argument(
         "--window-size=1920x1080"
     )  # Set a window size to avoid responsive design
-    # ua = UserAgent()
-    # chrome_options.add_argument(f"user-agent={ua.random}")  # random user agent
+    ua = UserAgent()
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     def batch_request(
@@ -64,6 +63,8 @@ def scrape_title_amazon(
             # if the path does not exist, we process the batch
             tmp_path = "./data/processed/tmp/metadata-batch-%s" % (batch_idx,)
             if not os.path.exists(tmp_path) or not save_tmp:
+                # set the user agent
+                chrome_options.add_argument(f"user-agent={ua.random}")  # random user agent
                 # define dictionary for saving batch data
                 batch_dict = {}
                 # create the URLs for scraping
