@@ -1,19 +1,27 @@
 import json
 from nesy.dataset_augmentation.title_scraping.amazon_scraper import scrape_title_amazon
-from nesy.dataset_augmentation.title_scraping.captcha_scraper import scrape_title_captcha
-from nesy.dataset_augmentation.title_scraping.google_scraper import scrape_title_google_search
-from nesy.dataset_augmentation.title_scraping.wayback_machine_scraper import scrape_title_wayback
+from nesy.dataset_augmentation.title_scraping.captcha_scraper import (
+    scrape_title_captcha,
+)
+from nesy.dataset_augmentation.title_scraping.google_scraper import (
+    scrape_title_google_search,
+)
+from nesy.dataset_augmentation.title_scraping.wayback_machine_scraper import (
+    scrape_title_wayback,
+)
 
 
-def metadata_scraping(metadata: str,
-                      n_cores: int = 1,
-                      motivation: str = None,
-                      save_tmp: bool = True,
-                      batch_size: int = 100,
-                      mode: str = None,
-                      use_solver: bool = True,
-                      batch_idx_start: int = 0,
-                      batch_idx_end: int = 10000) -> None:
+def metadata_scraping(
+    metadata: str,
+    n_cores: int = 1,
+    motivation: str = None,
+    save_tmp: bool = True,
+    batch_size: int = 100,
+    mode: str = None,
+    use_solver: bool = True,
+    batch_idx_start: int = 0,
+    batch_idx_end: int = 10000,
+) -> None:
     """
     This function takes as input a metadata file with some missing titles and uses web scraping to retrieve these
     titles from the Amazon website. It is possible to specify the type of scraping by changing the parameter 'mode'.
@@ -69,23 +77,50 @@ def metadata_scraping(metadata: str,
     no_titles = sorted(no_titles)
     # update the metadata with the scraped titles
     if mode is None or mode == "standard":
-        updated_dict = scrape_title_amazon(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp,
-                                           batch_i_start=batch_idx_start, batch_i_end=batch_idx_end)
+        updated_dict = scrape_title_amazon(
+            no_titles,
+            n_cores,
+            batch_size=batch_size,
+            save_tmp=save_tmp,
+            batch_i_start=batch_idx_start,
+            batch_i_end=batch_idx_end,
+        )
     elif mode == "wayback":
-        updated_dict = scrape_title_wayback(no_titles, batch_size=batch_size, save_tmp=save_tmp)
+        updated_dict = scrape_title_wayback(
+            no_titles, batch_size=batch_size, save_tmp=save_tmp
+        )
     elif mode == "captcha":
-        updated_dict = scrape_title_captcha(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp,
-                                            use_solver=use_solver)
+        updated_dict = scrape_title_captcha(
+            no_titles,
+            n_cores,
+            batch_size=batch_size,
+            save_tmp=save_tmp,
+            use_solver=use_solver,
+        )
     else:
-        updated_dict = scrape_title_google_search(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp, timer=0)
+        updated_dict = scrape_title_google_search(
+            no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp, timer=0
+        )
     # update of the metadata
     m_data.update(updated_dict)
     # generate the new and complete metadata file
-    with open('./data/processed/complete-%s' % (metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
+    with open(
+        "./data/processed/complete-%s" % (metadata.split("/")[-1]),
+        "w",
+        encoding="utf-8",
+    ) as f:
         json.dump(m_data, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
-    metadata_scraping("./data/processed/legacy/complete-filtered-metadata.json", motivation=None,
-                      mode="standard", save_tmp=True, batch_size=100, use_solver=False, n_cores=10,
-                      batch_idx_start=2000, batch_idx_end=2010)
+    metadata_scraping(
+        "./data/processed/legacy/complete-filtered-metadata.json",
+        motivation=None,
+        mode="standard",
+        save_tmp=True,
+        batch_size=100,
+        use_solver=False,
+        n_cores=10,
+        batch_idx_start=4000,
+        batch_idx_end=5000,
+    )
