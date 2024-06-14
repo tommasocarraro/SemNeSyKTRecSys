@@ -9,7 +9,7 @@ from nesy.dataset_augmentation.metadata_extraction.open_library import (
 
 async def main():
     process_dump_flag = False
-    build_cache_flag = False
+    build_cache_flag = True
 
     editions_processed_file_path = join("data", "open_library", "editions.jsonl")
     authors_processed_file_path = join("data", "open_library", "authors.jsonl")

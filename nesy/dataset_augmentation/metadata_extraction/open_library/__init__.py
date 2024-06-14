@@ -1,2 +1,2 @@
-from .open_library_build_cache import build_cache
-from .open_library_process_dump import process_dump
+from .process_dump import process_dump
+from .build_cache import build_cache
