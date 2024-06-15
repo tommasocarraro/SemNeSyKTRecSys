@@ -2,9 +2,9 @@ import signal
 from asyncio import CancelledError
 from typing import Any, Union, Literal, Optional
 
+from loguru import logger
 from psycopg import OperationalError
 from psycopg_pool import AsyncConnectionPool
-from loguru import logger
 
 from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation import state
