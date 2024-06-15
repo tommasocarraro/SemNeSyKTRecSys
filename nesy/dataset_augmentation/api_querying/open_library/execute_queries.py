@@ -1,7 +1,7 @@
 from asyncio import CancelledError
 from typing import Optional
 
-from psycopg import OperationalError
+from psycopg import OperationalError, AsyncConnection
 from psycopg_pool import AsyncConnectionPool
 from tqdm.asyncio import tqdm
 
@@ -19,26 +19,29 @@ async def _execute_query(
 ) -> Optional[tuple[int, Rows]]:
     query_index, params = params_with_index
     results = None
+    psql_conn: Optional[AsyncConnection] = None
     try:
-        async with psql_pool.connection() as psql_conn:
-            await psql_conn.set_autocommit(True)
-            async with psql_conn.cursor() as cur:
-                # this threshold is session based, so it needs to be set on a per-connection basis
-                await set_sim_threshold(0.9, cur)
-                if "authors" in params:
-                    query = query_title_authors
-                elif "year" in params:
-                    query = query_title_year
-                else:
-                    query = query_title
-                await cur.execute(query, params)
-                if cur.rowcount > 0:
-                    cols = [col.name for col in cur.description]
-                    rows = await cur.fetchall()
-                    results = list(zip(cols, *rows))
+        psql_conn = await psql_pool.getconn(timeout=float("inf"))
+        await psql_conn.set_autocommit(True)
+        async with psql_conn.cursor() as cur:
+            # this threshold is session based, so it needs to be set on a per-connection basis
+            await set_sim_threshold(0.9, cur)
+            if "authors" in params:
+                query = query_title_authors
+            elif "year" in params:
+                query = query_title_year
+            else:
+                query = query_title
+            await cur.execute(query, params)
+            if cur.rowcount > 0:
+                cols = [col.name for col in cur.description]
+                rows = await cur.fetchall()
+                results = list(zip(cols, *rows))
     except (CancelledError, OperationalError):
         pass
     finally:
+        if psql_conn is not None:
+            await psql_pool.putconn(psql_conn)
         return query_index, results
 
 
