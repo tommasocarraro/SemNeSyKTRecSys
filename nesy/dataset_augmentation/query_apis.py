@@ -1,6 +1,8 @@
 import signal
+from asyncio import CancelledError
 from typing import Any, Union, Literal, Optional
 
+from psycopg import OperationalError
 from psycopg_pool import AsyncConnectionPool
 from loguru import logger
 
@@ -71,13 +73,13 @@ async def query_apis(
         try:
             psql_pool = AsyncConnectionPool(
                 conninfo=PSQL_CONN_STRING,
-                min_size=1,
-                max_size=20,
+                min_size=12,
+                max_size=12,
                 num_workers=3,
                 open=False,
                 timeout=float("inf"),
             )
-            await psql_pool.open()
+            await psql_pool.open(wait=True)
         except ConnectionRefusedError as e:
             logger.error(f"Failed to establish a new connection pool: {e}")
             exit(1)
@@ -119,4 +121,8 @@ async def query_apis(
 
         if state.GRACEFUL_EXIT:
             logger.info("Terminating early due to interrupt")
+            try:
+                await psql_pool.close(timeout=0)
+            except (CancelledError, OperationalError):
+                pass
             break
