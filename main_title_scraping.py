@@ -88,4 +88,4 @@ def metadata_scraping(metadata: str,
 if __name__ == "__main__":
     metadata_scraping("./data/processed/music.json", motivation=None,
                       mode="standard", save_tmp=True, batch_size=100, use_solver=False, n_cores=10,
-                      batch_idx_start=0)
+                      batch_idx_start=2000, batch_idx_end=2010)

@@ -166,7 +166,7 @@ cython_debug/
 **/*.db-journal
 **/*.db-shm
 /data/paths/
-
+chromedriver
 .idea
 data/**/**.jsonl
 data/**/**.json

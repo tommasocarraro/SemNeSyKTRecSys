@@ -42,7 +42,6 @@ def _process_edition(edition: dict[str, Any]) -> Optional[dict[str, Any]]:
     Returns:
         Either the transformed object or None
     """
-    # check if title present and no more than 200 characters (Amazon title limit)
     if (
         "title" not in edition
         or edition["title"] is None
@@ -51,41 +50,35 @@ def _process_edition(edition: dict[str, Any]) -> Optional[dict[str, Any]]:
         return None
     title = edition["title"]
 
-    if "publish_date" not in edition:
-        return None
-    else:
-        # extract year if available, discard if published after 2014
+    year = None
+    if "publish_date" in edition:
         publish_date = edition["publish_date"]
         s = re.search(r"((?:19|20)\d{2})", publish_date)
         if s:
             year = s.group(1)
-            if int(year) > 2014:
-                return None
-        else:
-            return None
 
-    if (
-        "authors" not in edition
-        or len(edition["authors"]) == 0
-        or len(edition["authors"][0]) > 30
-    ):
-        return None
-    # extract list of authors if available, make sure the type is consistent
-    authors = edition["authors"]
-    if isinstance(authors[0], dict):
-        authors = [auth_dict["key"].split("/")[2] for auth_dict in authors]
+    authors = edition["authors"] if "authors" in edition else None
+    if authors is not None and len(authors) > 0:
+        if isinstance(authors[0], dict):
+            authors = [auth_dict["key"].split("/")[2] for auth_dict in authors]
+        else:
+            authors = [auth.split("/")[2] for auth in authors]
+
+    works = edition["works"] if "works" in edition else None
+    if works is not None:
+        works_keys = [work_dict["key"].split("/")[2] for work_dict in works]
     else:
-        authors = [auth.split("/")[2] for auth in authors]
-    if "works" not in edition:
-        return None
-    works = edition["works"]
-    works_keys = [work_dict["key"].split("/")[2] for work_dict in works]
+        works_keys = None
+
+    isbns = edition["isbn_10"] if "isbn_10" in edition else None
     return {
         "key": edition["key"].split("/")[2],
-        "title": title.strip().lower(),
-        "year": year.strip(),
+        "title": title,
+        "title_query": title.lower().strip(),
+        "year": year,
         "authors": authors,
         "works": works_keys,
+        "isbns": isbns,
     }
 
 
@@ -101,7 +94,12 @@ def _process_author(author: dict[str, Any]) -> Optional[dict[str, Any]]:
     # if author's name is unknown, skip it
     if "name" not in author:
         return None
-    return {"key": author["key"].split("/")[2], "name": author["name"].strip().lower()}
+
+    return {
+        "key": author["key"].split("/")[2],
+        "name": author["name"],
+        "name_query": author["name"].lower().strip(),
+    }
 
 
 def _process_work(work: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -113,12 +111,10 @@ def _process_work(work: dict[str, Any]) -> Optional[dict[str, Any]]:
     Returns:
         Either the transformed object or None
     """
-    title = work.get("title", "")
-    if len(title) == 0 or len(title) > 200:
-        return None
-    # extract list of authors if available, make sure the type is consistent
-    authors = work.get("authors", [])
-    if 0 < len(authors) <= 30:
+    title = work["title"] if "title" in work and len(work["title"]) < 200 else None
+
+    authors = work["authors"] if "authors" in work else None
+    if authors is not None:
         if isinstance(authors[0], dict):
             authors = [
                 auth_dict["author"]["key"].split("/")[2]
@@ -127,8 +123,7 @@ def _process_work(work: dict[str, Any]) -> Optional[dict[str, Any]]:
             ]
         else:
             authors = [auth.split("/")[2] for auth in authors]
-    else:
-        return None
+
     key = work["key"].split("/")[2]
     return {"key": key, "title": title, "authors": authors}
 
