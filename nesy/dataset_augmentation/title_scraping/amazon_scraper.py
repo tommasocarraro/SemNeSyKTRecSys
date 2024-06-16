@@ -64,7 +64,7 @@ def scrape_title_amazon(
             tmp_path = "./data/processed/tmp/metadata-batch-%s" % (batch_idx,)
             if not os.path.exists(tmp_path) or not save_tmp:
                 # set the user agent
-                chrome_options.add_argument(f"user-agent={ua.random}")  # random user agent
+                # chrome_options.add_argument(f"user-agent={ua.random}")  # random user agent
                 # define dictionary for saving batch data
                 batch_dict = {}
                 # create the URLs for scraping
