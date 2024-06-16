@@ -1,50 +1,61 @@
 from asyncio import CancelledError
-from typing import Optional, Any
+from typing import Optional
 
-from asyncpg import Pool
+from psycopg import OperationalError, AsyncConnection
+from psycopg_pool import AsyncConnectionPool
 from tqdm.asyncio import tqdm
 
-from .statements import get_statement, reset_statements
+from .queries import query_title, query_title_authors, query_title_year
+from .utils import set_sim_threshold
 from ..utils import _add_signal_handlers, ErrorCode
 
+type Row = list[tuple[str, str]]
+type Rows = list[Row]
+type Params = dict[str, str | list[str]]
 
-async def _execute_prepared(
-    params: list, kind: str, psql_pool: Pool, how_many_authors: Optional[int] = None
-):
-    async with psql_pool.acquire() as psql_conn:
-        statement = await get_statement(
-            kind=kind, how_many_authors=how_many_authors, psql_conn=psql_conn
-        )
-        return await statement.fetch(*params)
+
+async def _execute_query(
+    params_with_index: tuple[int, Params], psql_pool: AsyncConnectionPool
+) -> Optional[tuple[int, Rows]]:
+    query_index, params = params_with_index
+    results = None
+    psql_conn: Optional[AsyncConnection] = None
+    try:
+        psql_conn = await psql_pool.getconn(timeout=float("inf"))
+        await psql_conn.set_autocommit(True)
+        async with psql_conn.cursor() as cur:
+            # this threshold is session based, so it needs to be set on a per-connection basis
+            await set_sim_threshold(0.9, cur)
+            if "authors" in params:
+                query = query_title_authors
+            elif "year" in params:
+                query = query_title_year
+            else:
+                query = query_title
+            await cur.execute(query, params)
+            if cur.rowcount > 0:
+                cols = [col.name for col in cur.description]
+                rows = await cur.fetchall()
+                results = list(zip(cols, *rows))
+    except (CancelledError, OperationalError):
+        pass
+    finally:
+        if psql_conn is not None:
+            await psql_pool.putconn(psql_conn)
+        return query_index, results
 
 
 async def execute_queries(
-    params_list: list[list[str]], psql_pool: Pool
-) -> list[tuple[list[list[tuple[str, str, str, str]]], Optional[ErrorCode]]]:
+    params_list: list[tuple[int, Params]],
+    psql_pool: AsyncConnectionPool,
+) -> list[tuple[int, Optional[Rows], Optional[ErrorCode]]]:
     _add_signal_handlers()
-    tasks = []
-    for params in params_list:
-        kind = params[0]
-        query_index = params[1]
-        title = params[2]
-        how_many_authors = None
-        if kind == "title_authors":
-            authors = params[3]
-            actual_params = [query_index, title, *authors]
-            how_many_authors = len(authors)
-        elif kind == "title_year":
-            year = params[3]
-            actual_params = [query_index, title, year]
-        else:
-            actual_params = [query_index, title]
-        tasks.append(
-            _execute_prepared(
-                params=actual_params,
-                kind=kind,
-                psql_pool=psql_pool,
-                how_many_authors=how_many_authors,
-            )
-        )
+
+    tasks = [
+        _execute_query(params_with_index=params_with_index, psql_pool=psql_pool)
+        for params_with_index in params_list
+    ]
+
     results = []
     for response in (
         pbar := tqdm.as_completed(
@@ -53,14 +64,14 @@ async def execute_queries(
             desc="Running queries against Open Library...",
         )
     ):
-        data, err = None, None
+        err = None
         try:
-            data = await response
-            data = [list(x.items()) for x in data]
+            query_index, rows = await response
         except CancelledError:
             pbar.close()
             err = ErrorCode.Cancelled
+        except OperationalError:
+            pass
         finally:
-            reset_statements()
-            results.append((data, err))
+            results.append((query_index, rows, err))
     return results

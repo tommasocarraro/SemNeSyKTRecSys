@@ -1,8 +1,10 @@
 import signal
+from asyncio import CancelledError
 from typing import Any, Union, Literal, Optional
 
-from asyncpg import Pool, create_pool
 from loguru import logger
+from psycopg import OperationalError
+from psycopg_pool import AsyncConnectionPool
 
 from config import PSQL_CONN_STRING
 from nesy.dataset_augmentation import state
@@ -20,7 +22,7 @@ async def _run_queries(
     item_type: Union[
         Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
     ],
-    psql_pool: Optional[Pool] = None,
+    psql_pool: Optional[AsyncConnectionPool] = None,
 ) -> dict[str, QueryResults]:
     if item_type == "movies_and_tv":
         query_fn = get_movies_and_tv_info
@@ -69,9 +71,15 @@ async def query_apis(
     if item_type == "books":
         logger.info("Establishing a new connection pool to PostgreSQL")
         try:
-            psql_pool = await create_pool(
-                PSQL_CONN_STRING, min_size=batch_size, max_size=batch_size
+            psql_pool = AsyncConnectionPool(
+                conninfo=PSQL_CONN_STRING,
+                min_size=12,
+                max_size=12,
+                num_workers=3,
+                open=False,
+                timeout=float("inf"),
             )
+            await psql_pool.open(wait=True)
         except ConnectionRefusedError as e:
             logger.error(f"Failed to establish a new connection pool: {e}")
             exit(1)
@@ -113,4 +121,8 @@ async def query_apis(
 
         if state.GRACEFUL_EXIT:
             logger.info("Terminating early due to interrupt")
+            try:
+                await psql_pool.close(timeout=0)
+            except (CancelledError, OperationalError):
+                pass
             break
