@@ -68,7 +68,7 @@ def _extract_search_info(
 
     if len(results_with_scores) == 0:
         logger.debug(f"Title '{title_q}' had no matches")
-        return title_q, person_q, year_q, ErrorCode.NotFound
+        return title_q, person_q, year_q, movie_id, ErrorCode.NotFound
     n_best = heapq.nlargest(1, results_with_scores)
     if len(n_best) > 0:
         best = n_best[0]
