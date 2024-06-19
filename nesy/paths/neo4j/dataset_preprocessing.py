@@ -3,42 +3,84 @@ import csv
 
 def convert_tsv_to_csv(
     input_file_path: str, output_file_path: str, columns_to_retain: list[str]
-):
+) -> None:
+    """
+    Converts a TSV file to a CSV file while filtering the columns from the input file.
+    Args:
+        input_file_path: The path to the input TSV file.
+        output_file_path: The path to the output CSV file.
+        columns_to_retain: A whitelist of columns to retain.
+
+    Returns:
+        None
+    """
+    # read the tsv file into memory
     with open(input_file_path, "r", newline="") as tsvfile:
+        tsvreader = csv.DictReader(tsvfile, delimiter="\t")
+
+        # create/overwrite the output file
         with open(output_file_path, "w", newline="") as csvfile:
-            tsvreader = csv.DictReader(tsvfile, delimiter="\t")
             csvwriter = csv.DictWriter(csvfile, fieldnames=columns_to_retain)
             csvwriter.writeheader()
+            # write the output row by row
             for row in tsvreader:
+                # dunno why the linter is complaining, using a string name to access the column works
                 csvwriter.writerow({col: row[col] for col in columns_to_retain})
 
 
 def split_csv_for_neo4j(
-    csv_file_file_path: str, discarded_triples_file_path: str
+    csv_file_file_path: str,
+    nodes_output_file_path: str,
+    rels_output_file_path: str,
+    discarded_rels_output_file_path: str,
 ) -> None:
+    """
+    Given a CSV file containing KG triples, split it into one properties CSV file and one nodes CSV file.
+    Whenever triples which use properties as endpoints are encountered, they are discarded and their relation is
+    added to the discarded rels file. There are no guarantees of uniqueness of such relationships.
+    Args:
+        csv_file_file_path: The path to the CSV file containing KG triples.
+        nodes_output_file_path: The path of the file where the nodes CSV will be written.
+        rels_output_file_path: The path of the file where the relations CSV will be written.
+        discarded_rels_output_file_path: The path to the CSV file for saving discarded relations.
+
+    Returns:
+        None
+    """
+    # create sets to store unique nodes and discarded rels
     nodes_set = set()
-    useless_props = set()
-    relationships_file = "out/relationships.csv"
-    with open(csv_file_file_path, "r") as f, open(relationships_file, "w") as out_f:
-        next(f)  # Skip header
+    discarded_rels = set()
+    with open(csv_file_file_path, "r") as input_csv_file, open(
+        rels_output_file_path, "w"
+    ) as out_f:
+        next(input_csv_file)  # Skip the input header
+
+        # write the header to the properties file
         out_f.write(":START_ID,property,:END_ID,:TYPE\n")
 
-        for line in f:
+        # read the input triples one by one
+        for line in input_csv_file:
             node1, prop, node2 = line.strip().split(",")
+            # if at least one endpoint uses a property discard it
             if node1[0] == "P" or node2[0] == "P":
-                useless_props.add(prop)
+                discarded_rels.add(prop)
             else:
                 nodes_set.add(node1)
                 nodes_set.add(node2)
                 out_f.write(line.strip() + f",{prop}" + "\n")
 
+    # create a sorted list of unique nodes, I don't remember why I was sorting it
     nodes_list = sorted(list(nodes_set))
 
-    nodes_file = "out/nodes.csv"
-    with open(nodes_file, "w") as f:
-        f.write("qualifier_id:ID\n")
+    with open(nodes_output_file_path, "w") as nodes_output_file:
+        # write the header to the nodes file
+        # I was using the name 'qualified_id' erroneously, it should be replaced
+        nodes_output_file.write("qualifier_id:ID\n")
+
+        # write the nodes to the file one at a time
         for node in nodes_list:
-            f.write(node + "\n")
-    with open(discarded_triples_file_path, "w") as f:
-        for prop in useless_props:
-            f.write(prop + "\n")
+            nodes_output_file.write(node + "\n")
+    with open(discarded_rels_output_file_path, "w") as discarded_rels_output_file:
+        # write the discarded rels one at a time
+        for prop in discarded_rels:
+            discarded_rels_output_file.write(prop + "\n")
