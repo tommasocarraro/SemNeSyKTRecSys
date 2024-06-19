@@ -12,9 +12,12 @@ def _process_query_results(
     result: tuple[int, Optional[Rows], Optional[ErrorCode]]
 ) -> tuple[int, Optional, Optional[ErrorCode]]:
     query_index, rows, err = result
-    if rows is None:
-        return query_index, None, err
-    res = {col_name: value for (col_name, value) in rows}
+    res = {}
+    if rows is not None:
+        res = {col_name: value for (col_name, value) in rows}
+    else:
+        res["person"] = None
+        res["year"] = None
 
     return query_index, res, err
 
@@ -35,13 +38,15 @@ async def _prepare_db_queries(
     params_list = []
     query_lookup = {}
     for i, (title, person, year) in enumerate(query_data):
-        query_lookup[i] = title
+        query_lookup[i] = {"title": title}
         if person is None and year is None:
             params_list.append((i, {"title": title}))
         elif year is None:
             params_list.append((i, {"title": title, "authors": person}))
+            query_lookup[i]["person"] = person
         elif person is None:
             params_list.append((i, {"title": title, "year": year}))
+            query_lookup[i]["year"] = year
 
     query_results = await execute_queries(params_list=params_list, psql_pool=psql_pool)
 
@@ -54,12 +59,13 @@ async def _prepare_db_queries(
         if res is None:
             continue
         query_index, row, err = res
-        queried_title = query_lookup[int(query_index)]
+        query = query_lookup[int(query_index)]
+        queried_title = query["title"]
         results[queried_title] = row
         if "person" not in results[queried_title]:
-            results[queried_title]["person"] = None
+            results[queried_title]["person"] = query["person"]
         if "year" not in results[queried_title]:
-            results[queried_title]["year"] = None
+            results[queried_title]["year"] = query["year"]
         results[queried_title]["title"] = queried_title
         results[queried_title]["api_name"] = "Open Library"
         results[queried_title]["err"] = err
