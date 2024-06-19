@@ -5,8 +5,6 @@ Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
 - owsky:
   - improve type hints
   - write comments
-  - Books:
-    - first query on KG graph and try to find a plausible match, then if information is still missing try to complete with open library
   - implement better api results filtering and selection strategy
 - ciomi:
   - better check wikidata categories to create the small dumps used to filter out unwanted matches (especially music that has only album for the moment)
