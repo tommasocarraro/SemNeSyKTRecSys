@@ -109,7 +109,11 @@ def scrape_title_wayback(
                             )
                             i += 1
                         if title_element is not None:
-                            batch_dict[asin] = title_element.text.strip()
+                            batch_dict[asin] = {
+                                "title": title_element.text.strip(),
+                                "person": None,
+                                "year": None
+                            }
                             print_str = title_element.text.strip()
                             # one has been found, no need to continue the search
                             break
@@ -118,14 +122,18 @@ def scrape_title_wayback(
                             # a "b" with class "sans"
                             title_element = soup.find("b", {"class": "sans"})
                             if title_element is not None:
-                                batch_dict[asin] = title_element.text.strip()
+                                batch_dict[asin] = batch_dict[asin] = {
+                                    "title": title_element.text.strip(),
+                                    "person": None,
+                                    "year": None
+                                }
                                 print_str = title_element.text.strip()
                                 # one has been found, no need to continue the search
                                 break
                             else:
                                 # if none of the IDs neither the b has been found, there is a DOM problem, meaning
                                 # there could be another possible ID or soup is not working as expected
-                                batch_dict[asin] = "DOM"
+                                batch_dict[asin] = "captcha-or-DOM"
                                 print_str = "DOM problem - ASIN %s" % (url,)
                     except Exception as e:
                         # this occurs when there is a MementoException -> we are interested in knowing the exception
@@ -151,6 +159,10 @@ def scrape_title_wayback(
         # update parallel dict
         title_dict.update(batch_dict)
 
+    # create folder for saving temporary data
+    if save_tmp:
+        if not os.path.exists("./data/processed/tmp"):
+            os.makedirs("./data/processed/tmp")
     # begin scraping loop
     for batch_idx, batch_asins in enumerate(
         [

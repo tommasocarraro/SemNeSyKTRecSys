@@ -2,7 +2,7 @@ import json
 import os
 import time
 from multiprocessing import Manager
-
+import random
 from bs4 import BeautifulSoup
 from joblib import Parallel, delayed
 from selenium import webdriver
@@ -19,8 +19,6 @@ def scrape_title_google_search(
     n_cores: int = 1,
     batch_size: int = 100,
     save_tmp: bool = True,
-    just_first: bool = True,
-    timer: int = 5,
 ) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests to the Google Search
@@ -36,9 +34,7 @@ def scrape_title_google_search(
     :param n_cores: number of cores to use for multiprocessing
     :param batch_size: number of ASINs to be processed in each batch
     :param save_tmp: whether temporary retrieved title JSON files have to be saved once the batch is finished
-    :param just_first: whether to save just the title of the first link of the search or all the titles that are found
-    by Google for this specific search
-    :param timer: seconds to wait between a http request and the following one
+    by Google for this specific search]
     :return: new dictionary containing key-value pairs with ASIN-title
     """
     # define dictionary suitable for parallel storing of information
@@ -82,8 +78,8 @@ def scrape_title_google_search(
                 # search for ASIN in Google Search
                 url = "http://www.google.com/search?as_q=" + asin
                 driver.get(url)
-                # wait five seconds to avoid being detected by Google
-                time.sleep(timer)
+                # wait some time to avoid detection
+                time.sleep(random.uniform(3, 10))
                 # get page source
                 soup = BeautifulSoup(driver.page_source, "html.parser")
                 # check if Google changed my search
@@ -96,9 +92,9 @@ def scrape_title_google_search(
                     soup = BeautifulSoup(driver.page_source, "html.parser")
                 # iterate over the links of the page
                 divs = soup.find_all("div", class_="yuRUbf")
-                title_list = []
+                item_title = None
                 for div in divs:
-                    if asin in div.a["href"] and "review" not in div.a["href"]:
+                    if asin in div.a["href"] and "review" not in div.a["href"] and "amazon" in div.a["href"]:
                         if "..." not in div.h3.text:
                             title = div.h3.text
                             title = (
@@ -106,15 +102,17 @@ def scrape_title_google_search(
                                 .replace("Amazon.com: ", "")
                                 .replace("Customer reviews: ", "")
                             )
-                            title_list.append(title)
-                            if just_first:
-                                title_list = title_list[0]
-                                break
+                            item_title = title
+                            break
 
-                if not title_list:
-                    title_list = "404-error"
-                batch_dict[asin] = title_list
-                print("%s - %s" % (asin, title_list))
+                if item_title is None:
+                    item_title = "404-error"
+                    batch_dict[asin] = "404-error"
+                else:
+                    batch_dict[asin] = {"title": item_title,
+                                        "person": None,
+                                        "year": None}
+                print("%s - %s" % (asin, item_title))
             # Close the browser window
             driver.quit()
             if save_tmp:
@@ -128,6 +126,10 @@ def scrape_title_google_search(
         # update parallel dict
         title_dict.update(batch_dict)
 
+    # create folder for saving temporary data
+    if save_tmp:
+        if not os.path.exists("./data/processed/tmp"):
+            os.makedirs("./data/processed/tmp")
     # parallel scraping -> asins are subdivided into batches and the batches are run in parallel
     Parallel(n_jobs=n_cores)(
         delayed(batch_request)(batch_idx, a, title_dict)

@@ -3,6 +3,7 @@ from nesy.dataset_augmentation.title_scraping.amazon_scraper import scrape_title
 from nesy.dataset_augmentation.title_scraping.captcha_scraper import scrape_title_captcha
 from nesy.dataset_augmentation.title_scraping.google_scraper import scrape_title_google_search
 from nesy.dataset_augmentation.title_scraping.wayback_machine_scraper import scrape_title_wayback
+from nesy.dataset_augmentation.title_scraping.utils import metadata_stats
 
 
 def metadata_scraping(metadata: str,
@@ -77,7 +78,7 @@ def metadata_scraping(metadata: str,
         updated_dict = scrape_title_captcha(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp,
                                             use_solver=use_solver)
     else:
-        updated_dict = scrape_title_google_search(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp, timer=0)
+        updated_dict = scrape_title_google_search(no_titles, n_cores, batch_size=batch_size, save_tmp=save_tmp)
     # update of the metadata
     m_data.update(updated_dict)
     # generate the new and complete metadata file
@@ -86,6 +87,10 @@ def metadata_scraping(metadata: str,
 
 
 if __name__ == "__main__":
-    metadata_scraping("./data/processed/music.json", motivation=None,
-                      mode="standard", save_tmp=True, batch_size=100, use_solver=False, n_cores=10,
-                      batch_idx_start=2000, batch_idx_end=2010)
+    metadata_stats("./data/processed/complete-music.json",
+                   ["404-error", "captcha-or-DOM", "exception-error"], save_asins=False)
+    # metadata_stats("./data/processed/complete-complete-music.json",
+    #                ["404-error", "captcha-or-DOM", "exception-error"], save_asins=False)
+    # metadata_scraping("./data/processed/complete-music.json", motivation="404-error",
+    #                   mode="wayback", save_tmp=True, batch_size=420, use_solver=False, n_cores=1,
+    #                   batch_idx_start=0)
