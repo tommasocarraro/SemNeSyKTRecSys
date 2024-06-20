@@ -91,46 +91,6 @@ def filter_metadata(metadata, rating_files):
         json.dump(new_file_dict, f, ensure_ascii=False, indent=4)
 
 
-def metadata_stats(metadata, errors, save_asins=True):
-    """
-    This function produces some statistics for the provided metadata file. The statistics include the number of items
-    with a missing title due to a 404 error, a bot detection or DOM error, or an unknown error due to an exception in
-    the scraping procedure. The parameter errors allows to define which statistics to include in the output.
-    For each of these statistics, the output will contain the set of ASINs corresponding to each error, if save_asins
-    is set to True. The output will also contain the percentage of items included in each statistics given the total
-    number of items in the given file. The output will be saved to a JSON file in the same location of the given
-    metadata file with "_stats" added at the name. This, if save_asins is set to True, otherwise it just prints of the
-    standard output.
-
-    :param metadata: path to the metadata file for which the statistics have to be generated
-    :param errors: list of strings containing the name of the errors that have to be included in the statistics. The
-    script will search for these specific names in the values of the metadata, for each of the ASINs
-    :param save_asins: whether to save the set of the ASINs for each statistic or just produce the statistic
-    """
-    errors = {e: {"counter": 0, "asins": []} for e in errors}
-    with open(metadata) as json_file:
-        m_data = json.load(json_file)
-    for asin, title in m_data.items():
-        if title in errors:
-            errors[title]["counter"] += 1
-            if save_asins:
-                errors[title]["asins"].append(asin)
-        else:
-            if "matched" in errors:
-                errors["matched"]["counter"] += 1
-            else:
-                errors["matched"] = {"counter": 1}
-    # compute percentages
-    total = sum([errors[e]["counter"] for e in errors])
-    for e in errors:
-        errors[e]["percentage"] = errors[e]["counter"] / total * 100
-    if save_asins:
-        with open(metadata[:-5] + "_stats.json", 'w', encoding='utf-8') as f:
-            json.dump(errors, f, ensure_ascii=False, indent=4)
-    else:
-        print(errors)
-
-
 def metadata_cleaning(metadata):
     """
     This function takes as input a metadata file after all the scraping jobs have been completed (only 404 error and
