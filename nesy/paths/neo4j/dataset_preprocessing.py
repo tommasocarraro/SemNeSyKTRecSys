@@ -84,3 +84,76 @@ def split_csv_for_neo4j(
         # write the discarded rels one at a time
         for prop in discarded_rels:
             discarded_rels_output_file.write(prop + "\n")
+
+
+def create_csv_files_neo4j(claims_path: str, labels_path: str) -> None:
+    """
+    It takes as input the claims and labels tsv files of wikidata and creates two csv files for neo4j. A node file
+    containing information regarding entities and relationships, and a relationships file containing the
+    wikidata triplets. The file is saved at the same folder.
+
+    :param claims_path: file containing all the claims of the wikidata dump
+    :param labels_path: file containing the english labels of the wikidata dump
+    """
+    # create sets to store unique nodes and discarded rels
+    nodes_set = set()
+    discarded_rels = set()
+
+    # create labels dictionary
+    labels_dict = {}
+    with open(labels_path, "r") as labels_file:
+        next(labels_file)
+        for line in labels_file:
+            stripped_line = line.strip().split(",")
+            node = stripped_line[0]
+            label = ",".join(stripped_line[1:])
+            labels_dict[node] = label
+
+    with open(claims_path, "r") as claims_file, open(
+        "/".join(claims_path.split("/")[:-1]) + "/relationships.csv", "w"
+    ) as out_f:
+        next(claims_file)  # Skip the input header
+
+        # write the header to the properties file
+        out_f.write(":START_ID,label,:END_ID,:TYPE\n")
+
+        # read the input triples one by one
+        for line in claims_file:
+            node1, prop, node2 = line.strip().split(",")
+            # if at least one endpoint uses a property discard it
+            if node1[0] == "P" or node2[0] == "P":
+                discarded_rels.add(prop)
+            else:
+                nodes_set.add(node1)
+                nodes_set.add(node2)
+                # nodes_set.add(prop)
+                if prop in labels_dict:
+                    label = labels_dict[prop]
+                else:
+                    label = prop
+                out_f.write(node1 + "," + label + "," + node2 + "," + prop + "\n")
+
+    # create a sorted list of unique nodes, I don't remember why I was sorting it
+    nodes_list = sorted(list(nodes_set))
+
+    with open("/".join(claims_path.split("/")[:-1]) + "/nodes.csv", "w") as nodes_output_file:
+        # write the header to the nodes file
+        # I was using the name 'qualified_id' erroneously, it should be replaced
+        nodes_output_file.write("wikidata_id:ID,label,:LABEL\n")
+
+        # write the nodes to the file one at a time
+        for node in nodes_list:
+            if node in labels_dict:
+                label = labels_dict[node]
+            else:
+                label = "no_label"
+            if node[0] == "P":
+                type_ = "relation"
+            else:
+                type_ = "entity"
+            nodes_output_file.write(node + "," + label + "," + type_ + "\n")
+
+    with open("/".join(claims_path.split("/")[:-1]) + "/discarded.csv", "w") as discarded_rels_output_file:
+        # write the discarded rels one at a time
+        for prop in discarded_rels:
+            discarded_rels_output_file.write(prop + "\n")
