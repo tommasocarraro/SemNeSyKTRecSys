@@ -87,10 +87,6 @@ def metadata_scraping(metadata: str,
 
 
 if __name__ == "__main__":
-    metadata_stats("./data/processed/complete-music.json",
-                   ["404-error", "captcha-or-DOM", "exception-error"], save_asins=False)
-    # metadata_stats("./data/processed/complete-complete-music.json",
-    #                ["404-error", "captcha-or-DOM", "exception-error"], save_asins=False)
-    # metadata_scraping("./data/processed/complete-music.json", motivation="404-error",
-    #                   mode="wayback", save_tmp=True, batch_size=420, use_solver=False, n_cores=1,
-    #                   batch_idx_start=0)
+    metadata_scraping("./data/processed/complete-books.json", motivation="404-error",
+                      mode="google", save_tmp=True, batch_size=20, use_solver=False, n_cores=1,
+                      batch_idx_start=0)
