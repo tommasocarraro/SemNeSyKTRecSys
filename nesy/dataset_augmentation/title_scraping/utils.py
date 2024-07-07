@@ -1,7 +1,4 @@
 import json
-import re
-from bs4 import BeautifulSoup
-import time
 
 
 def metadata_stats(metadata, errors, save_asins=False):
@@ -72,123 +69,8 @@ def metadata_stats(metadata, errors, save_asins=False):
                     if save_asins:
                         errors["person+year"]["asins"].append(link_prefix + asin)
 
-    # compute percentages
-    # total = sum([errors[e]["counter"] for e in errors])
-    # for e in errors:
-    #     errors[e]["percentage"] = errors[e]["counter"] / total * 100
     if save_asins:
         with open(metadata[:-5] + "_stats.json", 'w', encoding='utf-8') as f:
             json.dump(errors, f, ensure_ascii=False, indent=4)
     else:
         print(errors)
-
-
-def scrape_metadata(driver, batch_dict, asin, url, bot_counter):
-    """
-    This function takes as input a selenium driver with a loaded Amazon product page and search for metadata inside the
-    page.
-
-    :param driver: selenium driver with the loaded page
-    :param batch_dict: dictionary that has to be updated with the new metadata
-    :param asin: asin of the product for which the metadata has to be scraped
-    :param url: url of the amazon product page (for debugging purposes)
-    :param bot_counter: counter of number of detections
-    :return: the bot counter and a string to be printed in case of exception
-    """
-    # get the page
-    page = driver.page_source
-    # Parse the HTML content of the page
-    soup = BeautifulSoup(page, "html.parser")
-    # check if there is a bot detection from Amazon
-    # if soup.find("i", {"class": "a-icon-alert"}):
-    #     # give time to manually solve captcha
-    #     print("captcha detected, fill it!")
-    #     time.sleep(10)
-    # Find the product title
-    title_element = soup.find("span", {"id": "productTitle"})
-    if title_element:
-        bot_counter = 0
-        # the title has been found and we save it in the dictionary
-        print_str = title_element.text.strip()
-        batch_dict[asin] = {}
-        batch_dict[asin]["title"] = title_element.text.strip()
-        # get person information
-        person = soup.find("span", {"class": "author"})
-        # this is used in a second step
-        person_year_div = soup.find(
-            "div", {"id": "detailBullets_feature_div"}
-        )
-        if person:
-            batch_dict[asin]["person"] = person.a.text
-        else:
-            found_person = False
-            if person_year_div:
-                spans = person_year_div.find_all("span")
-                for i, span in enumerate(spans):
-                    if "Director" in span.text:
-                        batch_dict[asin]["person"] = spans[i + 2].text
-                        found_person = True
-                        break
-                    if "Actors" in span.text:
-                        batch_dict[asin]["person"] = spans[i + 2].text
-                        found_person = True
-                        break
-                if not found_person:
-                    # look for contributor
-                    person = soup.find(
-                        "tr", {"class": "po-contributor"}
-                    )
-                    if person:
-                        person = person.find(
-                            "span", {"class": "po-break-word"}
-                        )
-                        if person:
-                            batch_dict[asin]["person"] = person.text
-                        else:
-                            batch_dict[asin]["person"] = None
-                    else:
-                        batch_dict[asin]["person"] = None
-            else:
-                batch_dict[asin]["person"] = None
-        # get year information
-        found_year = False
-        if person_year_div:
-            spans = person_year_div.find_all("span")
-            year_pattern = re.compile(r"\b\d{4}\b")
-            for span in spans:
-                year_match = year_pattern.search(span.text)
-                if year_match:
-                    batch_dict[asin]["year"] = year_match.group()
-                    found_year = True
-                    break
-            if not found_year:
-                batch_dict[asin]["year"] = None
-        else:
-            batch_dict[asin]["year"] = None
-    else:
-        # the title has not been found
-        # check if it is due to a 404 error
-        error = soup.find(
-            "img",
-            {
-                "alt": "Sorry! We couldn't find that page. "
-                       "Try searching or go to Amazon's home page."
-            },
-        )
-        if error:
-            # if it is due to 404 error, keeps track of it
-            # items not found will be processed in another scraping loop that uses Wayback Machine
-            print_str = "404 error - url %s" % (url,)
-            batch_dict[asin] = "404-error"
-        else:
-            bot_counter += 1
-            if bot_counter == 20:
-                raise Exception("Bot detection")
-            # if it is not a 404 error, the bot has been detected
-            print_str = "Bot detected - url %s" % (url,)
-            # it could be because of a captcha from Amazon or also because there is not productTitle
-            # but another ID
-            # items bot-detected will be processed in another scraping loop that tries again
-            # if the problem is related to the DOM, the web page has to be investigated
-            batch_dict[asin] = "captcha-or-DOM"
-    return bot_counter, print_str
