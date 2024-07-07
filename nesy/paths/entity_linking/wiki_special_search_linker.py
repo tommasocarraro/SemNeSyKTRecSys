@@ -1,12 +1,13 @@
 import logging
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
 import re
 import requests
+from joblib import Parallel, delayed
+import traceback
 
 
-def entity_linker_api_query(amazon_metadata, retry_reason=None):
+def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reason: str = None, n_cores: int = 1) -> None:
     """
     This function uses the Wikidata API (action=query) to get the ID of wikidata entities corresponding to the Amazon
     items in the given Amazon metadata. The API is accessed using HTTP requests.
@@ -21,14 +22,16 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
     category. For example, if we are matching movies, this file contains the list of all the movies in wikidata. This
     is useful as the music dataset contains many musical DVDs too.
 
-    At the end, a JSON file containing the mapping from Amazon ASIN to Wikidata ID is created.
+    At the end, a JSON file containing the mapping from Amazon ASIN to Wikidata ID is created and saved at mapping_file.
 
     It is possible to launch this function again by specifying a retying reason, for example "not-found-query".
 
     :param amazon_metadata: JSON file containing metadata on Amazon items
+    :param mapping_file: path where to save the final mapping json file
     :param retry_reason: string indicating for which items the search has to be computed again. For example, indicate
     "exception" for the items that gave an exception during the first mapping loop. The procedure will repeat the loop
     only for these items.
+    :param n_cores: number of processors to be used to execute this function
     """
     # read metadata
     with open(amazon_metadata) as json_file:
@@ -47,10 +50,9 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
     wikidata_api_url = "https://www.wikidata.org/w/api.php"
     # check if a mapping file for the given metadata already exists
     temp_dict = {}
-    map_path = ("./data/processed/mapping-%s" % (amazon_metadata.split("/")[-1],))
-    if os.path.exists(map_path):
+    if os.path.exists(mapping_file):
         # if it exists, we load a temp dictionary containing the found matches
-        with open(map_path) as json_file:
+        with open(mapping_file) as json_file:
             temp_dict = json.load(json_file)
     # create logger for logging everything to file in case the long executions are interrupted
     # Configure the logger
@@ -60,7 +62,7 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
     # Add the file handler to the logger
     logging.getLogger().addHandler(file_handler)
 
-    def entity_link(item_metadata):
+    def entity_link(item_metadata: tuple):
         """
         It performs an HTTP request on the Wikidata API to get the Wikidata ID of the given item, for which the
         metadata is given.
@@ -69,11 +71,11 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
         """
         try:
             asin, metadata = item_metadata
-            # check if metadata is available
-            if isinstance(metadata, dict):
-                # check if the match has been already created
-                if (asin not in temp_dict or
-                        (retry_reason is not None and temp_dict[asin] == retry_reason)):
+            # check if the match has been already created
+            if (asin not in temp_dict or
+                    (retry_reason is not None and temp_dict[asin] == retry_reason)):
+                # check if metadata is available
+                if isinstance(metadata, dict):
                     year = None
                     if metadata["year"] is None:
                         # try to get year from title, if available
@@ -113,7 +115,7 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
                     # define person metadata
                     person = metadata["person"]
                     # Define parameters for the Wikidata API search - first query includes all the available metadata
-                    three, two_p, two_y, one = False, False, False, False
+                    three, two_y, two_p, one = False, False, False, False
                     if year is not None and person is not None:
                         query = title + " " + person + " " + str(year)
                         three = True
@@ -139,14 +141,15 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
                     data = response.json()
                     if one:
                         if "search" in data["query"] and data["query"]["search"]:
-                            return analyze_result(data, correct_category_items, asin, metadata)
+                            analyze_result(data, correct_category_items, asin, "title")
                         else:
-                            print("%s not found by query" % (asin,))
+                            # print("%s not found by query" % (asin,))
                             logging.info("%s - not-found-query" % (asin, ))
-                            return asin, "not-found-query"  # there are no results for the query
+                            # return asin, "not-found-query"  # there are no results for the query
                     if two_p or two_y:
                         if "search" in data["query"] and data["query"]["search"]:
-                            return analyze_result(data, correct_category_items, asin, metadata)
+                            analyze_result(data, correct_category_items, asin,
+                                           "title,year" if two_y else "title,person")
                         else:
                             # search just by title
                             params = {
@@ -161,14 +164,14 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
 
                             data = response.json()
                             if "search" in data["query"] and data["query"]["search"]:
-                                return analyze_result(data, correct_category_items, asin, metadata)
+                                analyze_result(data, correct_category_items, asin, "title")
                             else:
-                                print("%s not found by query" % (asin,))
+                                # print("%s not found by query" % (asin,))
                                 logging.info("%s - not-found-query" % (asin, ))
-                                return asin, "not-found-query"  # there are no results for the query
+                                # return asin, "not-found-query"  # there are no results for the query
                     if three:
                         if "search" in data["query"] and data["query"]["search"]:
-                            return analyze_result(data, correct_category_items, asin, metadata)
+                            analyze_result(data, correct_category_items, asin, "title,person,year")
                         else:
                             # search just by title + year
                             params = {
@@ -183,7 +186,7 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
 
                             data = response.json()
                             if "search" in data["query"] and data["query"]["search"]:
-                                return analyze_result(data, correct_category_items, asin, metadata)
+                                analyze_result(data, correct_category_items, asin, "title,year")
                             else:
                                 # search by title + person
                                 params = {
@@ -198,7 +201,7 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
 
                                 data = response.json()
                                 if "search" in data["query"] and data["query"]["search"]:
-                                    return analyze_result(data, correct_category_items, asin, metadata)
+                                    analyze_result(data, correct_category_items, asin, "title,person")
                                 else:
                                     # search just by title
                                     params = {
@@ -213,43 +216,127 @@ def entity_linker_api_query(amazon_metadata, retry_reason=None):
 
                                     data = response.json()
                                     if "search" in data["query"] and data["query"]["search"]:
-                                        return analyze_result(data, correct_category_items, asin, metadata)
+                                        analyze_result(data, correct_category_items, asin, "title")
                                     else:
                                         # search just by title
-                                        print("%s not found by query" % (asin,))
+                                        # print("%s not found by query" % (asin,))
                                         logging.info("%s - not-found-query" % (asin,))
-                                        return asin, "not-found-query"  # there are no results for the query
+                                        # return asin, "not-found-query"  # there are no results for the query
                 else:
-                    # if the match has been already created, simply load the match
-                    # print("%s already matched in the mapping file" % (asin, ))
-                    return asin, temp_dict[asin]
-            else:
-                print("%s does not have a title" % (asin, ))
-                logging.info("%s - not-title" % (asin, ))
-                return asin, "not-title"  # the item has not a corresponding title in the metadata file
-        except Exception as e:
-            print("%s produced the exception %s" % (asin, e))
-            logging.info("%s - exception" % (asin, ))
-            return asin, "exception"  # the item is not in the metadata file provided by amazon
+                    # print("%s does not have a title" % (asin, ))
+                    logging.info("%s - not-title" % (asin,))
+                    # return asin, "not-title"  # the item has not a corresponding title in the metadata file
+            # else:
+            #     # if the match has been already created, simply load the match
+            #     # print("%s already matched in the mapping file" % (asin, ))
+            #     return asin, temp_dict[asin]
+        except Exception:
+            # print("%s produced the exception %s" % (asin, e))
+            # if the exception is due to a too long string, then try with just the title
+            try:
+                if "error" in data and data["error"]["info"].startswith("Search request is longer"):
+                    if year is not None:
+                        # search just by title
+                        params = {
+                            "action": "query",
+                            "format": "json",
+                            "list": "search",
+                            "srsearch": title + " " + str(year)
+                        }
+
+                        response = requests.get(wikidata_api_url, params=params)
+                        response.raise_for_status()
+
+                        data = response.json()
+                        if "search" in data["query"] and data["query"]["search"]:
+                            analyze_result(data, correct_category_items, asin, "title,year")
+                        else:
+                            # search just by title
+                            params = {
+                                "action": "query",
+                                "format": "json",
+                                "list": "search",
+                                "srsearch": title
+                            }
+
+                            response = requests.get(wikidata_api_url, params=params)
+                            response.raise_for_status()
+
+                            data = response.json()
+                            if "search" in data["query"] and data["query"]["search"]:
+                                analyze_result(data, correct_category_items, asin, "title")
+                            else:
+                                # search just by title
+                                # print("%s not found by query" % (asin,))
+                                logging.info("%s - not-found-query" % (asin,))
+                                # return asin, "not-found-query"  # there are no results for the query
+                    else:
+                        # search just by title
+                        params = {
+                            "action": "query",
+                            "format": "json",
+                            "list": "search",
+                            "srsearch": title
+                        }
+
+                        response = requests.get(wikidata_api_url, params=params)
+                        response.raise_for_status()
+
+                        data = response.json()
+                        if "search" in data["query"] and data["query"]["search"]:
+                            analyze_result(data, correct_category_items, asin, "title")
+                        else:
+                            # search just by title
+                            # print("%s not found by query" % (asin,))
+                            logging.info("%s - not-found-query" % (asin,))
+                            # return asin, "not-found-query"  # there are no results for the query
+                else:
+                    print(traceback.format_exc())
+                    print(data)
+                    logging.info("%s - exception" % (asin,))
+                    # return asin, "exception"  # the item is not in the metadata file provided by amazon
+            except Exception:
+                print(traceback.format_exc())
+                logging.info("%s - exception" % (asin,))
 
     # use parallel computing to perform HTTP requests
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        matches = list(executor.map(entity_link, [(k, v) for k, v in m_data.items()]))
-    # close the file handler
-    file_handler.close()
-    match_dict = {k: v for k, v in matches}
-    with open('./data/processed/mapping-%s' % (amazon_metadata.split("/")[-1]), 'w', encoding='utf-8') as f:
-        json.dump(match_dict, f, ensure_ascii=False, indent=4)
+    try:
+        Parallel(n_jobs=n_cores, prefer="threads")(delayed(entity_link)(item) for item in m_data.items())
+    except (KeyboardInterrupt, Exception):
+        update_file(file_handler, temp_dict, mapping_file)
+        print("Interruption occurred! Mapping file has been saved!")
+        exit()
+
+    update_file(file_handler, temp_dict, mapping_file)
 
 
-def analyze_result(data, correct_items, asin, metadata):
-    # da includere in una funzione da chiamare ogni volta
+def analyze_result(data: dict, correct_items: dict, asin: str, matched_using: str) -> tuple:
     for item in data["query"]["search"]:
         if item["title"] in correct_items["ids"]:
-            print("%s - %s - %s" % (asin, metadata["title"], item["title"]))
-            logging.info("%s - %s" % (asin, item["title"]))
+            # print("%s - %s - %s" % (asin, metadata["title"], item["title"]))
+            logging.info("%s - %s - %s" % (asin, item["title"], matched_using))
             return asin, item["title"]
 
-    print("%s not found in dump" % (asin,))
-    logging.info("%s - not-in-dump" % (asin,))
-    return asin, "not-in-dump"  # all found items are not of the correct category
+    # print("%s not found in dump" % (asin,))
+    logging.info("%s - not-in-correct-category" % (asin,))
+    # return asin, "not-in-dump"  # all found items are not of the correct category
+
+
+def update_file(file_handler, temp_dict, mapping_file):
+    # close the file handler
+    file_handler.close()
+    # create dictionary with new retrieved data
+    with open('./output.log', 'r') as file:
+        for line in file:
+            split_line = line.split(" - ")
+            if len(split_line) == 3:
+                amazon_id, wiki_id, matching_attrs = split_line
+                temp_dict[amazon_id] = {"wiki_id": wiki_id, "matching_attributes": matching_attrs.strip()}
+            else:
+                amazon_id, error = split_line
+                temp_dict[amazon_id] = error.strip()
+    # save to file - if the file was already existing, it will be updated. If not, it will be created
+    with open(mapping_file, 'w', encoding='utf-8') as f:
+        json.dump(temp_dict, f, ensure_ascii=False, indent=4)
+    # delete temporary log file
+    os.remove("./output.log")
