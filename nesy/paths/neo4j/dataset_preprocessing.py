@@ -130,7 +130,11 @@ def create_csv_files_neo4j(claims_path: str, labels_path: str) -> None:
                 if prop in labels_dict:
                     label = labels_dict[prop]
                 else:
-                    label = prop
+                    # check if it is an inverse relationship
+                    if prop.endswith("_") and prop[:-1] in labels_dict:
+                        label = labels_dict[prop[:-1]]
+                    else:
+                        label = "no_label"
                 out_f.write(node1 + "," + label + "," + node2 + "," + prop + "\n")
 
     # create a sorted list of unique nodes, I don't remember why I was sorting it
