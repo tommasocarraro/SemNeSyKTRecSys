@@ -14,3 +14,7 @@ Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
   - understand how to rank paths and the desired path length
   - import of the new wikidata file (check filtered relationships carefully)
   - import labels and put labels in paths
+  - understand how to create indexes for relationships in Neo4j
+  - understand whether inverse relationships are necessary
+  - replace label with TYPE column in relationships so they appear in the displayed graph
+  - modify neo4j relationship file to have relation as the relation type for everything

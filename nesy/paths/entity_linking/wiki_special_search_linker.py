@@ -95,6 +95,7 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
                     # remove explicit lyrics warning
                     if title.endswith("explicit_lyrics"):
                         title = title[: -len("explicit_lyrics")].rstrip()
+                    title_before_regex = title
                     # remove common patterns
                     all_pattern = re.compile(
                         r"^.*?(?=\s*(?:\bthe\b\s)?[.,:-]?\s?(?:\bvolume\b|\bseason\b|\bvol\b\.?|\bcomplete\b|\bprograms\b|\bset\b|("
@@ -112,192 +113,62 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
                         title,
                     )
                     title = title.rstrip()
+                    # check if title is empty after regex application and restore it in case
+                    if not title:
+                        title = title_before_regex
+                        # remove trailing special character and whitespace
+                        title = re.sub(
+                            r"[,.\\<>?;:\'\"\[{\]}`~!@#$%^&*()\-_=+|\s]*$",
+                            "",
+                            title,
+                        )
+                        title = title.rstrip()
                     # define person metadata
                     person = metadata["person"]
-                    # Define parameters for the Wikidata API search - first query includes all the available metadata
-                    three, two_y, two_p, one = False, False, False, False
-                    if year is not None and person is not None:
-                        query = title + " " + person + " " + str(year)
-                        three = True
-                    elif year is not None and person is None:
-                        query = title + " " + str(year)
-                        two_y = True
-                    elif year is None and person is not None:
-                        query = title + " " + person
-                        two_p = True
-                    else:
-                        query = title
-                        one = True
-                    params = {
-                        "action": "query",
-                        "format": "json",
-                        "list": "search",
-                        "srsearch": query
-                    }
-
-                    response = requests.get(wikidata_api_url, params=params)
-                    response.raise_for_status()
-
-                    data = response.json()
-                    if one:
-                        if "search" in data["query"] and data["query"]["search"]:
-                            analyze_result(data, correct_category_items, asin, "title")
-                        else:
-                            # print("%s not found by query" % (asin,))
-                            logging.info("%s - not-found-query" % (asin, ))
-                            # return asin, "not-found-query"  # there are no results for the query
-                    if two_p or two_y:
-                        if "search" in data["query"] and data["query"]["search"]:
-                            analyze_result(data, correct_category_items, asin,
-                                           "title,year" if two_y else "title,person")
-                        else:
-                            # search just by title
-                            params = {
-                                "action": "query",
-                                "format": "json",
-                                "list": "search",
-                                "srsearch": title
-                            }
-
-                            response = requests.get(wikidata_api_url, params=params)
-                            response.raise_for_status()
-
-                            data = response.json()
-                            if "search" in data["query"] and data["query"]["search"]:
-                                analyze_result(data, correct_category_items, asin, "title")
-                            else:
-                                # print("%s not found by query" % (asin,))
-                                logging.info("%s - not-found-query" % (asin, ))
-                                # return asin, "not-found-query"  # there are no results for the query
-                    if three:
-                        if "search" in data["query"] and data["query"]["search"]:
-                            analyze_result(data, correct_category_items, asin, "title,person,year")
-                        else:
-                            # search just by title + year
-                            params = {
-                                "action": "query",
-                                "format": "json",
-                                "list": "search",
-                                "srsearch": title + " " + str(year)
-                            }
-
-                            response = requests.get(wikidata_api_url, params=params)
-                            response.raise_for_status()
-
-                            data = response.json()
-                            if "search" in data["query"] and data["query"]["search"]:
-                                analyze_result(data, correct_category_items, asin, "title,year")
-                            else:
-                                # search by title + person
-                                params = {
-                                    "action": "query",
-                                    "format": "json",
-                                    "list": "search",
-                                    "srsearch": title + " " + person
-                                }
-
-                                response = requests.get(wikidata_api_url, params=params)
-                                response.raise_for_status()
-
-                                data = response.json()
-                                if "search" in data["query"] and data["query"]["search"]:
-                                    analyze_result(data, correct_category_items, asin, "title,person")
-                                else:
-                                    # search just by title
-                                    params = {
-                                        "action": "query",
-                                        "format": "json",
-                                        "list": "search",
-                                        "srsearch": title
-                                    }
-
-                                    response = requests.get(wikidata_api_url, params=params)
-                                    response.raise_for_status()
-
-                                    data = response.json()
-                                    if "search" in data["query"] and data["query"]["search"]:
-                                        analyze_result(data, correct_category_items, asin, "title")
-                                    else:
-                                        # search just by title
-                                        # print("%s not found by query" % (asin,))
-                                        logging.info("%s - not-found-query" % (asin,))
-                                        # return asin, "not-found-query"  # there are no results for the query
-                else:
-                    # print("%s does not have a title" % (asin, ))
-                    logging.info("%s - not-title" % (asin,))
-                    # return asin, "not-title"  # the item has not a corresponding title in the metadata file
-            # else:
-            #     # if the match has been already created, simply load the match
-            #     # print("%s already matched in the mapping file" % (asin, ))
-            #     return asin, temp_dict[asin]
-        except Exception:
-            # print("%s produced the exception %s" % (asin, e))
-            # if the exception is due to a too long string, then try with just the title
-            try:
-                if "error" in data and data["error"]["info"].startswith("Search request is longer"):
-                    if year is not None:
-                        # search just by title
+                    # create list of queries to be performed based on available metadata
+                    queries, combs = create_queries_list(title, person, year)
+                    # perform the queries and stop when a match is returned
+                    matched = None
+                    exception = False
+                    for i, query in enumerate(queries):
+                        exception = False
                         params = {
                             "action": "query",
                             "format": "json",
                             "list": "search",
-                            "srsearch": title + " " + str(year)
+                            "srsearch": query
                         }
 
                         response = requests.get(wikidata_api_url, params=params)
                         response.raise_for_status()
 
                         data = response.json()
+
+                        if "error" in data and data["error"]["info"].startswith("Search request is longer"):
+                            # if the query is too long for wikidata, it could be due to a long person string or title
+                            # in that case, we move at the next query
+                            exception = True
+                            continue
+
                         if "search" in data["query"] and data["query"]["search"]:
-                            analyze_result(data, correct_category_items, asin, "title,year")
+                            matched = analyze_result(data, correct_category_items, asin, combs[i])
+                            if matched:
+                                break
+
+                    if matched is None:
+                        if exception:
+                            logging.info("%s - long-title-exception" % (asin,))
                         else:
-                            # search just by title
-                            params = {
-                                "action": "query",
-                                "format": "json",
-                                "list": "search",
-                                "srsearch": title
-                            }
-
-                            response = requests.get(wikidata_api_url, params=params)
-                            response.raise_for_status()
-
-                            data = response.json()
-                            if "search" in data["query"] and data["query"]["search"]:
-                                analyze_result(data, correct_category_items, asin, "title")
-                            else:
-                                # search just by title
-                                # print("%s not found by query" % (asin,))
-                                logging.info("%s - not-found-query" % (asin,))
-                                # return asin, "not-found-query"  # there are no results for the query
-                    else:
-                        # search just by title
-                        params = {
-                            "action": "query",
-                            "format": "json",
-                            "list": "search",
-                            "srsearch": title
-                        }
-
-                        response = requests.get(wikidata_api_url, params=params)
-                        response.raise_for_status()
-
-                        data = response.json()
-                        if "search" in data["query"] and data["query"]["search"]:
-                            analyze_result(data, correct_category_items, asin, "title")
-                        else:
-                            # search just by title
-                            # print("%s not found by query" % (asin,))
                             logging.info("%s - not-found-query" % (asin,))
-                            # return asin, "not-found-query"  # there are no results for the query
+                    else:
+                        if not matched:
+                            logging.info("%s - not-in-correct-category" % (asin,))
                 else:
-                    print(traceback.format_exc())
-                    print(data)
-                    logging.info("%s - exception" % (asin,))
-                    # return asin, "exception"  # the item is not in the metadata file provided by amazon
-            except Exception:
-                print(traceback.format_exc())
-                logging.info("%s - exception" % (asin,))
+                    logging.info("%s - not-title" % (asin,))
+
+        except Exception:
+            print(traceback.format_exc())
+            logging.info("%s - exception" % (asin,))
 
     # use parallel computing to perform HTTP requests
     try:
@@ -310,16 +181,12 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
     update_file(file_handler, temp_dict, mapping_file)
 
 
-def analyze_result(data: dict, correct_items: dict, asin: str, matched_using: str) -> tuple:
+def analyze_result(data: dict, correct_items: dict, asin: str, matched_using: str):
     for item in data["query"]["search"]:
         if item["title"] in correct_items["ids"]:
-            # print("%s - %s - %s" % (asin, metadata["title"], item["title"]))
             logging.info("%s - %s - %s" % (asin, item["title"], matched_using))
-            return asin, item["title"]
-
-    # print("%s not found in dump" % (asin,))
-    logging.info("%s - not-in-correct-category" % (asin,))
-    # return asin, "not-in-dump"  # all found items are not of the correct category
+            return True
+    return False
 
 
 def update_file(file_handler, temp_dict, mapping_file):
@@ -340,3 +207,22 @@ def update_file(file_handler, temp_dict, mapping_file):
         json.dump(temp_dict, f, ensure_ascii=False, indent=4)
     # delete temporary log file
     os.remove("./output.log")
+
+
+def create_queries_list(title, person, year):
+    queries, combs = None, None
+    if person is not None and year is not None:
+        queries = [title + " " + person + " " + str(year), title + " " + person, title + " " + str(year), title]
+        combs = ["title,person,year", "title,person", "title,year", "title"]
+    elif person is not None and year is None:
+        queries = [title + " " + person, title]
+        combs = ["title,person", "title"]
+    elif person is None and year is not None:
+        queries = [title + " " + str(year), title]
+        combs = ["title,year", "title"]
+    else:
+        queries = [title]
+        combs = ["title"]
+
+    return queries, combs
+
