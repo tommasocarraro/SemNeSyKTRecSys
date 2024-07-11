@@ -19,13 +19,14 @@ from .utils import (
     process_http_requests,
     get_async_limiter,
     ErrorCode,
+    encode_title,
 )
 
 
 def _extract_search_info(
     data: Union[
-        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any], ErrorCode],
-        tuple[tuple[str, Optional[str], Optional[str]], None, ErrorCode],
+        tuple[tuple[str, list[str], Optional[str]], dict[str, Any], ErrorCode],
+        tuple[tuple[str, list[str], Optional[str]], None, ErrorCode],
     ]
 ):
     query_tuple, response, err = data
@@ -89,7 +90,7 @@ def _extract_search_info(
 
 def _extract_movie_info(
     data: Union[
-        tuple[tuple[str, Optional[str], Optional[str]], dict[str, Any], ErrorCode],
+        tuple[tuple[str, list[str], Optional[str]], dict[str, Any], ErrorCode],
         tuple[None, None],
     ]
 ):
@@ -103,7 +104,7 @@ def _extract_movie_info(
 
 
 async def get_movies_and_tv_info(
-    query_data: list[tuple[str, Union[str, None], Union[str, None]]]
+    query_data: list[tuple[str, list[str], Optional[str]]]
 ) -> dict[str, QueryResults]:
     """
     Given a list of book titles, asynchronously queries the TMDB API
@@ -116,17 +117,16 @@ async def get_movies_and_tv_info(
     """
     limiter = get_async_limiter(len(query_data), 35, time_period=1)
 
+    def make_url(title: str, api_key: str) -> str:
+        return f"https://api.themoviedb.org/3/search/multi?api_key={api_key}&query={encode_title(title)}&include_adult=true"
+
     # search TMDB
     search_tasks = [
         (
             (title, person, year),
             get_request_with_limiter(
-                url="https://api.themoviedb.org/3/search/multi",
-                params={
-                    "query": title,
-                    "api_key": TMDB_API_KEY,
-                    "include_adult": "false",
-                },
+                url=make_url(title, TMDB_API_KEY),
+                params={},
                 limiter=limiter,
                 index=i,
             ),
