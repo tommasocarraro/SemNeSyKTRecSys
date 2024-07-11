@@ -90,7 +90,7 @@ async def query_apis(
 
     for i in range(0, len(query_data), batch_size):
         logger.info(
-            f"Remaining items: {len(query_data) - i}, processing: {batch_size if batch_size <= len(query_data) else len(query_data)}..."
+            f"Remaining items: {len(query_data) - i}, processing: {max(batch_size, len(query_data))}..."
         )
         batch = query_data[i : i + batch_size]
 
