@@ -13,6 +13,11 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from nesy.dataset_augmentation import state
+import urllib.parse
+
+
+def encode_title(string: str) -> str:
+    return urllib.parse.quote(f"'{string.strip()}'")
 
 
 def process_responses_with_joblib(
@@ -76,7 +81,7 @@ async def process_http_requests(tasks: list[tuple[tuple, Coroutine]], tqdm_desc:
 
     results = []
     for response in (
-        pbar := tqdm.as_completed(aws, desc=tqdm_desc, dynamic_ncols=True)
+        pbar := tqdm.as_completed(aws, desc=tqdm_desc, dynamic_ncols=True, leave=False)
     ):
         body, err = None, None
         try:

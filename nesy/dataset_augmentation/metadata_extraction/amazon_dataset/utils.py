@@ -49,9 +49,9 @@ def correct_missing_types(metadata: dict[str, dict[str, str]]) -> None:
     for asin, data in metadata.items():
         if data["type"] is None:
             if asin in music_asins:
-                data["type"] = "cds_and_vinyl"
+                data["type"] = "music"
             elif asin in movie_asins:
-                data["type"] = "movies_and_tv"
+                data["type"] = "movies"
             else:
                 data["type"] = "books"
 

@@ -16,10 +16,15 @@ def main():
     # build_sqlite_cache(file_paths, cache_path)
 
     asin_file_path = os.path.join("data", "processed", "filtered-metadata.json")
-    extracted_metadata = extract_metadata(asin_file_path, file_paths, cache_path)
+    extract_metadata_output_path = os.path.join(
+        "data", "processed", "extracted-metadata.json"
+    )
+    # extract_metadata(
+    #     asin_file_path, file_paths, cache_path, extract_metadata_output_path
+    # )
 
-    merged_output_path = os.path.join("data", "processed", "merged_metadata.json")
-    merge_metadata_for_wikidata(extracted_metadata, merged_output_path)
+    merged_output_path = os.path.join("data", "processed", "merged-metadata.json")
+    merge_metadata_for_wikidata(extract_metadata_output_path, merged_output_path)
 
 
 if __name__ == "__main__":
