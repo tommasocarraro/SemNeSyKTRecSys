@@ -62,6 +62,7 @@ async def execute_queries(
             tasks,
             dynamic_ncols=True,
             desc="Running queries against Open Library...",
+            leave=False,
         )
     ):
         err = None

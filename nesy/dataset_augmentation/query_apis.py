@@ -1,6 +1,8 @@
+import json
+import os.path
 import signal
 from asyncio import CancelledError
-from typing import Any, Union, Literal, Optional
+from typing import Any, Union, Literal, Optional, TextIO
 
 from loguru import logger
 from psycopg import OperationalError
@@ -19,18 +21,16 @@ from nesy.dataset_augmentation.api_querying.utils import ErrorCode
 
 async def _run_queries(
     batch,
-    item_type: Union[
-        Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
-    ],
+    item_type: Union[Literal["movies"], Literal["books"], Literal["music"]],
     psql_pool: Optional[AsyncConnectionPool] = None,
 ) -> dict[str, QueryResults]:
-    if item_type == "movies_and_tv":
+    if item_type == "movies":
         query_fn = get_movies_and_tv_info
         args = []
     elif item_type == "books":
         query_fn = get_books_info
         args = [psql_pool]
-    elif item_type == "cds_and_vinyl":
+    elif item_type == "music":
         query_fn = get_records_info
         args = []
     else:
@@ -41,9 +41,8 @@ async def _run_queries(
 
 async def query_apis(
     metadata: dict[str, Any],
-    item_type: Union[
-        Literal["movies_and_tv"], Literal["books"], Literal["cds_and_vinyl"]
-    ],
+    item_type: Union[Literal["movies"], Literal["books"], Literal["music"]],
+    output_file: TextIO,
     batch_size: int = -1,
 ) -> None:
     # attach hooks for signal handling
@@ -88,9 +87,10 @@ async def query_apis(
 
     if batch_size == -1 or batch_size > len(query_data):
         batch_size = len(query_data)
+
     for i in range(0, len(query_data), batch_size):
         logger.info(
-            f"Remaining items: {len(query_data) - i}, processing: {batch_size if batch_size <= len(query_data) else len(query_data)}..."
+            f"Remaining items: {len(query_data) - i}, processing: {max(batch_size, len(query_data))}..."
         )
         batch = query_data[i : i + batch_size]
 
@@ -118,6 +118,12 @@ async def query_apis(
                     metadata[asin]["year"] = year
                     metadata[asin]["metadata_source"]["year"] = api_name
                 metadata[asin]["queried"] = True
+
+        logger.info(f"Writing updated metadata to {os.path.abspath(output_file.name)}")
+        # reset file cursor position so writing the data back will overwrite previous contents
+        output_file.seek(0)
+        json.dump(metadata, output_file, indent=4, ensure_ascii=False)
+        output_file.truncate()
 
         if state.GRACEFUL_EXIT:
             logger.info("Terminating early due to interrupt")
