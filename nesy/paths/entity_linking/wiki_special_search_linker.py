@@ -124,7 +124,13 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
                         )
                         title = title.rstrip()
                     # define person metadata
-                    person = metadata["person"]
+                    if isinstance(metadata["person"], list):
+                        if metadata["person"]:
+                            person = metadata["person"][0]
+                        else:
+                            person = None
+                    else:
+                        person = metadata["person"]
                     # create list of queries to be performed based on available metadata
                     queries, combs = create_queries_list(title, person, year)
                     # perform the queries and stop when a match is returned
