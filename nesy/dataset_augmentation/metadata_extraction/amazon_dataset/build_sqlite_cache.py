@@ -56,7 +56,6 @@ def _insert_file_into_database(
                 # filter unneeded information
                 object_recursive_delete_fields(json_obj, FIELDS_TO_BE_REMOVED)
 
-                #
                 if "title" in json_obj and json_obj["title"] is not None:
                     parent_asin = json_obj.get("parent_asin")
                     data = json.dumps(json_obj, indent=4, ensure_ascii=False)

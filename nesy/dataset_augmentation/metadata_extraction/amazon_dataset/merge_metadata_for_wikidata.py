@@ -1,7 +1,7 @@
-import json
+import orjson
 import os
 import re
-from typing import Any, Optional
+from typing import Any, Optional, Union, Literal
 
 from tqdm.auto import tqdm
 
@@ -22,6 +22,27 @@ def _extract_year_from_title_tags(title: Optional[str]) -> Optional[int]:
     return year
 
 
+def _extract_year_from_details(obj: dict[str, Any]) -> Optional[int]:
+    if "details" not in obj:
+        return None
+
+    all_keys: list[str] = obj["details"].keys()
+    dates = []
+    for key in all_keys:
+        if "date" in key.lower():
+            dates.append(key)
+
+    years = []
+    reg = r"\b\d{4}\b"
+    for date in dates:
+        reg_matches = re.findall(reg, obj["details"][date])
+        if len(reg_matches) > 0:
+            years.append(int(sorted(reg_matches)[0]))
+    if len(years) > 0:
+        return sorted(years)[0]
+    return None
+
+
 def _remove_tags(title: Optional[str], mtype: str) -> Optional[str]:
     if title is None:
         return None
@@ -35,7 +56,7 @@ def _remove_tags(title: Optional[str], mtype: str) -> Optional[str]:
         title = title[:-3].rstrip()
 
         # remove explicit lyrics warning
-    if mtype == "cds_and_vinyl" and title.endswith("explicit_lyrics"):
+    if mtype == "music" and title.endswith("explicit_lyrics"):
         title = title[: -len("explicit_lyrics")].rstrip()
 
     return title.rstrip()
@@ -65,99 +86,91 @@ def _clean_title(title: Optional[str]) -> Optional[str]:
     return title.rstrip()
 
 
-def merge_metadata_for_wikidata(
-    extracted_metadata: dict[str, Any], output_file_path: str
-):
-    with open(
-        os.path.join("data", "processed", "legacy", "complete-filtered-metadata.json"),
-        "r",
-    ) as complete_filtered_metadata_file:
-        complete_filtered_metadata = json.load(complete_filtered_metadata_file)
+def _extract_person_from_details(obj: dict[str, Any], mtype: str) -> list[str]:
+    person: list[str] = []
+    if mtype == "movies":
+        if "details" in obj and "director" in obj["details"]:
+            person = obj["details"]["director"]
+    elif mtype == "books":
+        if "author" in obj and obj["author"] is not None:
+            person = obj["author"]["name"]
+    elif mtype == "music":
+        if "author" in obj and obj["author"] is not None:
+            person = obj["author"]["name"]
+        elif "details" in obj and "contributor" in obj["details"]:
+            contributor: str = obj["details"]["contributor"]
+            person = [s.strip() for s in contributor.split(",")]
+    else:
+        raise RuntimeError("Unrecognized metadata type")
+    return person
 
+
+def merge_metadata_for_wikidata(
+    extracted_metadata_file_path: str, merged_output_path: str
+) -> None:
+    base_path = os.path.join("data", "processed")
+    complete_books_file = os.path.join(base_path, "complete-books.json")
+    complete_music_file = os.path.join(base_path, "complete-music.json")
+    complete_movies_file = os.path.join(base_path, "complete-movies.json")
+    file_paths = [
+        (complete_books_file, "books"),
+        (complete_movies_file, "movies"),
+        (complete_music_file, "music"),
+    ]
     output_data = {}
 
-    for asin in tqdm(
-        complete_filtered_metadata.keys(),
-        desc="Merging metadata...",
-        dynamic_ncols=True,
-    ):
-        title, person, year, mtype = None, None, None, None
+    with open(extracted_metadata_file_path, "rb") as f:
+        amazon_2023_extracted_metadata = orjson.loads(f.read())
 
-        # set title initially as fallback in case it's found in complete filtered metadata
-        if complete_filtered_metadata[asin] != "404-error":
-            title = complete_filtered_metadata[asin]
+    for filePath, mtype in file_paths:
+        with open(filePath, "rb") as file:
+            json_data = file.read()
 
-        # check if ASIN is in extracted metadata
-        if asin in extracted_metadata:
-            obj = extracted_metadata[asin]
-            # check if object is not empty
-            if bool(obj):
-                # try to extract the title
-                if "title" in obj and obj["title"] is not None:
-                    title = obj["title"]
+        parsed_data = orjson.loads(json_data)
 
-                # try to extract the publication year
-                if "details" in obj:
-                    all_keys: list[str] = obj["details"].keys()
-                    dates = []
-                    for key in all_keys:
-                        if "date" in key.lower():
-                            dates.append(key)
+        for asin, scraped_data in tqdm(
+            parsed_data.items(), desc=f"Processing {mtype} metadata", leave=False
+        ):
+            if isinstance(scraped_data, str):
+                scraped_data = {"title": None, "person": None, "year": None}
 
-                    years = []
-                    reg = r"\b\d{4}\b"
-                    for date in dates:
-                        reg_matches = re.findall(reg, obj["details"][date])
-                        if len(reg_matches) > 0:
-                            years.append(int(sorted(reg_matches)[0]))
-                    if len(years) > 0:
-                        year = sorted(years)[0]
+            title = scraped_data["title"]
+            person = scraped_data["person"]
+            year = scraped_data["year"]
 
-                # extracting person requires accessing specific fields depending on the type
-                if "movies" in obj["type"]:
-                    if "details" in obj and "director" in obj["details"]:
-                        person = obj["details"]["director"]
-                    mtype = "movies_and_tv"
-                elif "books" in obj["type"]:
-                    if "author" in obj and obj["author"] is not None:
-                        person = obj["author"]["name"]
-                    mtype = "books"
-                elif "cds" in obj["type"]:
-                    if "author" in obj and obj["author"] is not None:
-                        person = obj["author"]["name"]
-                    elif "details" in obj and "contributor" in obj["details"]:
-                        contributor: str = obj["details"]["contributor"]
-                        person = [s.strip() for s in contributor.split(",")]
-                    mtype = "cds_and_vinyl"
-                else:
-                    raise RuntimeError("Unrecognized metadata type")
+            if asin in amazon_2023_extracted_metadata:
+                amazon_2023_obj: dict[str, Any] = amazon_2023_extracted_metadata[asin]
+                if title is None:
+                    title = amazon_2023_obj["title"]
+                if person is None:
+                    person = _extract_person_from_details(amazon_2023_obj, mtype)
+                if year is None:
+                    year = _extract_year_from_details(amazon_2023_obj)
+                if year is None:
+                    year = _extract_year_from_title_tags(amazon_2023_obj["title"])
 
-        title_without_tags = _remove_tags(title, mtype)
-        title_cleaned = _clean_title(title_without_tags)
-        if not isinstance(person, list) and person is not None:
-            person = [person]
-        if year is None:
-            year = _extract_year_from_title_tags(title_cleaned)
-        metadata_source = {
-            "title": "Amazon dataset",
-            "person": (
-                "Amazon dataset" if person is not None and len(person) > 0 else None
-            ),
-            "year": "Amazon dataset" if year is not None else None,
-        }
+            title_without_tags = _remove_tags(title, mtype)
+            title_cleaned = _clean_title(title_without_tags)
+            if person is None:
+                person = []
+            elif not isinstance(person, list):
+                person = [person]
 
-        if title is not None and title != "":
-            output_data[asin] = {
-                "title": title,
-                "title_without_tags": title_without_tags,
-                "title_cleaned": title_cleaned,
-                "person": person,
-                "year": year,
-                "metadata_source": metadata_source,
-                "type": mtype,
+            metadata_source = {
+                "title": "Amazon dataset",
+                "person": ("Amazon dataset" if len(person) > 0 else None),
+                "year": "Amazon dataset" if year is not None else None,
             }
+            if title is not None:
+                output_data[asin] = {
+                    "title": title,
+                    "title_without_tags": title_without_tags,
+                    "title_cleaned": title_cleaned,
+                    "person": person,
+                    "year": year,
+                    "metadata_source": metadata_source,
+                    "type": mtype,
+                }
 
-    correct_missing_types(output_data)
-
-    with open(output_file_path, "w") as output_file:
-        json.dump(output_data, output_file, indent=4, ensure_ascii=False)
+    with open(merged_output_path, "wb") as output_file:
+        output_file.write(orjson.dumps(output_data, option=orjson.OPT_INDENT_2))

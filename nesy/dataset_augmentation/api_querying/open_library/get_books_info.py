@@ -48,7 +48,12 @@ async def _prepare_db_queries(
             params_list.append((i, {"title": title, "year": year}))
             query_lookup[i]["year"] = year
 
-    query_results = await execute_queries(params_list=params_list, psql_pool=psql_pool)
+    try:
+        query_results = await execute_queries(
+            params_list=params_list, psql_pool=psql_pool
+        )
+    except KeyboardInterrupt:
+        pass
 
     processed_results = Parallel(n_jobs=-1, backend="loky")(
         delayed(_process_query_results)(results) for results in query_results
