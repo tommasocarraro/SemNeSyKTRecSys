@@ -18,3 +18,4 @@ Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
   - understand whether inverse relationships are necessary
   - replace label with TYPE column in relationships so they appear in the displayed graph
   - modify neo4j relationship file to have relation as the relation type for everything
+  - check if there are no-sense relationships in the generated files for Neo4j
