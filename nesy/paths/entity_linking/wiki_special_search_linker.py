@@ -231,4 +231,3 @@ def create_queries_list(title, person, year):
         combs = ["title"]
 
     return queries, combs
-

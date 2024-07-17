@@ -1,0 +1,98 @@
+1. ogni tanto e' possibile trovare paths solamente grazie alle inverse, senza inverse non e' possibile. Ad esempio, per il path da New Divide a Transformers
+2. country of origin non sembra troppo sensata come relazione. Viene fuori un path tipo il seguente:
+
+(3-hops) New Divide ---> genre ---> alternative rock ---> country of origin ---> United States of America ---> country of origin (inverse) ---> Transformers
+
+Solo perche' il rock e' originario degli Stati Uniti allora viene raccomandato transformers
+
+3. language of work or name non sembra avere molto senso come relazione, perche' da luogo a cammini come il seguente:
+
+(3-hops) New Divide ---> follows ---> Leave Out All the Rest ---> language of work or name ---> English ---> original language of film or TV show (inverse) ---> Transformers
+
+Qui solo perche' la canzone e' in inglese allora raccomanda il film perche' e' nella stessa lingua -> forse potrebbe avere senso? non saprei
+
+4. languages spoken, written or signed e' un'altra relazione senza senso! perche' da luogo a cammini come questo:
+
+(3-hops) New Divide ---> producer ---> Mike Shinoda ---> languages spoken, written or signed ---> English ---> original language of film or TV show (inverse) ---> Transformers
+
+Solo perche' il producer parla in inglese allora raccomanda un film inglese
+
+5. country of citizenship e' simile a sopra
+
+(3-hops) New Divide ---> producer ---> Mike Shinoda ---> country of citizenship ---> United States of America ---> country of origin (inverse) ---> Transformers
+
+
+6. place of publication e' un'altra:
+
+(3-hops) New Divide ---> part of ---> Transformers: Revenge of the Fallen – The Album ---> place of publication ---> United States of America ---> country of origin (inverse) ---> Transformers
+
+7. native language
+
+(3-hops) New Divide ---> language of work or name ---> English ---> native language (inverse) ---> Michael Shamus Wiles ---> cast member (inverse) ---> Transformers
+
+9. language used
+
+(3-hops) New Divide ---> language of work or name ---> English ---> language used (inverse) ---> United States of America ---> country of origin (inverse) ---> Transformers
+
+10. original language of film or TV show
+
+(3-hops) New Divide ---> language of work or name ---> English ---> original language of film or TV show (inverse) ---> Transmorphers ---> inspired by ---> Transformers
+
+
+11. official language
+
+(3-hops) New Divide ---> language of work or name ---> English ---> official language (inverse) ---> United States of America ---> country of origin (inverse) ---> Transformers
+
+
+12. writing language
+
+(3-hops) New Divide ---> language of work or name ---> English ---> writing language (inverse) ---> Michael Shamus Wiles ---> cast member (inverse) ---> Transformers
+
+
+13. located in the administrative territorial entity
+
+(3-hops) New Divide ---> country of origin ---> United States of America ---> located in the administrative territorial entity (inverse) ---> New Mexico ---> filming location (inverse) ---> Transformers
+
+
+14. capital of
+
+(3-hops) New Divide ---> country of origin ---> United States of America ---> capital of (inverse) ---> Washington, D.C. ---> narrative location (inverse) ---> Transformers
+
+15. contains amministrative territorial entity
+
+(3-hops) New Divide ---> country of origin ---> United States of America ---> contains the administrative territorial entity ---> New Mexico ---> filming location (inverse) ---> Transformers
+
+
+16. country
+
+(3-hops) New Divide ---> country of origin ---> United States of America ---> country (inverse) ---> New Mexico ---> filming location (inverse) ---> Transformers
+
+
+17. capital
+
+(3-hops) New Divide ---> country of origin ---> United States of America ---> capital ---> Washington, D.C. ---> narrative location (inverse) ---> Transformers
+
+
+18. in alcuni casi sembra che cammini troppo lunghi portino ad info superflue o ridondanti. In generale, come regola, sembra che i cammini piu' corti abbiano solitamente piu' senso
+
+(3-hops) The Godfather ---> followed by ---> The Godfather Part II ---> based on ---> The Godfather ---> followed by ---> The Sicilian
+
+qui non serviva passare per The Godfather Part II, forse si perche' uno e' un libro e l'altro e' un film? -> fatto il test e forse ha senso
+
+19. in generale, i cammini standard hanno piu' senso di quelli con le inverse
+
+20. work location e filming location (forse ha senso tenerla, tanto tutte le altre le togliamo)?  forse filming ha senso, country for sport, place of publication??, diplomatic relation, place of birth
+
+21. distributed by ha senso?
+
+22. color e' senza senso
+
+(3-hops) 2001: A Space Odyssey ---> color ---> color ---> color (inverse) ---> Q1210859 ---> quotes work ---> The Blue Danube
+
+
+piu' diventano lunghi e piu' diventano rumorosi e senza senso e con cicli
+Olivia Cook e' uguale a questo qua sopra con 2 hops
+piu' aumenti gli hops e meno diventano sensati e piu' pulizia bisogna fare in post-processing per cogliere qualcosa di sensato
+potrebbe essere interessante avere una interfaccia grafica che permetta all'utente di navigare la spiegazione -> si puo' fare aprendo le pagine di wikidata o una cosa del genere, o semplicemente caricando quelle informazioni con beutiful soup
+qui sembrano funzionare bene anche i cammini di lunghezza 3
+LLAMA 3 sembra essere il migliore open-source
