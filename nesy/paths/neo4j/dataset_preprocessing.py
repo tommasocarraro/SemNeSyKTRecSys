@@ -1,4 +1,5 @@
 import csv
+import pandas as pd
 
 
 def convert_tsv_to_csv(
@@ -163,13 +164,18 @@ def create_csv_files_neo4j(claims_path: str, labels_path: str) -> None:
             discarded_rels_output_file.write(prop + "\n")
 
 
-def create_csv_files_neo4j_no_inverse(claims_path: str, labels_path: str) -> None:
+def create_csv_files_neo4j_no_inverse(claims_path: str, labels_path: str, selected_properties: str = None) -> None:
     """
-    Same as previous one but it does not include inverse relationships.
+    Same as previous one but it does not include inverse relationships. Also, it gives the possibility to select
+    the properties to include in the relationships.csv file.
 
     :param claims_path: file containing all the claims of the wikidata dump
     :param labels_path: file containing the english labels of the wikidata dump
+    :param selected_properties: path to the csv file containing the properties to include in the relationships file
     """
+    if selected_properties is not None:
+        selected_properties = pd.read_csv(selected_properties)
+        selected_properties = list(selected_properties["wiki_id"])
     # create sets to store unique nodes and discarded rels
     nodes_set = set()
     discarded_rels = set()
@@ -182,6 +188,9 @@ def create_csv_files_neo4j_no_inverse(claims_path: str, labels_path: str) -> Non
             stripped_line = line.strip().split(",")
             node = stripped_line[0]
             label = ",".join(stripped_line[1:])
+            # remove ' and @en from labels
+            label = label[1:-4]
+            label = label.replace(",", "")
             labels_dict[node] = label
 
     with open(claims_path, "r") as claims_file, open(
@@ -195,7 +204,8 @@ def create_csv_files_neo4j_no_inverse(claims_path: str, labels_path: str) -> Non
         # read the input triples one by one
         for line in claims_file:
             node1, prop, node2 = line.strip().split(",")
-            if not prop.endswith("_"):
+            # check that the property is not an inverse (ends with _) and it is in the set of selected ones
+            if not prop.endswith("_") and prop in selected_properties:
                 # if at least one endpoint uses a property discard it
                 if node1[0] == "P" or node2[0] == "P":
                     discarded_rels.add(prop)
@@ -205,8 +215,6 @@ def create_csv_files_neo4j_no_inverse(claims_path: str, labels_path: str) -> Non
                     # nodes_set.add(prop)
                     if prop in labels_dict:
                         label = labels_dict[prop]
-                        label = label[1:-4]
-                        label = label.replace(",", "")
                     else:
                         label = "no_label"
                     out_f.write(node1 + "," + prop + "," + label + "," + node2 + "," + "relation" + "\n")

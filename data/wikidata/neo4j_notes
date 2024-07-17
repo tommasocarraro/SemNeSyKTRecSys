@@ -1,0 +1,12 @@
+CREATE INDEX range_index_entities FOR (n:entity) ON (n.wikidata_id)
+CREATE INDEX range_index_relationships FOR ()-[r:relation]-() ON (r.wikidata_it)
+
+
+PROFILE MATCH p3=(n1:entity {wikidata_id: $first_item})-[*1..1]-(mid1:entity)-[*1..1]-(mid2:entity)-[*1..1]-(n2:entity {wikidata_id: $second_item})
+RETURN p3 AS path
+UNION
+MATCH p2=(n1:entity {wikidata_id: $first_item})-[*1..1]-(mid1:entity)-[*1..1]-(n2:entity {wikidata_id: $second_item})
+RETURN p2 AS path
+UNION
+MATCH p1=(n1:entity {wikidata_id: $first_item})-[*1..1]-(n2:entity {wikidata_id: $second_item})
+RETURN p1 AS path
