@@ -61,8 +61,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
         except Exception:
             print(traceback.format_exc())
             logging.info("%s -/- %s -/- exception" % (first_item, second_item))
-            # update dict
-            # temp_dict[first_item] = {second_item: "exception"}
+
     # use parallel computing to perform HTTP requests
     try:
         Parallel(n_jobs=n_cores, prefer="threads")(delayed(find_path)(m_1[first_item]["wiki_id"],
@@ -178,15 +177,5 @@ def save_paths(first_item: str, second_item: str, paths: list, temp_dict: dict) 
             path_str = path_str.strip()
             # log the path
             logging.info("%s -/- %s -/- %s" % (first_item, second_item, path_str))
-            # save path in dict
-            # if first_item not in temp_dict:
-            #     temp_dict[first_item] = {second_item: [path_str]}
-            # else:
-            #     if second_item not in temp_dict[first_item]:
-            #         temp_dict[first_item][second_item] = [path_str]
-            #     else:
-            #         temp_dict[first_item][second_item].append(path_str)
     else:
         logging.info("%s -/- %s -/- no_paths" % (first_item, second_item))
-        # update dict
-        # temp_dict[first_item] = {second_item: "no_paths"}
