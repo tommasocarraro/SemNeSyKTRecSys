@@ -44,6 +44,8 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
     uri = "bolt://localhost:7687"
     # Initialize the driver
     driver = GraphDatabase.driver(uri)
+    # create query template given the maximum number of hops
+    query = get_query(max_hops)
 
     def find_path(first_item: str, second_item: str) -> None:
         """
@@ -56,8 +58,6 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
             # check if the paths between these two items have been already computed
             if (first_item not in temp_dict or
                     (first_item in temp_dict and second_item not in temp_dict[first_item])):
-                # define query to launch
-                query = get_query(max_hops)
                 # execute query
                 with driver.session() as session:
                     paths = session.execute_read(execute_query, query, first_item, second_item)
@@ -135,7 +135,7 @@ def get_query(max_hops: int) -> str:
     query_tail = "(n2:entity {wikidata_id: $second_item})"
     for i in range(max_hops):
         query += "MATCH p%d=%s" % (i + 1, query_head)
-        for j in range(i + 1):
+        for j in range(i):
             query += "-[*1..1]-(mid%d:entity)" % (j + 1,)
         query += "-[*1..1]-"
         query += "%s RETURN p%d AS path" % (query_tail, i + 1)
