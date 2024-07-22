@@ -1,9 +1,10 @@
 import logging
 import json
 import os
-from joblib import Parallel, delayed
+from joblib import delayed
 import traceback
 from neo4j import GraphDatabase
+from nesy.utils import ParallelTqdm
 
 
 def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, max_hops: int = 2,
@@ -32,6 +33,9 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
     # create logger for logging everything to file in case the long executions are interrupted
     # Configure the logger
     logging.basicConfig(level=logging.INFO)  # Set the desired log level
+    # Remove all handlers to avoid printing on stdout
+    for handler in logging.getLogger().handlers[:]:
+        logging.getLogger().removeHandler(handler)
     # Create a FileHandler to write log messages to a file
     file_handler = logging.FileHandler('output.log')
     # Add the file handler to the logger
@@ -62,15 +66,19 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
             print(traceback.format_exc())
             logging.info("%s -/- %s -/- exception" % (first_item, second_item))
 
+    # computing total number of tasks
+    total_tasks = compute_n_tasks(m_1, m_2)
     # use parallel computing to perform HTTP requests
     try:
-        Parallel(n_jobs=n_cores, prefer="threads")(delayed(find_path)(m_1[first_item]["wiki_id"],
-                                                                      m_2[second_item]["wiki_id"])
-                                                   for first_item in m_1
-                                                   for second_item in m_2
-                                                   if isinstance(m_1[first_item], dict)
-                                                   if isinstance(m_2[second_item], dict))
+        ParallelTqdm(n_jobs=n_cores, prefer="threads", total_tasks=total_tasks)(
+            delayed(find_path)(m_1[first_item]["wiki_id"],
+                               m_2[second_item]["wiki_id"])
+            for first_item in m_1
+            for second_item in m_2
+            if isinstance(m_1[first_item], dict)
+            if isinstance(m_2[second_item], dict))
     except (KeyboardInterrupt, Exception):
+        print(traceback.format_exc())
         update_file(file_handler, temp_dict, path_file)
         print("Interruption occurred! Path file has been saved!")
         exit()
@@ -128,7 +136,7 @@ def get_query(max_hops: int) -> str:
     for i in range(max_hops):
         query += "MATCH p%d=%s" % (i + 1, query_head)
         for j in range(i + 1):
-            query += "-[*1..1]-(mid%d:entity)" % (j + 1, )
+            query += "-[*1..1]-(mid%d:entity)" % (j + 1,)
         query += "-[*1..1]-"
         query += "%s RETURN p%d AS path" % (query_tail, i + 1)
         if i != max_hops - 1:
@@ -179,3 +187,21 @@ def save_paths(first_item: str, second_item: str, paths: list, temp_dict: dict) 
             logging.info("%s -/- %s -/- %s" % (first_item, second_item, path_str))
     else:
         logging.info("%s -/- %s -/- no_paths" % (first_item, second_item))
+
+
+def compute_n_tasks(mapping_1: dict, mapping_2: dict) -> int:
+    """
+    This function computes the total number of pairs for which the paths have to be computed.
+
+    :param mapping_1: dictionary containing the mapping between Amazon and wikidata in the source domain
+    :param mapping_2: dictionary containing the mapping between Amazon and wikidata in the target domain
+    :return: number of pairs for which the paths have to be computed
+    """
+    matched_items_1, matched_items_2 = 0, 0
+    for item in mapping_1:
+        if isinstance(mapping_1[item], dict):
+            matched_items_1 += 1
+    for item in mapping_2:
+        if isinstance(mapping_2[item], dict):
+            matched_items_2 += 1
+    return matched_items_1 * matched_items_2
