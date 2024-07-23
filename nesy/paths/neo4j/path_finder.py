@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 
 def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, max_hops: int = 2,
-                      n_cores: int = 1) -> None:
+                      shortest_path: bool = True, n_cores: int = 1) -> None:
     """
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
     matched entities in mapping_file_2. It saves all these paths in a JSON file.
@@ -18,6 +18,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
     :param mapping_file_2: second mapping file
     :param path_file: path where to save the final JSON file containing paths
     :param max_hops: maximum number of hops allowed for the path
+    :param shortest_path: whether to find just the shortest path or all the paths connecting the two entities
     :param n_cores: number of processors to be used to execute this function
     """
     # read mapping files
@@ -46,7 +47,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
     # Initialize the driver
     driver = GraphDatabase.driver(uri)
     # create query template given the maximum number of hops
-    query = get_query(max_hops)
+    query = get_query(max_hops, shortest_path)
 
     def find_path(first_item: str, second_item: str) -> None:
         """
@@ -62,7 +63,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
                 # execute query
                 with driver.session() as session:
                     paths = session.execute_read(execute_query, query, first_item, second_item)
-                save_paths(first_item, second_item, paths, temp_dict)
+                save_paths(first_item, second_item, paths)
         except Exception:
             print(traceback.format_exc())
             logging.info("%s -/- %s -/- exception" % (first_item, second_item))
@@ -203,24 +204,28 @@ def update_file(file_handler, temp_dict, path_file):
     os.remove("./output.log")
 
 
-def get_query(max_hops: int) -> str:
+def get_query(max_hops: int, shortest_path: bool) -> str:
     """
     This function creates the query for Neo4j based on the given number of hops.
 
     :param max_hops: max number of hops allowed for the path
+    :param shortest_path: whether to configure the query to find just the shortest path or not
     :return: the query to be executed
     """
-    query = ""
     query_head = "(n1:entity {wikidata_id: $first_item})"
     query_tail = "(n2:entity {wikidata_id: $second_item})"
-    for i in range(max_hops):
-        query += "MATCH p%d=%s" % (i + 1, query_head)
-        for j in range(i):
-            query += "-[*1..1]-(mid%d:entity)" % (j + 1,)
-        query += "-[*1..1]-"
-        query += "%s RETURN p%d AS path" % (query_tail, i + 1)
-        if i != max_hops - 1:
-            query += " UNION "
+    if not shortest_path:
+        query = ""
+        for i in range(max_hops):
+            query += "MATCH p%d=%s" % (i + 1, query_head)
+            for j in range(i):
+                query += "-[*1..1]-(mid%d:entity)" % (j + 1,)
+            query += "-[*1..1]-"
+            query += "%s RETURN p%d AS path" % (query_tail, i + 1)
+            if i != max_hops - 1:
+                query += " UNION "
+    else:
+        query = "MATCH path=shortestPath(%s-[*1..%d]-%s) RETURN path" % (query_head, max_hops, query_tail)
     return query
 
 
