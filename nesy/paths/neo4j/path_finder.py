@@ -5,6 +5,7 @@ from joblib import delayed
 import traceback
 from neo4j import GraphDatabase
 from nesy.utils import ParallelTqdm
+from tqdm import tqdm
 
 
 def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, max_hops: int = 2,
@@ -86,6 +87,85 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
     update_file(file_handler, temp_dict, path_file)
 
 
+def neo4j_path_finder_batch(mapping_file_1: str, mapping_file_2: str, path_file: str, max_hops: int = 2,
+                            n_cores: int = 1) -> None:
+    """
+    This function is similar to the previous one but each parallel task consists into a batch of queries instead of
+    only one for each task.
+
+    :param mapping_file_1: first mapping file
+    :param mapping_file_2: second mapping file
+    :param path_file: path where to save the final JSON file containing paths
+    :param max_hops: maximum number of hops allowed for the path
+    :param n_cores: number of processors to be used to execute this function
+    """
+    # read mapping files
+    with open(mapping_file_1) as json_file:
+        m_1 = json.load(json_file)
+    with open(mapping_file_2) as json_file:
+        m_2 = json.load(json_file)
+    # check if a path file for the given mapping files already exists
+    temp_dict = {}
+    if os.path.exists(path_file):
+        # if it exists, we load a temp dictionary containing the found paths
+        with open(path_file) as json_file:
+            temp_dict = json.load(json_file)
+    # create logger for logging everything to file in case the long executions are interrupted
+    # Configure the logger
+    logging.basicConfig(level=logging.INFO)  # Set the desired log level
+    # Remove all handlers to avoid printing on stdout
+    for handler in logging.getLogger().handlers[:]:
+        logging.getLogger().removeHandler(handler)
+    # Create a FileHandler to write log messages to a file
+    file_handler = logging.FileHandler('output.log')
+    # Add the file handler to the logger
+    logging.getLogger().addHandler(file_handler)
+    # Define connection details for Neo4j
+    uri = "bolt://localhost:7687"
+    # Initialize the driver
+    driver = GraphDatabase.driver(uri)
+    # create query template given the maximum number of hops
+    query = get_query(max_hops)
+
+    def find_path(first_item: str, tail_items: dict) -> None:
+        """
+        It performs a query to find the paths between the given items on Neo4j.
+
+        :param first_item: head of the path in the source domain
+        :param tail_items: dictionary containing the items in the target domain
+        """
+        for second_item in tail_items:
+            if isinstance(m_2[second_item], dict):
+                try:
+                    # check if the paths between these two items have been already computed
+                    if (first_item not in temp_dict or
+                            (first_item in temp_dict and second_item not in temp_dict[first_item])):
+                        # execute query
+                        with driver.session() as session:
+                            paths = session.execute_read(execute_query, query, first_item, m_2[second_item]["wiki_id"])
+                        save_paths(first_item, m_2[second_item]["wiki_id"], paths)
+                except Exception:
+                    print(traceback.format_exc())
+                    logging.info("%s -/- %s -/- exception" % (first_item, m_2[second_item]["wiki_id"]))
+
+    # computing total number of tasks
+    total_tasks = compute_n_tasks(m_1)
+    # use parallel computing to perform HTTP requests
+    try:
+        ParallelTqdm(n_jobs=n_cores, prefer="threads", total_tasks=total_tasks)(
+            delayed(find_path)(m_1[first_item]["wiki_id"],
+                               m_2)
+            for first_item in m_1
+            if isinstance(m_1[first_item], dict))
+    except (KeyboardInterrupt, Exception):
+        print(traceback.format_exc())
+        update_file(file_handler, temp_dict, path_file)
+        print("Interruption occurred! Path file has been saved!")
+        exit()
+
+    update_file(file_handler, temp_dict, path_file)
+
+
 def update_file(file_handler, temp_dict, path_file):
     """
     This function reads the data that has been logged and creates a JSON file containing this data.
@@ -157,14 +237,13 @@ def execute_query(tx, query, first_item, second_item):
     return [record["path"] for record in result]
 
 
-def save_paths(first_item: str, second_item: str, paths: list, temp_dict: dict) -> None:
+def save_paths(first_item: str, second_item: str, paths: list) -> None:
     """
     This function logs the found paths.
 
     :param first_item: first item
     :param second_item: second item
     :param paths: list of found paths
-    :param temp_dict: dictionary that has to be updated with new results
     """
     if paths:
         for path in paths:
@@ -187,9 +266,10 @@ def save_paths(first_item: str, second_item: str, paths: list, temp_dict: dict) 
             logging.info("%s -/- %s -/- %s" % (first_item, second_item, path_str))
     else:
         logging.info("%s -/- %s -/- no_paths" % (first_item, second_item))
+        pass
 
 
-def compute_n_tasks(mapping_1: dict, mapping_2: dict) -> int:
+def compute_n_tasks(mapping_1: dict, mapping_2: dict = None) -> int:
     """
     This function computes the total number of pairs for which the paths have to be computed.
 
@@ -201,7 +281,10 @@ def compute_n_tasks(mapping_1: dict, mapping_2: dict) -> int:
     for item in mapping_1:
         if isinstance(mapping_1[item], dict):
             matched_items_1 += 1
-    for item in mapping_2:
-        if isinstance(mapping_2[item], dict):
-            matched_items_2 += 1
-    return matched_items_1 * matched_items_2
+    if mapping_2 is not None:
+        for item in mapping_2:
+            if isinstance(mapping_2[item], dict):
+                matched_items_2 += 1
+        return matched_items_1 * matched_items_2
+    else:
+        return matched_items_1
