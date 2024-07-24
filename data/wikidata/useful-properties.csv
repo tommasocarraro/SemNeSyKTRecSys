@@ -1,5 +1,4 @@
 wiki_id,label
-P31,instance of
 P50,author
 P57,director
 P58,screenwriter
@@ -25,7 +24,6 @@ P180,depicts
 P195,collection
 P264,record label
 P272,production company
-P279,subclass of
 P287,designed by
 P344,director of photography
 P355,has subsidiary
