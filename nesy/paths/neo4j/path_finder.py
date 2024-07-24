@@ -70,7 +70,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
             logging.info("%s -/- %s -/- exception -/- 0" % (first_item, second_item))
 
     # computing total number of tasks
-    total_tasks = 286000000  # compute_n_tasks(m_1, m_2)
+    total_tasks = compute_n_tasks(m_1, m_2)
     # get pairs for which the paths have to be generated
     pairs = get_pairs(m_1, m_2)
     # use parallel computing to perform HTTP requests
@@ -223,6 +223,6 @@ def get_pairs(source_d: dict, target_d: dict) -> tuple:
     :param target_d: target domain dict
     :return: pairs for which the paths have to be generated returned as a generator
     """
-    source_d_ids = [data["wiki_id"] for asin, data in source_d.items() if isinstance(source_d[asin], dict)][11000:]
-    target_d_ids = [data["wiki_id"] for asin, data in target_d.items() if isinstance(target_d[asin], dict)][26000:]
+    source_d_ids = [data["wiki_id"] for asin, data in source_d.items() if isinstance(source_d[asin], dict)]
+    target_d_ids = [data["wiki_id"] for asin, data in target_d.items() if isinstance(target_d[asin], dict)]
     return itertools.product(source_d_ids, target_d_ids)
