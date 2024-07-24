@@ -1,8 +1,9 @@
 from os.path import basename, splitext
 from typing import Optional
-
 import tqdm
 from joblib import Parallel
+import json
+import pandas as pd
 
 
 def remove_ext(file_path: str) -> str:
@@ -102,3 +103,49 @@ class ParallelTqdm(Parallel):
             self.progress_bar.refresh()
         # update progressbar
         self.progress_bar.update(self.n_completed_tasks - self.progress_bar.n)
+
+
+def get_mapping_stats(mapping_file: str) -> dict:
+    """
+    This function takes as input a mapping file containing matches between Amazon items and Wikidata entities, and
+    it computes statistics to count the number of matched items. In particular, it computes how many items have been
+    matched with title, title+year, title+person, and title+person+year.
+
+    The stats are returned in a dict.
+
+    :param mapping_file: file containing matches between Amazon items and Wikidata entities
+    :return: dictionary reporting the stats
+    """
+    with open(mapping_file) as json_file:
+        m = json.load(json_file)
+
+    count = {}
+    for k, v in m.items():
+        if isinstance(v, dict):
+            if v["matching_attributes"] not in count:
+                count[v["matching_attributes"]] = 1
+            else:
+                count[v["matching_attributes"]] += 1
+
+    return count
+
+
+def get_rating_stats(rating_file: str) -> dict:
+    """
+    This function takes as input a rating file and counts the number of ratings for each user and item.
+    The stats are returned in a dict.
+
+    :param rating_file: path to rating file
+    :return: dictionary reporting the stats
+    """
+    df = pd.read_csv(rating_file)
+    item_ratings_count = df.groupby('itemId').size().to_dict()
+    user_ratings_count = df.groupby('userId').size().to_dict()
+    # sort dictionaries by the rating count
+    sorted_item_ratings_count = dict(sorted(item_ratings_count.items(), key=lambda item: item[1]))
+    sorted_user_ratings_count = dict(sorted(user_ratings_count.items(), key=lambda user: user[1]))
+    stats = {
+        'sorted_item_ratings_count': sorted_item_ratings_count,
+        'sorted_user_ratings_count': sorted_user_ratings_count
+    }
+    return stats

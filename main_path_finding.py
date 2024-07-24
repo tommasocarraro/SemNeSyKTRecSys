@@ -8,5 +8,5 @@ if __name__ == '__main__':
     # todo adesso siamo rimasti che bisogna capire perche' si ferma e non e' lineare l'andamento
     # todo vedere discorso memoria con consigli su sito Neo4j -> fatto
     # todo eliminare piu' relazioni e nodi possibili -> fatto
-    # todo caricare in cache con una query stupida
+    # todo caricare in cache con una query stupida -> fatto
     # todo piano B -> distribuzioni dataset oppure eliminare cio' che abbiamo matchato con solo titolo

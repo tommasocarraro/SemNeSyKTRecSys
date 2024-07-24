@@ -10,7 +10,7 @@ import math
 
 
 def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, max_hops: int = 2,
-                      shortest_path: bool = True, n_cores: int = 1, batch_size: int = 1) -> None:
+                      shortest_path: bool = True, n_cores: int = 1) -> None:
     """
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
     matched entities in mapping_file_2. It saves all these paths in a JSON file.
@@ -21,7 +21,6 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
     :param max_hops: maximum number of hops allowed for the path
     :param shortest_path: whether to find just the shortest path or all the paths connecting the two entities
     :param n_cores: number of processors to be used to execute this function
-    :param batch_size: batch size of the query task. Default to 1.
     """
     # read mapping files
     with open(mapping_file_1) as json_file:
@@ -71,14 +70,11 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
             logging.info("%s -/- %s -/- exception -/- 0" % (first_item, second_item))
 
     # computing total number of tasks
-    total_tasks = math.ceil(compute_n_tasks(m_1, m_2) / batch_size)
+    total_tasks = 286000000  # compute_n_tasks(m_1, m_2)
     # get pairs for which the paths have to be generated
     pairs = get_pairs(m_1, m_2)
     # use parallel computing to perform HTTP requests
     try:
-        # ParallelTqdm(n_jobs=n_cores, prefer="threads", total_tasks=total_tasks)(
-        #     delayed(find_path)(list(itertools.islice(pairs, batch_size)))
-        #     for _ in range(total_tasks))
         ParallelTqdm(n_jobs=n_cores, prefer="threads", total_tasks=total_tasks)(
             delayed(find_path)(pair) for pair in pairs)
     except (KeyboardInterrupt, Exception):
@@ -227,6 +223,6 @@ def get_pairs(source_d: dict, target_d: dict) -> tuple:
     :param target_d: target domain dict
     :return: pairs for which the paths have to be generated returned as a generator
     """
-    source_d_ids = [data["wiki_id"] for asin, data in source_d.items() if isinstance(source_d[asin], dict)]
-    target_d_ids = [data["wiki_id"] for asin, data in target_d.items() if isinstance(target_d[asin], dict)]
+    source_d_ids = [data["wiki_id"] for asin, data in source_d.items() if isinstance(source_d[asin], dict)][11000:]
+    target_d_ids = [data["wiki_id"] for asin, data in target_d.items() if isinstance(target_d[asin], dict)][26000:]
     return itertools.product(source_d_ids, target_d_ids)
