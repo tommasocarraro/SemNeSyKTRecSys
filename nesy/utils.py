@@ -3,7 +3,6 @@ from typing import Optional
 import tqdm
 from joblib import Parallel
 import json
-import pandas as pd
 
 
 def remove_ext(file_path: str) -> str:
@@ -128,24 +127,3 @@ def get_mapping_stats(mapping_file: str) -> dict:
                 count[v["matching_attributes"]] += 1
 
     return count
-
-
-def get_rating_stats(rating_file: str) -> dict:
-    """
-    This function takes as input a rating file and counts the number of ratings for each user and item.
-    The stats are returned in a dict.
-
-    :param rating_file: path to rating file
-    :return: dictionary reporting the stats
-    """
-    df = pd.read_csv(rating_file)
-    item_ratings_count = df.groupby('itemId').size().to_dict()
-    user_ratings_count = df.groupby('userId').size().to_dict()
-    # sort dictionaries by the rating count
-    sorted_item_ratings_count = dict(sorted(item_ratings_count.items(), key=lambda item: item[1]))
-    sorted_user_ratings_count = dict(sorted(user_ratings_count.items(), key=lambda user: user[1]))
-    stats = {
-        'sorted_item_ratings_count': sorted_item_ratings_count,
-        'sorted_user_ratings_count': sorted_user_ratings_count
-    }
-    return stats
