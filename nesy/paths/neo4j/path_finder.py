@@ -6,11 +6,11 @@ import traceback
 from neo4j import GraphDatabase
 from nesy.utils import ParallelTqdm
 import itertools
-import math
+from .utils import get_rating_stats, get_cold_start, refine_cold_start_items
 
 
 def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, max_hops: int = 2,
-                      shortest_path: bool = True, n_cores: int = 1) -> None:
+                      shortest_path: bool = True, cold_start: bool = False, n_cores: int = 1) -> None:
     """
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
     matched entities in mapping_file_2. It saves all these paths in a JSON file.
@@ -20,6 +20,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
     :param path_file: path where to save the final JSON file containing paths
     :param max_hops: maximum number of hops allowed for the path
     :param shortest_path: whether to find just the shortest path or all the paths connecting the two entities
+    :param cold_start: whether to compute paths just for cold-start items in the target domain
     :param n_cores: number of processors to be used to execute this function
     """
     # read mapping files
@@ -27,6 +28,16 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
         m_1 = json.load(json_file)
     with open(mapping_file_2) as json_file:
         m_2 = json.load(json_file)
+        if cold_start:
+            if "movies" in mapping_file_2:
+                path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
+            elif "music" in mapping_file_2:
+                path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
+            else:
+                path = "./data/processed/legacy/reviews_Books_5.csv"
+            stats = get_rating_stats(path, "item")
+            cs = get_cold_start(stats, 5)
+            m_2 = refine_cold_start_items(cs, mapping_file_2)
     # check if a path file for the given mapping files already exists
     temp_dict = {}
     if os.path.exists(path_file):
@@ -207,9 +218,12 @@ def compute_n_tasks(mapping_1: dict, mapping_2: dict = None) -> int:
         if isinstance(mapping_1[item], dict):
             matched_items_1 += 1
     if mapping_2 is not None:
-        for item in mapping_2:
-            if isinstance(mapping_2[item], dict):
-                matched_items_2 += 1
+        if isinstance(mapping_2, list):
+            matched_items_2 = len(mapping_2)
+        else:
+            for item in mapping_2:
+                if isinstance(mapping_2[item], dict):
+                    matched_items_2 += 1
         return matched_items_1 * matched_items_2
     else:
         return matched_items_1
@@ -224,5 +238,8 @@ def get_pairs(source_d: dict, target_d: dict) -> tuple:
     :return: pairs for which the paths have to be generated returned as a generator
     """
     source_d_ids = [data["wiki_id"] for asin, data in source_d.items() if isinstance(source_d[asin], dict)]
-    target_d_ids = [data["wiki_id"] for asin, data in target_d.items() if isinstance(target_d[asin], dict)]
+    if not isinstance(target_d, list):
+        target_d_ids = [data["wiki_id"] for asin, data in target_d.items() if isinstance(target_d[asin], dict)]
+    else:
+        target_d_ids = target_d
     return itertools.product(source_d_ids, target_d_ids)
