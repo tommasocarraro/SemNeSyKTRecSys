@@ -9,20 +9,21 @@ import itertools
 from .utils import get_rating_stats, get_cold_start, refine_cold_start_items, get_popular, refine_popular_items
 
 
-def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, max_hops: int = 2,
+def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, max_hops: int = 2,
                       shortest_path: bool = True, cold_start: bool = False, popular: bool = False,
-                      n_cores: int = 1) -> None:
+                      cs_threshold: int = 5, pop_threshold: int = 50, n_cores: int = 1) -> None:
     """
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
     matched entities in mapping_file_2. It saves all these paths in a JSON file.
 
     :param mapping_file_1: first mapping file
     :param mapping_file_2: second mapping file
-    :param path_file: path where to save the final JSON file containing paths
     :param max_hops: maximum number of hops allowed for the path
     :param shortest_path: whether to find just the shortest path or all the paths connecting the two entities
     :param cold_start: whether to compute paths just for cold-start items in the target domain
     :param popular: whether to compute paths just for popular items in the source domain
+    :param cs_threshold: threshold to select cold-start items
+    :param pop_threshold: threshold to select popular items
     :param n_cores: number of processors to be used to execute this function
     """
     # read mapping files
@@ -36,7 +37,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
             else:
                 path = "./data/processed/legacy/reviews_Books_5.csv"
             stats = get_rating_stats(path, "item")
-            pop = get_popular(stats, 30)
+            pop = get_popular(stats, pop_threshold)
             m_1 = refine_popular_items(pop, mapping_file_1)
     with open(mapping_file_2) as json_file:
         m_2 = json.load(json_file)
@@ -48,10 +49,18 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, path_file: str, 
             else:
                 path = "./data/processed/legacy/reviews_Books_5.csv"
             stats = get_rating_stats(path, "item")
-            cs = get_cold_start(stats, 5)
+            cs = get_cold_start(stats, cs_threshold)
             m_2 = refine_cold_start_items(cs, mapping_file_2)
     # check if a path file for the given mapping files already exists
     temp_dict = {}
+    path_file = "./data/processed/paths/"
+    path_file += mapping_file_1.split("-")[1][:-5]
+    if popular:
+        path_file += "(pop:%d)" % (pop_threshold, )
+    path_file += "-%s" % (mapping_file_2.split("-")[1][:-5], )
+    if cold_start:
+        path_file += "(cs:%d)" % (cs_threshold, )
+    path_file += ".json"
     if os.path.exists(path_file):
         # if it exists, we load a temp dictionary containing the found paths
         with open(path_file) as json_file:
