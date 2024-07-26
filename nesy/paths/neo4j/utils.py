@@ -48,6 +48,18 @@ def get_cold_start(stats: dict, threshold: int) -> list:
     return [id_ for id_, count in stats.items() if count <= threshold]
 
 
+def get_popular(stats: dict, threshold: int) -> list:
+    """
+    This function takes statistics about ratings in the dataset and returns the list of items (or users)
+    that have more than or equal threshold ratings.
+
+    :param stats: dictionary containing stats about ratings
+    :param threshold: the threshold to select items (or users)
+    :return: list of items (or users) with more than or equal threshold ratings
+    """
+    return [id_ for id_, count in stats.items() if count >= threshold]
+
+
 def refine_cold_start_items(cold_start_list: list, target_mapping_file: str) -> list:
     """
     This function takes a cold-start list of items and refines it by removing items that have not been matched with
@@ -60,3 +72,17 @@ def refine_cold_start_items(cold_start_list: list, target_mapping_file: str) -> 
     with open(target_mapping_file, 'r') as json_file:
         target_mapping = json.load(json_file)
     return [id_ for id_ in cold_start_list if isinstance(target_mapping[id_], dict)]
+
+
+def refine_popular_items(popular_list: list, source_mapping_file: str) -> list:
+    """
+    This function takes a cold-start list of items and refines it by removing items that have not been matched with
+    Wikidata.
+
+    :param popular_list: list of popular items
+    :param source_mapping_file: mapping file containing the matches in the source domain
+    :return: refined popular list
+    """
+    with open(source_mapping_file, 'r') as json_file:
+        source_mapping = json.load(json_file)
+    return [id_ for id_ in popular_list if isinstance(source_mapping[id_], dict)]
