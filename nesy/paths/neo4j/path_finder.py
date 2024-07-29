@@ -89,14 +89,16 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, max_hops: int = 
         :param pair: tuple containing the ids on which the query has to be performed
         """
         first_item, second_item = pair
+        first_item_asin, first_item_wiki_id = first_item
+        second_item_asin, second_item_wiki_id = second_item
         try:
             # check if the paths between these two items have been already computed
-            if (first_item not in temp_dict or
-                    (first_item in temp_dict and second_item not in temp_dict[first_item])):
+            if (first_item_asin not in temp_dict or
+                    (first_item_asin in temp_dict and second_item_asin not in temp_dict[first_item_asin])):
                 # execute query
                 with driver.session() as session:
-                    paths = session.execute_read(execute_query, query, first_item, second_item)
-                save_paths(first_item, second_item, paths)
+                    paths = session.execute_read(execute_query, query, first_item_wiki_id, second_item_wiki_id)
+                save_paths(first_item_asin, second_item_asin, paths)
         except Exception:
             print(traceback.format_exc())
             logging.info("%s -/- %s -/- exception -/- 0" % (first_item, second_item))
@@ -177,7 +179,7 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
             if i != max_hops - 1:
                 query += " UNION "
     else:
-        query = ("MATCH path=shortestPath(%s-[*1..%d]-%s) RETURN path, "
+        query = ("MATCH path=allShortestPaths(%s-[*1..%d]-%s) RETURN path, "
                  "length(path) AS path_length") % (query_head, max_hops, query_tail)
     return query
 
@@ -262,11 +264,11 @@ def get_pairs(source_d: dict, target_d: dict) -> tuple:
     :return: pairs for which the paths have to be generated returned as a generator
     """
     if not isinstance(source_d, list):
-        source_d_ids = [data["wiki_id"] for asin, data in source_d.items() if isinstance(source_d[asin], dict)]
+        source_d_ids = [(asin, data["wiki_id"]) for asin, data in source_d.items() if isinstance(source_d[asin], dict)]
     else:
         source_d_ids = source_d
     if not isinstance(target_d, list):
-        target_d_ids = [data["wiki_id"] for asin, data in target_d.items() if isinstance(target_d[asin], dict)]
+        target_d_ids = [(asin, data["wiki_id"]) for asin, data in target_d.items() if isinstance(target_d[asin], dict)]
     else:
         target_d_ids = target_d
     return itertools.product(source_d_ids, target_d_ids)
