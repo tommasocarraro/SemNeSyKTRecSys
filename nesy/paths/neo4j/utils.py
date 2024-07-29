@@ -71,7 +71,7 @@ def refine_cold_start_items(cold_start_list: list, target_mapping_file: str) -> 
     """
     with open(target_mapping_file, 'r') as json_file:
         target_mapping = json.load(json_file)
-    return [id_ for id_ in cold_start_list if isinstance(target_mapping[id_], dict)]
+    return [(id_, target_mapping[id_]['wiki_id']) for id_ in cold_start_list if isinstance(target_mapping[id_], dict)]
 
 
 def refine_popular_items(popular_list: list, source_mapping_file: str) -> list:
@@ -85,4 +85,4 @@ def refine_popular_items(popular_list: list, source_mapping_file: str) -> list:
     """
     with open(source_mapping_file, 'r') as json_file:
         source_mapping = json.load(json_file)
-    return [id_ for id_ in popular_list if isinstance(source_mapping[id_], dict)]
+    return [(id_, source_mapping[id_]['wiki_id']) for id_ in popular_list if isinstance(source_mapping[id_], dict)]
