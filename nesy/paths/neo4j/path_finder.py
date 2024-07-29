@@ -101,7 +101,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, max_hops: int = 
                 save_paths(first_item_asin, second_item_asin, paths)
         except Exception:
             print(traceback.format_exc())
-            logging.info("%s -/- %s -/- exception -/- 0" % (first_item, second_item))
+            logging.info("%s -/- %s -/- exception -/- 0" % (first_item_asin, second_item_asin))
 
     # computing total number of tasks
     total_tasks = compute_n_tasks(m_1, m_2)
