@@ -179,7 +179,7 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
             if i != max_hops - 1:
                 query += " UNION "
     else:
-        query = ("MATCH path=allShortestPaths(%s-[*1..%d]-%s) RETURN path, "
+        query = ("MATCH path=shortestPath(%s-[*1..%d]-%s) RETURN path, "
                  "length(path) AS path_length") % (query_head, max_hops, query_tail)
     return query
 
