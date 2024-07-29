@@ -14,3 +14,6 @@ RETURN path, length(path) as path_length
 
 PROFILE MATCH path=shortestPath((h:entity {wikidata_id: 'Q1583966'})-[*1..10]-(t:entity {wikidata_id: 'Q646984'}))
 RETURN path, length(path) AS path_length
+
+
+scp tc1022@172.16.62.181:SemNeSyKTRecSys/data/processed/paths/movies\(pop\:300\)-music\(cs\:5\).json /Users/ciomi/PycharmProjects/SemNeSyKTRecSys/data/processed/paths
