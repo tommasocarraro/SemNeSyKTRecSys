@@ -1,23 +1,45 @@
 import logging
 import json
 import os
+from typing import Generator, Optional
+
 from joblib import delayed
 import traceback
 from neo4j import GraphDatabase
 from nesy.utils import ParallelTqdm
 import itertools
-from .utils import get_rating_stats, get_cold_start, refine_cold_start_items, get_popular, refine_popular_items
+from .utils import (
+    get_rating_stats,
+    get_cold_start,
+    refine_cold_start_items,
+    get_popular,
+    refine_popular_items,
+)
+from .Paths_Database import PathsDatabase
+from .Queue import Queue
 
 
-def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, max_hops: int = 2,
-                      shortest_path: bool = True, cold_start: bool = False, popular: bool = False,
-                      cs_threshold: int = 5, pop_threshold: int = 50, n_cores: int = 1) -> None:
+def neo4j_path_finder(
+    mapping_file_1: str,
+    mapping_file_2: str,
+    domain_pair_id: str,
+    db_file: str,
+    max_hops: int = 2,
+    shortest_path: bool = True,
+    cold_start: bool = False,
+    popular: bool = False,
+    cs_threshold: int = 5,
+    pop_threshold: int = 50,
+    n_cores: int = 1,
+) -> None:
     """
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
     matched entities in mapping_file_2. It saves all these paths in a JSON file.
 
     :param mapping_file_1: first mapping file
     :param mapping_file_2: second mapping file
+    :param domain_pair_id: id of the pair of domains used to differentiate the paths in the db
+    :param db_file: database file
     :param max_hops: maximum number of hops allowed for the path
     :param shortest_path: whether to find just the shortest path or all the paths connecting the two entities
     :param cold_start: whether to compute paths just for cold-start items in the target domain
@@ -56,10 +78,10 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, max_hops: int = 
     path_file = "./data/processed/paths/"
     path_file += mapping_file_1.split("-")[1][:-5]
     if popular:
-        path_file += "(pop:%d)" % (pop_threshold, )
-    path_file += "-%s" % (mapping_file_2.split("-")[1][:-5], )
+        path_file += "(pop:%d)" % (pop_threshold,)
+    path_file += "-%s" % (mapping_file_2.split("-")[1][:-5],)
     if cold_start:
-        path_file += "(cs:%d)" % (cs_threshold, )
+        path_file += "(cs:%d)" % (cs_threshold,)
     path_file += ".json"
     if os.path.exists(path_file):
         # if it exists, we load a temp dictionary containing the found paths
@@ -72,7 +94,7 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, max_hops: int = 
     for handler in logging.getLogger().handlers[:]:
         logging.getLogger().removeHandler(handler)
     # Create a FileHandler to write log messages to a file
-    file_handler = logging.FileHandler('output.log')
+    file_handler = logging.FileHandler("output.log")
     # Add the file handler to the logger
     logging.getLogger().addHandler(file_handler)
     # Define connection details for Neo4j
@@ -82,35 +104,68 @@ def neo4j_path_finder(mapping_file_1: str, mapping_file_2: str, max_hops: int = 
     # create query template given the maximum number of hops
     query = get_query(max_hops, shortest_path)
 
-    def find_path(pair: tuple) -> None:
+    def find_path(
+        data: tuple[int, tuple[str, str], tuple[str, str]]
+    ) -> Optional[tuple[int, str, str, list[str]]]:
         """
         It performs a query to find the paths between the given pair of items on Neo4j.
 
-        :param pair: tuple containing the ids on which the query has to be performed
+        :param data: tuple containing the ids on which the query has to be performed
         """
-        first_item, second_item = pair
+        queue_item_id, first_item, second_item = data
         first_item_asin, first_item_wiki_id = first_item
         second_item_asin, second_item_wiki_id = second_item
         try:
-            # check if the paths between these two items have been already computed
-            if (first_item_asin not in temp_dict or
-                    (first_item_asin in temp_dict and second_item_asin not in temp_dict[first_item_asin])):
-                # execute query
-                with driver.session() as session:
-                    paths = session.execute_read(execute_query, query, first_item_wiki_id, second_item_wiki_id)
-                save_paths(first_item_asin, second_item_asin, paths)
+            # execute query
+            with driver.session() as session:
+                paths = session.execute_read(
+                    execute_query, query, first_item_wiki_id, second_item_wiki_id
+                )
+                return queue_item_id, first_item_asin, second_item_asin, paths
         except Exception:
             print(traceback.format_exc())
-            logging.info("%s -/- %s -/- exception -/- 0" % (first_item_asin, second_item_asin))
+            logging.info(
+                "%s -/- %s -/- exception -/- 0" % (first_item_asin, second_item_asin)
+            )
 
     # computing total number of tasks
     total_tasks = compute_n_tasks(m_1, m_2)
-    # get pairs for which the paths have to be generated
-    pairs = get_pairs(m_1, m_2)
+    paths_database = PathsDatabase(db_file)
+
+    queue = Queue(os.path.splitext(db_file)[0] + "_queue.db")
+
+    if paths_database.check_db_empty(domain_pair_id):
+        # get pairs for which the paths have to be generated
+        pairs = get_pairs(m_1, m_2)
+        for (first_asin, first_wiki_id), (second_asin, second_wiki_id) in pairs:
+            queue.enqueue(
+                f"{first_asin},{first_wiki_id},{second_asin},{second_wiki_id}"
+            )
+
+    def dequeue_generator() -> Generator[tuple[int, tuple[str, str], tuple[str, str]]]:
+        n = queue.get_queue_size()
+        for i in range(n):
+            queue_item_id, queue_item = queue.dequeue()
+            parts = queue_item.split(",")
+            yield queue_item_id, (parts[0], parts[1]), (parts[2], parts[3])
+
     # use parallel computing to perform HTTP requests
     try:
-        ParallelTqdm(n_jobs=n_cores, prefer="threads", total_tasks=total_tasks)(
-            delayed(find_path)(pair) for pair in pairs)
+        results = ParallelTqdm(
+            n_jobs=n_cores,
+            prefer="threads",
+            total_tasks=total_tasks,
+            return_as="generator_unordered",
+        )(delayed(find_path)(pair) for pair in dequeue_generator())
+        for queue_item_id, first_item, second_item, paths in results:
+            save_paths(
+                first_item,
+                second_item,
+                paths,
+                queue_item_id,
+                paths_database,
+                domain_pair_id,
+            )
     except (KeyboardInterrupt, Exception):
         print(traceback.format_exc())
         update_file(file_handler, temp_dict, path_file)
@@ -131,7 +186,7 @@ def update_file(file_handler, temp_dict, path_file):
     # close the file handler
     file_handler.close()
     # create dictionary with new retrieved data
-    with open('./output.log', 'r') as file:
+    with open("./output.log", "r") as file:
         for line in file:
             split_line = line.split(" -/- ")
             id_1, id_2, msg, length = split_line
@@ -145,14 +200,18 @@ def update_file(file_handler, temp_dict, path_file):
             else:
                 if id_2 not in temp_dict[id_1]:
                     if msg not in ["no_paths", "exception"]:
-                        temp_dict[id_1][id_2] = [{"path_str": msg, "path_length": length}]
+                        temp_dict[id_1][id_2] = [
+                            {"path_str": msg, "path_length": length}
+                        ]
                     else:
                         temp_dict[id_1][id_2] = msg
                 else:
                     if isinstance(temp_dict[id_1][id_2], list):
-                        temp_dict[id_1][id_2].append({"path_str": msg, "path_length": length})
+                        temp_dict[id_1][id_2].append(
+                            {"path_str": msg, "path_length": length}
+                        )
     # save to file - if the file was already existing, it will be updated. If not, it will be created
-    with open(path_file, 'w', encoding='utf-8') as f:
+    with open(path_file, "w", encoding="utf-8") as f:
         json.dump(temp_dict, f, ensure_ascii=False, indent=4)
     # delete temporary log file
     os.remove("./output.log")
@@ -179,8 +238,10 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
             if i != max_hops - 1:
                 query += " UNION "
     else:
-        query = ("MATCH path=shortestPath(%s-[*1..%d]-%s) RETURN path, "
-                 "length(path) AS path_length") % (query_head, max_hops, query_tail)
+        query = (
+            "MATCH path=shortestPath(%s-[*1..%d]-%s) RETURN path, "
+            "length(path) AS path_length"
+        ) % (query_head, max_hops, query_tail)
     return query
 
 
@@ -197,15 +258,28 @@ def execute_query(tx, query, first_item, second_item):
     return [(record["path"], record["path_length"]) for record in result]
 
 
-def save_paths(first_item: str, second_item: str, paths: list) -> None:
+def save_paths(
+    first_item: str,
+    second_item: str,
+    paths: list,
+    queue_item_id: int,
+    paths_db: PathsDatabase,
+    queue: Queue,
+    domain_pair_id: str,
+) -> None:
     """
     This function logs the found paths.
 
     :param first_item: first item
     :param second_item: second item
     :param paths: list of found paths
+    :param queue_item_id: queue id
+    :param paths_db: paths database
+    :param queue: queue database
+    :param domain_pair_id: domain pair id
     """
     if paths:
+        path_strings = []
         for path in paths:
             nodes = list(path[0].nodes)
             relationships = list(path[0].relationships)
@@ -218,14 +292,23 @@ def save_paths(first_item: str, second_item: str, paths: list) -> None:
                 if i < len(relationships):
                     relationship = relationships[i]
                     # Assume the relationship has a 'label' attribute you want to display
-                    direction = "-->" if relationship.start_node.element_id == nodes[i].element_id else "<--"
+                    direction = (
+                        "-->"
+                        if relationship.start_node.element_id == nodes[i].element_id
+                        else "<--"
+                    )
                     path_str += f" {direction} {relationship['label']} ({relationship['wikidata_id']}) {direction}"
 
-            path_str = path_str.strip()
             # log the path
-            logging.info("%s -/- %s -/- %s -/- %d" % (first_item, second_item, path_str, path[1]))
+            # logging.info(
+            #     "%s -/- %s -/- %s -/- %d" % (first_item, second_item, path_str, path[1])
+            # )
+            path_strings.append(path_str.strip())
+        paths_db.insert_paths(first_item, second_item, path_strings, domain_pair_id)
     else:
-        logging.info("%s -/- %s -/- no_paths -/- 0" % (first_item, second_item))
+        # logging.info("%s -/- %s -/- no_paths -/- 0" % (first_item, second_item))
+        paths_db.insert_empty_path(first_item, second_item, domain_pair_id)
+    queue.remove_from_queue(queue_item_id)
 
 
 def compute_n_tasks(mapping_1: dict, mapping_2: dict = None) -> int:
@@ -264,11 +347,19 @@ def get_pairs(source_d: dict, target_d: dict) -> tuple:
     :return: pairs for which the paths have to be generated returned as a generator
     """
     if not isinstance(source_d, list):
-        source_d_ids = [(asin, data["wiki_id"]) for asin, data in source_d.items() if isinstance(source_d[asin], dict)]
+        source_d_ids = [
+            (asin, data["wiki_id"])
+            for asin, data in source_d.items()
+            if isinstance(source_d[asin], dict)
+        ]
     else:
         source_d_ids = source_d
     if not isinstance(target_d, list):
-        target_d_ids = [(asin, data["wiki_id"]) for asin, data in target_d.items() if isinstance(target_d[asin], dict)]
+        target_d_ids = [
+            (asin, data["wiki_id"])
+            for asin, data in target_d.items()
+            if isinstance(target_d[asin], dict)
+        ]
     else:
         target_d_ids = target_d
     return itertools.product(source_d_ids, target_d_ids)
