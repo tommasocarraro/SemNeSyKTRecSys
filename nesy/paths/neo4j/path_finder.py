@@ -1,12 +1,13 @@
 import itertools
 import json
-import logging
-import traceback
+from typing import Any, Callable
 
 from joblib import delayed
+from loguru import logger
 from neo4j import GraphDatabase, ManagedTransaction
 from neo4j.exceptions import ClientError, CypherSyntaxError
 
+from config import NEO4J_DBNAME, NEO4J_URI
 from nesy.utils import ParallelTqdm
 from .utils import (
     get_cold_start,
@@ -26,7 +27,7 @@ def neo4j_path_finder(
     popular: bool = False,
     cs_threshold: int = 5,
     pop_threshold: int = 50,
-    n_cores: int = 1,
+    n_threads: int = 1,
 ) -> None:
     """
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
@@ -40,87 +41,82 @@ def neo4j_path_finder(
     :param popular: whether to compute paths just for popular items in the source domain
     :param cs_threshold: threshold to select cold-start items
     :param pop_threshold: threshold to select popular items
-    :param n_cores: number of processors to be used to execute this function
+    :param n_threads: number of processors to be used to execute this function
     """
+
     # read mapping files
-    with open(mapping_file_1) as json_file:
-        m_1 = json.load(json_file)
-        if popular:
-            if "movies" in mapping_file_1:
-                path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
-            elif "music" in mapping_file_1:
-                path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
-            else:
-                path = "./data/processed/legacy/reviews_Books_5.csv"
-            stats = get_rating_stats(path, "item")
-            pop = get_popular(stats, pop_threshold)
-            m_1 = refine_popular_items(pop, mapping_file_1)
-    with open(mapping_file_2) as json_file:
-        m_2 = json.load(json_file)
-        if cold_start:
-            if "movies" in mapping_file_2:
-                path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
-            elif "music" in mapping_file_2:
-                path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
-            else:
-                path = "./data/processed/legacy/reviews_Books_5.csv"
-            stats = get_rating_stats(path, "item")
-            cs = get_cold_start(stats, cs_threshold)
-            m_2 = refine_cold_start_items(cs, mapping_file_2)
-    # create logger for logging everything to file in case the long executions are interrupted
-    # Configure the logger
-    logging.basicConfig(level=logging.INFO)  # Set the desired log level
-    # Remove all handlers to avoid printing on stdout
-    for handler in logging.getLogger().handlers[:]:
-        logging.getLogger().removeHandler(handler)
-    # Create a FileHandler to write log messages to a file
-    file_handler = logging.FileHandler("output.log")
-    # Add the file handler to the logger
-    logging.getLogger().addHandler(file_handler)
-    # Define connection details for Neo4j
-    uri = "bolt://localhost:7687"
-    # Initialize the driver
-    driver = GraphDatabase.driver(uri)
-    # create query template given the maximum number of hops
-    query = get_query(max_hops, shortest_path)
-
-    def find_path(pair: tuple) -> None:
-        """
-        It performs a query to find the paths between the given pair of items on Neo4j.
-
-        :param pair: tuple containing the ids on which the query has to be performed
-        """
-        first_item, second_item = pair
-        first_item_asin, first_item_wiki_id = first_item
-        second_item_asin, second_item_wiki_id = second_item
-        try:
-            # execute query
-            with driver.session() as session:
-                session.execute_write(
-                    execute_query, query, first_item_wiki_id, second_item_wiki_id
-                )
-        except (CypherSyntaxError, ClientError) as e:
-            print(e)
+    def get_mapping_path(mapping_file_name: str):
+        if "movies" in mapping_file_name:
+            file_path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
+        elif "music" in mapping_file_name:
+            file_path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
+        elif "books" in mapping_file_name:
+            file_path = "./data/processed/legacy/reviews_Books_5.csv"
+        else:
+            logger.error("Wrong mapping file name was supplied")
             exit(1)
-        except Exception:
-            print(traceback.format_exc())
-            logging.info(
-                "%s -/- %s -/- exception -/- 0" % (first_item_asin, second_item_asin)
-            )
+        return file_path
 
-    # computing total number of tasks
-    total_tasks = compute_n_tasks(m_1, m_2)
-    # get pairs for which the paths have to be generated
-    pairs = get_pairs(m_1, m_2)
-    # use parallel computing to perform queries
-    try:
-        ParallelTqdm(n_jobs=n_cores, prefer="threads", total_tasks=total_tasks)(
-            delayed(find_path)(pair) for pair in pairs
-        )
-    except (KeyboardInterrupt, Exception):
-        print(traceback.format_exc())
-        print("Interruption occurred! Path file has been saved!")
-        exit(0)
+    if popular:
+        path = get_mapping_path(mapping_file_1)
+        stats = get_rating_stats(path, "item")
+        pop = get_popular(stats, pop_threshold)
+        m_1 = refine_popular_items(pop, mapping_file_1)
+    else:
+        with open(mapping_file_1, "r") as json_file:
+            m_1 = json.load(json_file)
+
+    if cold_start:
+        path = get_mapping_path(mapping_file_2)
+        stats = get_rating_stats(path, "item")
+        cs = get_cold_start(stats, cs_threshold)
+        m_2 = refine_cold_start_items(cs, mapping_file_2)
+    else:
+        with open(mapping_file_2, "r") as json_file:
+            m_2 = json.load(json_file)
+
+    # Initialize the driver
+    with GraphDatabase.driver(NEO4J_URI, max_connection_pool_size=n_threads) as driver:
+        # create query template given the maximum number of hops
+        query = get_query(max_hops, shortest_path)
+
+        def find_path(pair: tuple) -> None:
+            """
+            It performs a query to find the paths between the given pair of items on Neo4j.
+
+            :param pair: tuple containing the ids on which the query has to be performed
+            """
+            first_item, second_item = pair
+            first_item_asin, first_item_wiki_id = first_item
+            second_item_asin, second_item_wiki_id = second_item
+            try:
+                # execute query
+                with driver.session(database=NEO4J_DBNAME) as session:
+                    session.execute_write(
+                        execute_query, query, first_item_wiki_id, second_item_wiki_id
+                    )
+            except (CypherSyntaxError, ClientError) as ex:
+                logger.error(ex)
+                exit(1)
+            except Exception as ex:
+                logger.error(ex)
+
+        # computing total number of tasks
+        total_tasks = compute_n_tasks(m_1, m_2)
+        # get pairs for which the paths have to be generated
+        pairs = get_pairs(m_1, m_2)
+        # use parallel computing to perform queries
+        try:
+            ParallelTqdm(n_jobs=n_threads, prefer="threads", total_tasks=total_tasks)(
+                delayed(find_path)(pair) for pair in pairs
+            )
+        except KeyboardInterrupt:
+            logger.info("Manual interrupt detected. Gracefully quitting")
+            driver.close()  # TODO: currently not graceful, needs work
+            exit(0)
+        except Exception as e:
+            logger.error(e)
+            exit(1)
 
 
 def get_query(max_hops: int, shortest_path: bool) -> str:
@@ -144,23 +140,42 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
             if i != max_hops - 1:
                 query += " UNION "
     else:
+        # this approach only works for shortest paths as it computes only a single path per pair
+        # first it checks if the special path already exists, if it doesn't then it is computed
+        # currently the path string is equal for both directions
         query = f"""
             OPTIONAL MATCH {query_head}-[r:SPECIAL_PATH]-{query_tail}
             WITH COUNT(r) > 0 AS pathExists
             
             WHERE pathExists = false
-            MATCH path = shortestPath({query_head}-[r:relation*1..{max_hops}]-{query_tail})
-            WITH path, length(path) AS pathLength, n1, n2,
-                 REDUCE(s = "", n IN nodes(path) | 
-                    s + 
-                    CASE 
-                        WHEN size(s) > 0 THEN " -> " 
-                        ELSE "" 
-                    END + 
-                    n.wikidata_id
-                 ) AS path_string
-            MERGE (n1)-[r1:SPECIAL_PATH {{path_length: pathLength, path_string: path_string}}]-(n2)
-            MERGE (n2)-[r2:SPECIAL_PATH {{path_length: pathLength, path_string: path_string}}]-(n1)
+            MATCH p=shortestPath({query_head}-[r:relation*1..{max_hops}]-{query_tail})
+            WITH p, n1, n2, 
+                [n IN nodes(p) | n] AS nodeList,
+                [r IN relationships(p) | r] AS relList
+            WITH p, n1, n2, nodeList, relList,
+                range(0, size(relList)-1) AS indexes
+            WITH p, n1, n2, reduce(s = "", i IN indexes |
+                s + 
+                case 
+                    when i = 0 
+                    then "(" + coalesce(nodeList[0].wikidata_id, "") + ")"
+                    else "" 
+                end +
+                case 
+                    when startNode(relList[i]) = nodeList[i] 
+                    then "-"
+                    else "<-"
+                end +
+                "[" + coalesce(relList[i].wikidata_id, "") + "]" +
+                case 
+                    when endNode(relList[i]) = nodeList[i+1] 
+                    then "->"
+                    else "-"
+                end +
+                "(" + coalesce(nodeList[i+1].wikidata_id, "") + ")"
+            ) AS pathString
+            CREATE (n1)-[r1:SPECIAL_PATH {{path_length: length(p), path_string: pathString}}]->(n2)
+            CREATE (n2)-[r2:SPECIAL_PATH {{path_length: length(p), path_string: pathString}}]->(n1)
             """
     return query
 
@@ -179,7 +194,9 @@ def execute_query(
     tx.run(query, first_item=first_item, second_item=second_item)  # type: ignore
 
 
-def compute_n_tasks(mapping_1: dict, mapping_2: dict = None) -> int:
+def compute_n_tasks(
+    mapping_1: list | dict[str, Any], mapping_2: list | dict[str, Any] = None
+) -> int:
     """
     This function computes the total number of pairs for which the paths have to be computed.
 
@@ -206,7 +223,7 @@ def compute_n_tasks(mapping_1: dict, mapping_2: dict = None) -> int:
         return matched_items_1
 
 
-def get_pairs(source_d: dict, target_d: dict):
+def get_pairs(source_d: list | dict[str, Any], target_d: list | dict[str, Any]):
     """
     This function computes the pairs for which the paths have to be generated and return a generator of pairs.
 
