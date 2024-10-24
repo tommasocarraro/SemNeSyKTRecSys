@@ -68,10 +68,12 @@ def process_source_target(seed, source, target, paths, implicit=True, source_val
     # get ids of non-shared users in source and target domains
     src_users = set(src_ratings["userId"]) - sh_users
     src_u_ids = [(i + len(sh_u_ids)) for i in range(len(src_users))]
-    src_u_string_to_id = dict(zip(src_users, src_u_ids)).update(sh_users_string_to_id)
+    src_u_string_to_id = dict(zip(src_users, src_u_ids))
+    src_u_string_to_id.update(sh_users_string_to_id)
     tgt_users = set(tgt_ratings["userId"]) - sh_users
     tgt_u_ids = [(i + len(sh_u_ids)) for i in range(len(tgt_users))]
-    tgt_u_string_to_id = dict(zip(tgt_users, tgt_u_ids)).update(sh_users_string_to_id)
+    tgt_u_string_to_id = dict(zip(tgt_users, tgt_u_ids))
+    tgt_u_string_to_id.update(sh_users_string_to_id)
     # get ids of items in source and target domain
     src_i_ids = src_ratings["itemId"].unique()
     int_src_i_ids = list(range(len(src_i_ids)))
@@ -80,12 +82,15 @@ def process_source_target(seed, source, target, paths, implicit=True, source_val
     int_tgt_i_ids = list(range(len(tgt_i_ids)))
     tgt_i_string_to_id = dict(zip(tgt_i_ids, int_tgt_i_ids))
     # apply the new indexing
-    src_ratings = src_ratings.replace(src_u_string_to_id).replace(src_i_string_to_id).reset_index(drop=True)
-    tgt_ratings = tgt_ratings.replace(tgt_u_string_to_id).replace(tgt_i_string_to_id).reset_index(drop=True)
+    src_ratings["userId"] = src_ratings["userId"].map(src_u_string_to_id)
+    src_ratings["itemId"] = src_ratings["itemId"].map(src_i_string_to_id)
+    tgt_ratings["userId"] = tgt_ratings["userId"].map(tgt_u_string_to_id)
+    tgt_ratings["itemId"] = tgt_ratings["itemId"].map(tgt_i_string_to_id)
+
     if implicit:
         # convert ratings to implicit feedback
-        src_ratings[src_ratings["rating"] >= 4] = 1
-        tgt_ratings[tgt_ratings["rating"] < 4] = 0
+        src_ratings["rating"] = (src_ratings["rating"] >= 4).astype(int)
+        tgt_ratings["rating"] = (tgt_ratings["rating"] >= 4).astype(int)
     # get number of users and items in source and target domains
     src_n_users = src_ratings["userId"].nunique()
     src_n_items = src_ratings["itemId"].nunique()
