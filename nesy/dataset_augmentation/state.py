@@ -1,2 +1,0 @@
-GRACEFUL_EXIT = False
-SET_SIM_THRESHOLD = False
