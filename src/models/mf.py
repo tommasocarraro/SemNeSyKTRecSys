@@ -1,5 +1,5 @@
 import torch
-from nesy.trainer import Trainer
+from src.trainer import Trainer
 
 
 class MatrixFactorization(torch.nn.Module):

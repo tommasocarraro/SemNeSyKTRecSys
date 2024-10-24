@@ -2,7 +2,7 @@ import torch
 import wandb
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix, accuracy_score
-from nesy.metrics import compute_metric, check_metrics
+from src.metrics import compute_metric, check_metrics
 
 
 class Trainer:
