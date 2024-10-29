@@ -1,16 +1,13 @@
 import json
 import pandas as pd
-from pandas import DataFrame
 from sklearn.model_selection import train_test_split as train_test_split_sklearn
 import numpy as np
 from scipy.sparse import csr_array
-import torch
-from joblib import Parallel, delayed
-from tqdm import tqdm
+from collections import defaultdict
 
 
 def train_test_split(
-    seed: float, ratings: DataFrame, frac: float = None, user_level=False
+    seed: float, ratings: np.array, frac: float = None, user_level=False
 ):
     """
     It splits the dataset into training and test sets.
@@ -26,25 +23,26 @@ def train_test_split(
     :return: train and test set dataframes
     """
     if user_level:
-        ratings_by_user = ratings.groupby(by=["userId"])
+        # Create a dictionary where each key is a user and the value is a list of indices for that user
+        user_indices = defaultdict(list)
+        for idx, user_id in enumerate(ratings[:, 0]):
+            user_indices[user_id].append(idx)
 
-        test_ids = Parallel(n_jobs=-1, backend="loky")(
-            delayed(lambda user: user.sample(frac=frac, random_state=seed))(user)
-            for _, user in tqdm(
-                ratings_by_user, desc="Sampling test IDs...", dynamic_ncols=True
-            )
-        )
+        # For each user, randomly sample 20% of the indices
+        test_indices = []
+        for user_id, indices in user_indices.items():
+            sample_size = max(1, int(len(indices) * 0.2))  # Ensure at least 1 rating per user
+            sampled_indices = np.random.choice(indices, size=sample_size, replace=False)
+            test_indices.extend(sampled_indices)
 
-        test_ids = test_ids.index.get_level_values(1)
-        train_ids = np.setdiff1d(ratings.index.values, test_ids)
-        train_set = ratings.iloc[train_ids].reset_index(drop=True)
-        test_set = ratings.iloc[test_ids].reset_index(drop=True)
+        # Create test set and training set based on the sampled indices
+        test_set = ratings[test_indices]
+        train_set = np.delete(ratings, test_indices, axis=0)
         return train_set, test_set
     else:
         # we use scikit-learn train-test split
-        # TODO sentiment is not a column in this dataset
         return train_test_split_sklearn(
-            ratings, random_state=seed, stratify=ratings["sentiment"], test_size=frac
+            ratings, random_state=seed, stratify=ratings[:, -1], test_size=frac
         )
 
 
@@ -131,12 +129,12 @@ def process_source_target(
 
     # create train and validation set for source domain dataset
     src_tr, src_val = train_test_split(
-        seed, src_ratings, frac=source_val_size, user_level=source_user_level_split
+        seed, src_ratings.to_numpy(), frac=source_val_size, user_level=source_user_level_split
     )
 
     # create train, validation and test set for target domain dataset
     tgt_tr, tgt_te = train_test_split(
-        seed, tgt_ratings, frac=target_test_size, user_level=target_user_level_split
+        seed, tgt_ratings.to_numpy(), frac=target_test_size, user_level=target_user_level_split
     )
     tgt_tr_small, tgt_val = train_test_split(
         seed, tgt_tr, frac=target_val_size, user_level=target_user_level_split
@@ -147,7 +145,7 @@ def process_source_target(
         paths_file_path = json.load(json_paths)
     available_path_pairs = np.array(
         [
-            (src_asin, tgt_asin)
+            (src_i_string_to_id[src_asin], tgt_i_string_to_id[tgt_asin])
             for src_asin, tgt_asins in paths_file_path.items()
             for tgt_asin, _ in tgt_asins.items()
         ]
@@ -167,11 +165,11 @@ def process_source_target(
         "src_n_items": src_n_items,
         "tgt_n_users": tgt_n_users,
         "tgt_n_items": tgt_n_items,
-        "src_tr": src_tr.to_numpy(),
-        "src_val": src_val.to_numpy(),
-        "tgt_tr": tgt_tr.to_numpy(),
-        "tgt_tr_small": tgt_tr_small.to_numpy(),
-        "tgt_val": tgt_val.to_numpy(),
-        "tgt_te": tgt_te.to_numpy(),
-        "sim_matrix": torch.tensor(sim_matrix.toarray()),
+        "src_tr": src_tr,
+        "src_val": src_val,
+        "tgt_tr": tgt_tr,
+        "tgt_tr_small": tgt_tr_small,
+        "tgt_val": tgt_val,
+        "tgt_te": tgt_te,
+        "sim_matrix": sim_matrix,
     }
