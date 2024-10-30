@@ -1,13 +1,13 @@
 import itertools
 import json
-from typing import Any, Callable
+from typing import Any
 
 from joblib import delayed
 from loguru import logger
 from neo4j import GraphDatabase, ManagedTransaction
 from neo4j.exceptions import ClientError, CypherSyntaxError
 
-from config import NEO4J_DBNAME, NEO4J_URI
+from config import NEO4J_DBNAME, NEO4J_URI, NEO4J_USER, NEO4J_PASS
 from nesy.utils import ParallelTqdm
 from .utils import (
     get_cold_start,
@@ -57,6 +57,17 @@ def neo4j_path_finder(
             exit(1)
         return file_path
 
+    def get_mapping_domain(mapping_file_name: str):
+        if "movies" in mapping_file_name:
+            return "'movies'"
+        elif "music" in mapping_file_name:
+            return "'music'"
+        elif "books" in mapping_file_name:
+            return "'books'"
+        else:
+            logger.error("Wrong mapping file name was supplied")
+            exit(1)
+
     if popular:
         path = get_mapping_path(mapping_file_1)
         stats = get_rating_stats(path, "item")
@@ -75,10 +86,15 @@ def neo4j_path_finder(
         with open(mapping_file_2, "r") as json_file:
             m_2 = json.load(json_file)
 
+    source_domain = get_mapping_domain(mapping_file_1)
+    target_domain = get_mapping_domain(mapping_file_2)
+
     # Initialize the driver
-    with GraphDatabase.driver(NEO4J_URI, max_connection_pool_size=n_threads) as driver:
+    with GraphDatabase.driver(
+        NEO4J_URI, max_connection_pool_size=n_threads, auth=(NEO4J_USER, NEO4J_PASS)
+    ) as driver:
         # create query template given the maximum number of hops
-        query = get_query(max_hops, shortest_path)
+        query = get_query(max_hops, shortest_path, source_domain, target_domain)
 
         def find_path(pair: tuple) -> None:
             """
@@ -119,12 +135,16 @@ def neo4j_path_finder(
             exit(1)
 
 
-def get_query(max_hops: int, shortest_path: bool) -> str:
+def get_query(
+    max_hops: int, shortest_path: bool, source_domain: str, target_domain: str
+) -> str:
     """
     This function creates the query for Neo4j based on the given number of hops.
 
     :param max_hops: max number of hops allowed for the path
     :param shortest_path: whether to configure the query to find just the shortest path or not
+    :param source_domain: source domain name
+    :param target_domain: target domain name
     :return: the query to be executed
     """
     query_head = "(n1:entity {wikidata_id: $first_item})"
@@ -142,19 +162,18 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
     else:
         # this approach only works for shortest paths as it computes only a single path per pair
         # first it checks if the special path already exists, if it doesn't then it is computed
-        # currently the path string is equal for both directions
         query = f"""
-            OPTIONAL MATCH {query_head}-[r:SPECIAL_PATH]-{query_tail}
-            WITH COUNT(r) > 0 AS pathExists
+            MATCH (n1:entity {{wikidata_id: $first_item}})
+            MATCH (n2:entity {{wikidata_id: $second_item}})
+            
+            WITH n1, n2
+            OPTIONAL MATCH (n1)-[r:precomputed]-(n2)
+            WITH n1, n2, COUNT(r) > 0 AS pathExists
             
             WHERE pathExists = false
-            MATCH p=shortestPath({query_head}-[r:relation*1..{max_hops}]-{query_tail})
-            WITH p, n1, n2, 
-                [n IN nodes(p) | n] AS nodeList,
-                [r IN relationships(p) | r] AS relList
-            WITH p, n1, n2, nodeList, relList,
-                range(0, size(relList)-1) AS indexes
-            WITH p, n1, n2, reduce(s = "", i IN indexes |
+            MATCH p=shortestPath((n1)-[r:relation*1..{max_hops}]-(n2))
+            WITH n1, n2, length(p) AS pathLength, [n IN nodes(p) | n] AS nodeList, [r IN relationships(p) | r] AS relList
+            WITH n1, n2, pathLength, reduce(s = "", i IN range(0, size(relList)-1) |
                 s + 
                 case 
                     when i = 0 
@@ -174,8 +193,7 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
                 end +
                 "(" + coalesce(nodeList[i+1].wikidata_id, "") + ")"
             ) AS pathString
-            CREATE (n1)-[r1:SPECIAL_PATH {{path_length: length(p), path_string: pathString}}]->(n2)
-            CREATE (n2)-[r2:SPECIAL_PATH {{path_length: length(p), path_string: pathString}}]->(n1)
+            CREATE (n1)-[r1:precomputed {{path_length: pathLength, path_string: pathString, source_domain: {source_domain}, target_domain: {target_domain}}}]->(n2)
             """
     return query
 
