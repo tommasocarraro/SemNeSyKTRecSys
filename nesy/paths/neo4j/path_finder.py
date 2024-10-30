@@ -5,7 +5,7 @@ from typing import Any
 from joblib import delayed
 from loguru import logger
 from neo4j import GraphDatabase, ManagedTransaction
-from neo4j.exceptions import ClientError, CypherSyntaxError
+from neo4j.exceptions import ClientError, CypherSyntaxError, DriverError, Neo4jError
 
 from config import NEO4J_DBNAME, NEO4J_URI, NEO4J_USER, NEO4J_PASS
 from nesy.utils import ParallelTqdm
@@ -93,6 +93,12 @@ def neo4j_path_finder(
     with GraphDatabase.driver(
         NEO4J_URI, max_connection_pool_size=n_threads, auth=(NEO4J_USER, NEO4J_PASS)
     ) as driver:
+        try:
+            driver.verify_connectivity()
+        except DriverError as e:
+            logger.error(e)
+            exit(1)
+
         # create query template given the maximum number of hops
         query = get_query(max_hops, shortest_path, source_domain, target_domain)
 
@@ -111,11 +117,9 @@ def neo4j_path_finder(
                     session.execute_write(
                         execute_query, query, first_item_wiki_id, second_item_wiki_id
                     )
-            except (CypherSyntaxError, ClientError) as ex:
+            except (Neo4jError, DriverError) as ex:
                 logger.error(ex)
                 exit(1)
-            except Exception as ex:
-                logger.error(ex)
 
         # computing total number of tasks
         total_tasks = compute_n_tasks(m_1, m_2)
