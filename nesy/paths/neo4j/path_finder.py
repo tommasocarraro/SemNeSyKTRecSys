@@ -5,7 +5,7 @@ from typing import Any
 from joblib import delayed
 from loguru import logger
 from neo4j import GraphDatabase, ManagedTransaction
-from neo4j.exceptions import ClientError, CypherSyntaxError, DriverError, Neo4jError
+from neo4j.exceptions import DriverError, Neo4jError
 
 from config import NEO4J_DBNAME, NEO4J_URI, NEO4J_USER, NEO4J_PASS
 from nesy.utils import ParallelTqdm
@@ -91,7 +91,10 @@ def neo4j_path_finder(
 
     # Initialize the driver
     with GraphDatabase.driver(
-        NEO4J_URI, max_connection_pool_size=n_threads, auth=(NEO4J_USER, NEO4J_PASS)
+        NEO4J_URI,
+        max_connection_pool_size=n_threads,
+        auth=(NEO4J_USER, NEO4J_PASS),
+        database="neo4j",
     ) as driver:
         try:
             driver.verify_connectivity()
@@ -102,24 +105,15 @@ def neo4j_path_finder(
         # create query template given the maximum number of hops
         query = get_query(max_hops, shortest_path, source_domain, target_domain)
 
-        def find_path(pair: tuple) -> None:
+        def find_path(first_item: str, second_item: str) -> None:
             """
             It performs a query to find the paths between the given pair of items on Neo4j.
 
-            :param pair: tuple containing the ids on which the query has to be performed
+            :param first_item: wikidata id of the first item
+            :param second_item: wikidata id of the second item
             """
-            first_item, second_item = pair
-            first_item_asin, first_item_wiki_id = first_item
-            second_item_asin, second_item_wiki_id = second_item
-            try:
-                # execute query
-                with driver.session(database=NEO4J_DBNAME) as session:
-                    session.execute_write(
-                        execute_query, query, first_item_wiki_id, second_item_wiki_id
-                    )
-            except (Neo4jError, DriverError) as ex:
-                logger.error(ex)
-                exit(1)
+            with driver.session(database=NEO4J_DBNAME) as session:
+                session.execute_write(execute_query, query, first_item, second_item)
 
         # computing total number of tasks
         total_tasks = compute_n_tasks(m_1, m_2)
@@ -128,13 +122,14 @@ def neo4j_path_finder(
         # use parallel computing to perform queries
         try:
             ParallelTqdm(n_jobs=n_threads, prefer="threads", total_tasks=total_tasks)(
-                delayed(find_path)(pair) for pair in pairs
+                delayed(find_path)(first_item, second_item)
+                for ((_, first_item), (_, second_item)) in pairs
             )
         except KeyboardInterrupt:
             logger.info("Manual interrupt detected. Gracefully quitting")
             driver.close()  # TODO: currently not graceful, needs work
             exit(0)
-        except Exception as e:
+        except (DriverError, Neo4jError) as e:
             logger.error(e)
             exit(1)
 
