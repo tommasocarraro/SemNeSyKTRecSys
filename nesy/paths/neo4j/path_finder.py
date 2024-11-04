@@ -1,4 +1,5 @@
 from itertools import product
+from typing import Callable
 
 import orjson
 from joblib import delayed
@@ -43,50 +44,23 @@ def neo4j_path_finder(
     :param n_threads: number of processors to be used to execute this function
     """
 
-    # read mapping files
-    def get_mapping_path(mapping_file_name: str):
-        if "movies" in mapping_file_name:
-            file_path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
-        elif "music" in mapping_file_name:
-            file_path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
-        elif "books" in mapping_file_name:
-            file_path = "./data/processed/legacy/reviews_Books_5.csv"
-        else:
-            logger.error("Wrong mapping file name was supplied")
-            exit(1)
-        return file_path
-
-    def get_mapping_domain(mapping_file_name: str):
-        if "movies" in mapping_file_name:
-            return "'movies'"
-        elif "music" in mapping_file_name:
-            return "'music'"
-        elif "books" in mapping_file_name:
-            return "'books'"
-        else:
-            logger.error("Wrong mapping file name was supplied")
-            exit(1)
-
-    if popular:
-        path = get_mapping_path(mapping_file_1)
+    def transform_source(path):
         stats = get_rating_stats(path, "item")
         pop = get_popular(stats, pop_threshold)
-        m_1 = refine_popular_items(pop, mapping_file_1)
-    else:
-        with open(mapping_file_1, "rb") as json_file:
-            m_1 = orjson.loads(json_file.read())
+        return refine_popular_items(pop, mapping_file_1)
 
-    if cold_start:
-        path = get_mapping_path(mapping_file_2)
+    def transform_target(path):
         stats = get_rating_stats(path, "item")
         cs = get_cold_start(stats, cs_threshold)
-        m_2 = refine_cold_start_items(cs, mapping_file_2)
-    else:
-        with open(mapping_file_2, "rb") as json_file:
-            m_2 = orjson.loads(json_file.read())
+        return refine_cold_start_items(cs, mapping_file_2)
 
-    source_domain = get_mapping_domain(mapping_file_1)
-    target_domain = get_mapping_domain(mapping_file_2)
+    m_1, source_domain = load_or_transform_mapping(
+        mapping_file_1, transform_source if popular else None
+    )
+
+    m_2, target_domain = load_or_transform_mapping(
+        mapping_file_2, transform_target if cold_start else None
+    )
 
     # Initialize the driver
     with GraphDatabase.driver(
@@ -134,6 +108,29 @@ def neo4j_path_finder(
         except (DriverError, Neo4jError) as e:
             logger.error(e)
             exit(1)
+
+
+def load_or_transform_mapping(mapping_file_name: str, transform: Callable | None):
+    if "movies" in mapping_file_name:
+        file_path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
+        domain = "'movies'"
+    elif "music" in mapping_file_name:
+        file_path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
+        domain = "'music'"
+    elif "books" in mapping_file_name:
+        file_path = "./data/processed/legacy/reviews_Books_5.csv"
+        domain = "'books'"
+    else:
+        logger.error("Wrong mapping file name was supplied")
+        exit(1)
+
+    if transform is None:
+        with open(mapping_file_name, "rb") as mapping_file:
+            mapping = orjson.loads(mapping_file.read())
+    else:
+        mapping = transform(file_path)
+
+    return mapping, domain
 
 
 def get_query(
