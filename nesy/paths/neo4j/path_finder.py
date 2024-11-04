@@ -1,13 +1,12 @@
-import itertools
-import json
-from typing import Any
+from itertools import product
 
+import orjson
 from joblib import delayed
 from loguru import logger
-from neo4j import GraphDatabase, ManagedTransaction
+from neo4j import GraphDatabase
 from neo4j.exceptions import DriverError, Neo4jError
 
-from config import NEO4J_DBNAME, NEO4J_URI, NEO4J_USER, NEO4J_PASS
+from config import NEO4J_DBNAME, NEO4J_PASS, NEO4J_URI, NEO4J_USER
 from nesy.utils import ParallelTqdm
 from .utils import (
     get_cold_start,
@@ -74,8 +73,8 @@ def neo4j_path_finder(
         pop = get_popular(stats, pop_threshold)
         m_1 = refine_popular_items(pop, mapping_file_1)
     else:
-        with open(mapping_file_1, "r") as json_file:
-            m_1 = json.load(json_file)
+        with open(mapping_file_1, "rb") as json_file:
+            m_1 = orjson.loads(json_file.read())
 
     if cold_start:
         path = get_mapping_path(mapping_file_2)
@@ -83,8 +82,8 @@ def neo4j_path_finder(
         cs = get_cold_start(stats, cs_threshold)
         m_2 = refine_cold_start_items(cs, mapping_file_2)
     else:
-        with open(mapping_file_2, "r") as json_file:
-            m_2 = json.load(json_file)
+        with open(mapping_file_2, "rb") as json_file:
+            m_2 = orjson.loads(json_file.read())
 
     source_domain = get_mapping_domain(mapping_file_1)
     target_domain = get_mapping_domain(mapping_file_2)
@@ -94,7 +93,7 @@ def neo4j_path_finder(
         NEO4J_URI,
         max_connection_pool_size=n_threads,
         auth=(NEO4J_USER, NEO4J_PASS),
-        database="neo4j",
+        database=NEO4J_DBNAME,
     ) as driver:
         try:
             driver.verify_connectivity()
@@ -113,17 +112,20 @@ def neo4j_path_finder(
             :param second_item: wikidata id of the second item
             """
             with driver.session(database=NEO4J_DBNAME) as session:
-                session.execute_write(execute_query, query, first_item, second_item)
+                session.execute_write(
+                    lambda tx: tx.run(
+                        query, first_item=first_item, second_item=second_item
+                    )
+                )
 
-        # computing total number of tasks
-        total_tasks = compute_n_tasks(m_1, m_2)
         # get pairs for which the paths have to be generated
-        pairs = get_pairs(m_1, m_2)
+        pairs = product(m_1, m_2)
+        n_pairs = len(m_1) * len(m_2)
         # use parallel computing to perform queries
         try:
-            ParallelTqdm(n_jobs=n_threads, prefer="threads", total_tasks=total_tasks)(
+            ParallelTqdm(n_jobs=n_threads, prefer="threads", total_tasks=n_pairs)(
                 delayed(find_path)(first_item, second_item)
-                for ((_, first_item), (_, second_item)) in pairs
+                for (first_item, second_item) in pairs
             )
         except KeyboardInterrupt:
             logger.info("Manual interrupt detected. Gracefully quitting")
@@ -195,73 +197,3 @@ def get_query(
             CREATE (n1)-[r1:precomputed {{path_length: pathLength, path_string: pathString, source_domain: {source_domain}, target_domain: {target_domain}}}]->(n2)
             """
     return query
-
-
-def execute_query(
-    tx: ManagedTransaction, query: str, first_item: str, second_item: str
-):
-    """
-    This function executes the given query on Neo4j.
-    :param tx:
-    :param query: the query to be executed
-    :param first_item: first query parameter value
-    :param second_item: second query parameter value
-    :return: the results of the query
-    """
-    tx.run(query, first_item=first_item, second_item=second_item)  # type: ignore
-
-
-def compute_n_tasks(
-    mapping_1: list | dict[str, Any], mapping_2: list | dict[str, Any] = None
-) -> int:
-    """
-    This function computes the total number of pairs for which the paths have to be computed.
-
-    :param mapping_1: dictionary containing the mapping between Amazon and wikidata in the source domain
-    :param mapping_2: dictionary containing the mapping between Amazon and wikidata in the target domain
-    :return: number of pairs for which the paths have to be computed
-    """
-    matched_items_1, matched_items_2 = 0, 0
-    if isinstance(mapping_1, list):
-        matched_items_1 = len(mapping_1)
-    else:
-        for item in mapping_1:
-            if isinstance(mapping_1[item], dict):
-                matched_items_1 += 1
-    if mapping_2 is not None:
-        if isinstance(mapping_2, list):
-            matched_items_2 = len(mapping_2)
-        else:
-            for item in mapping_2:
-                if isinstance(mapping_2[item], dict):
-                    matched_items_2 += 1
-        return matched_items_1 * matched_items_2
-    else:
-        return matched_items_1
-
-
-def get_pairs(source_d: list | dict[str, Any], target_d: list | dict[str, Any]):
-    """
-    This function computes the pairs for which the paths have to be generated and return a generator of pairs.
-
-    :param source_d: source domain dict
-    :param target_d: target domain dict
-    :return: pairs for which the paths have to be generated returned as a generator
-    """
-    if not isinstance(source_d, list):
-        source_d_ids = [
-            (asin, data["wiki_id"])
-            for asin, data in source_d.items()
-            if isinstance(source_d[asin], dict)
-        ]
-    else:
-        source_d_ids = source_d
-    if not isinstance(target_d, list):
-        target_d_ids = [
-            (asin, data["wiki_id"])
-            for asin, data in target_d.items()
-            if isinstance(target_d[asin], dict)
-        ]
-    else:
-        target_d_ids = target_d
-    return itertools.product(source_d_ids, target_d_ids)
