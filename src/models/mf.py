@@ -72,7 +72,7 @@ class MFTrainer(Trainer):
 
     def train_epoch(self, train_loader, epoch=None):
         train_loss = 0.0
-        for batch_idx, (u_i_pairs, ratings) in tqdm(enumerate(train_loader)):
+        for batch_idx, (u_i_pairs, ratings) in enumerate(tqdm(train_loader)):
             self.optimizer.zero_grad()
             loss = self.loss(self.model(u_i_pairs[:, 0], u_i_pairs[:, 1]), ratings)
             train_loss += loss.item()

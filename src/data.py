@@ -1,4 +1,6 @@
 import json
+import os
+
 import pandas as pd
 from sklearn.model_selection import train_test_split as train_test_split_sklearn
 import numpy as np
@@ -57,6 +59,7 @@ def process_source_target(
     target_val_size=0.1,
     target_test_size=0.2,
     target_user_level_split=True,
+    save_path=None,
 ):
     """
     This function processes the cross-domain dataset and prepares it for the experiment. In particular, it executes
@@ -76,7 +79,10 @@ def process_source_target(
     :param target_val_size: size of validation set for target domain dataset
     :param target_test_size: size of test set for target domain dataset
     :param target_user_level_split: whether the split for the target dataset has to be done at the user level or not
+    :param save_path: path where to save the dataset. None if the dataset has no to be saved on disk.
     """
+    if os.path.exists(save_path):
+        return np.load(save_path, allow_pickle=True).item()
     # get source and target ratings
     src_ratings = pd.read_csv(
         source_dataset_path, usecols=["userId", "itemId", "rating"]
@@ -160,7 +166,7 @@ def process_source_target(
         shape=(src_n_items, tgt_n_items),
     )
 
-    return {
+    dataset = {
         "src_n_users": src_n_users,
         "src_n_items": src_n_items,
         "tgt_n_users": tgt_n_users,
@@ -173,3 +179,11 @@ def process_source_target(
         "tgt_te": tgt_te,
         "sim_matrix": sim_matrix,
     }
+
+    if save_path is not None:
+        directory = os.path.dirname(save_path)
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        np.save(save_path, dataset)
+
+    return dataset
