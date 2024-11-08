@@ -87,6 +87,7 @@ class ParallelTqdm(Parallel):
                 total=self.total_tasks,
                 disable=self.disable_progressbar,
                 unit="tasks",
+                dynamic_ncols=True,
             )
         # call parent function
         return super().dispatch_one_batch(iterator)

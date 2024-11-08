@@ -1,13 +1,13 @@
-import itertools
-import json
-from typing import Any, Callable
+from itertools import product
+from typing import Callable
 
+import orjson
 from joblib import delayed
 from loguru import logger
-from neo4j import GraphDatabase, ManagedTransaction
-from neo4j.exceptions import ClientError, CypherSyntaxError
+from neo4j import GraphDatabase
+from neo4j.exceptions import DriverError, Neo4jError
 
-from config import NEO4J_DBNAME, NEO4J_URI
+from config import NEO4J_DBNAME, NEO4J_PASS, NEO4J_URI, NEO4J_USER
 from nesy.utils import ParallelTqdm
 from .utils import (
     get_cold_start,
@@ -44,87 +44,105 @@ def neo4j_path_finder(
     :param n_threads: number of processors to be used to execute this function
     """
 
-    # read mapping files
-    def get_mapping_path(mapping_file_name: str):
-        if "movies" in mapping_file_name:
-            file_path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
-        elif "music" in mapping_file_name:
-            file_path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
-        elif "books" in mapping_file_name:
-            file_path = "./data/processed/legacy/reviews_Books_5.csv"
-        else:
-            logger.error("Wrong mapping file name was supplied")
-            exit(1)
-        return file_path
-
-    if popular:
-        path = get_mapping_path(mapping_file_1)
+    def transform_source(path):
         stats = get_rating_stats(path, "item")
         pop = get_popular(stats, pop_threshold)
-        m_1 = refine_popular_items(pop, mapping_file_1)
-    else:
-        with open(mapping_file_1, "r") as json_file:
-            m_1 = json.load(json_file)
+        return refine_popular_items(pop, mapping_file_1)
 
-    if cold_start:
-        path = get_mapping_path(mapping_file_2)
+    def transform_target(path):
         stats = get_rating_stats(path, "item")
         cs = get_cold_start(stats, cs_threshold)
-        m_2 = refine_cold_start_items(cs, mapping_file_2)
-    else:
-        with open(mapping_file_2, "r") as json_file:
-            m_2 = json.load(json_file)
+        return refine_cold_start_items(cs, mapping_file_2)
+
+    m_1, source_domain = load_or_transform_mapping(
+        mapping_file_1, transform_source if popular else None
+    )
+
+    m_2, target_domain = load_or_transform_mapping(
+        mapping_file_2, transform_target if cold_start else None
+    )
 
     # Initialize the driver
-    with GraphDatabase.driver(NEO4J_URI, max_connection_pool_size=n_threads) as driver:
-        # create query template given the maximum number of hops
-        query = get_query(max_hops, shortest_path)
+    with GraphDatabase.driver(
+        NEO4J_URI,
+        max_connection_pool_size=n_threads,
+        auth=(NEO4J_USER, NEO4J_PASS),
+        database=NEO4J_DBNAME,
+    ) as driver:
+        try:
+            driver.verify_connectivity()
+        except DriverError as e:
+            logger.error(e)
+            exit(1)
 
-        def find_path(pair: tuple) -> None:
+        # create query template given the maximum number of hops
+        query = get_query(max_hops, shortest_path, source_domain, target_domain)
+
+        def find_path(first_item: str, second_item: str) -> None:
             """
             It performs a query to find the paths between the given pair of items on Neo4j.
 
-            :param pair: tuple containing the ids on which the query has to be performed
+            :param first_item: wikidata id of the first item
+            :param second_item: wikidata id of the second item
             """
-            first_item, second_item = pair
-            first_item_asin, first_item_wiki_id = first_item
-            second_item_asin, second_item_wiki_id = second_item
-            try:
-                # execute query
-                with driver.session(database=NEO4J_DBNAME) as session:
-                    session.execute_write(
-                        execute_query, query, first_item_wiki_id, second_item_wiki_id
+            with driver.session(database=NEO4J_DBNAME) as session:
+                session.execute_write(
+                    lambda tx: tx.run(
+                        query, first_item=first_item, second_item=second_item
                     )
-            except (CypherSyntaxError, ClientError) as ex:
-                logger.error(ex)
-                exit(1)
-            except Exception as ex:
-                logger.error(ex)
+                )
 
-        # computing total number of tasks
-        total_tasks = compute_n_tasks(m_1, m_2)
         # get pairs for which the paths have to be generated
-        pairs = get_pairs(m_1, m_2)
+        pairs = product(m_1, m_2)
+        n_pairs = len(m_1) * len(m_2)
         # use parallel computing to perform queries
         try:
-            ParallelTqdm(n_jobs=n_threads, prefer="threads", total_tasks=total_tasks)(
-                delayed(find_path)(pair) for pair in pairs
+            ParallelTqdm(n_jobs=n_threads, prefer="threads", total_tasks=n_pairs)(
+                delayed(find_path)(first_item, second_item)
+                for (first_item, second_item) in pairs
             )
         except KeyboardInterrupt:
             logger.info("Manual interrupt detected. Gracefully quitting")
             driver.close()  # TODO: currently not graceful, needs work
             exit(0)
-        except Exception as e:
+        except (DriverError, Neo4jError) as e:
             logger.error(e)
             exit(1)
 
 
-def get_query(max_hops: int, shortest_path: bool) -> str:
+def load_or_transform_mapping(mapping_file_name: str, transform: Callable | None):
+    if "movies" in mapping_file_name:
+        file_path = "./data/processed/legacy/reviews_Movies_and_TV_5.csv"
+        domain = "'movies'"
+    elif "music" in mapping_file_name:
+        file_path = "./data/processed/legacy/reviews_CDs_and_Vinyl_5.csv"
+        domain = "'music'"
+    elif "books" in mapping_file_name:
+        file_path = "./data/processed/legacy/reviews_Books_5.csv"
+        domain = "'books'"
+    else:
+        logger.error("Wrong mapping file name was supplied")
+        exit(1)
+
+    if transform is None:
+        with open(mapping_file_name, "rb") as mapping_file:
+            mapping = orjson.loads(mapping_file.read())
+    else:
+        mapping = transform(file_path)
+
+    return mapping, domain
+
+
+def get_query(
+    max_hops: int, shortest_path: bool, source_domain: str, target_domain: str
+) -> str:
     """
     This function creates the query for Neo4j based on the given number of hops.
 
     :param max_hops: max number of hops allowed for the path
     :param shortest_path: whether to configure the query to find just the shortest path or not
+    :param source_domain: source domain name
+    :param target_domain: target domain name
     :return: the query to be executed
     """
     query_head = "(n1:entity {wikidata_id: $first_item})"
@@ -142,19 +160,18 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
     else:
         # this approach only works for shortest paths as it computes only a single path per pair
         # first it checks if the special path already exists, if it doesn't then it is computed
-        # currently the path string is equal for both directions
         query = f"""
-            OPTIONAL MATCH {query_head}-[r:SPECIAL_PATH]-{query_tail}
-            WITH COUNT(r) > 0 AS pathExists
+            MATCH (n1:entity {{wikidata_id: $first_item}})
+            MATCH (n2:entity {{wikidata_id: $second_item}})
+            
+            WITH n1, n2
+            OPTIONAL MATCH (n1)-[r:precomputed]-(n2)
+            WITH n1, n2, COUNT(r) > 0 AS pathExists
             
             WHERE pathExists = false
-            MATCH p=shortestPath({query_head}-[r:relation*1..{max_hops}]-{query_tail})
-            WITH p, n1, n2, 
-                [n IN nodes(p) | n] AS nodeList,
-                [r IN relationships(p) | r] AS relList
-            WITH p, n1, n2, nodeList, relList,
-                range(0, size(relList)-1) AS indexes
-            WITH p, n1, n2, reduce(s = "", i IN indexes |
+            MATCH p=shortestPath((n1)-[r:relation*1..{max_hops}]-(n2))
+            WITH n1, n2, length(p) AS pathLength, [n IN nodes(p) | n] AS nodeList, [r IN relationships(p) | r] AS relList
+            WITH n1, n2, pathLength, reduce(s = "", i IN range(0, size(relList)-1) |
                 s + 
                 case 
                     when i = 0 
@@ -174,77 +191,6 @@ def get_query(max_hops: int, shortest_path: bool) -> str:
                 end +
                 "(" + coalesce(nodeList[i+1].wikidata_id, "") + ")"
             ) AS pathString
-            CREATE (n1)-[r1:SPECIAL_PATH {{path_length: length(p), path_string: pathString}}]->(n2)
-            CREATE (n2)-[r2:SPECIAL_PATH {{path_length: length(p), path_string: pathString}}]->(n1)
+            CREATE (n1)-[r1:precomputed {{path_length: pathLength, path_string: pathString, source_domain: {source_domain}, target_domain: {target_domain}}}]->(n2)
             """
     return query
-
-
-def execute_query(
-    tx: ManagedTransaction, query: str, first_item: str, second_item: str
-):
-    """
-    This function executes the given query on Neo4j.
-    :param tx:
-    :param query: the query to be executed
-    :param first_item: first query parameter value
-    :param second_item: second query parameter value
-    :return: the results of the query
-    """
-    tx.run(query, first_item=first_item, second_item=second_item)  # type: ignore
-
-
-def compute_n_tasks(
-    mapping_1: list | dict[str, Any], mapping_2: list | dict[str, Any] = None
-) -> int:
-    """
-    This function computes the total number of pairs for which the paths have to be computed.
-
-    :param mapping_1: dictionary containing the mapping between Amazon and wikidata in the source domain
-    :param mapping_2: dictionary containing the mapping between Amazon and wikidata in the target domain
-    :return: number of pairs for which the paths have to be computed
-    """
-    matched_items_1, matched_items_2 = 0, 0
-    if isinstance(mapping_1, list):
-        matched_items_1 = len(mapping_1)
-    else:
-        for item in mapping_1:
-            if isinstance(mapping_1[item], dict):
-                matched_items_1 += 1
-    if mapping_2 is not None:
-        if isinstance(mapping_2, list):
-            matched_items_2 = len(mapping_2)
-        else:
-            for item in mapping_2:
-                if isinstance(mapping_2[item], dict):
-                    matched_items_2 += 1
-        return matched_items_1 * matched_items_2
-    else:
-        return matched_items_1
-
-
-def get_pairs(source_d: list | dict[str, Any], target_d: list | dict[str, Any]):
-    """
-    This function computes the pairs for which the paths have to be generated and return a generator of pairs.
-
-    :param source_d: source domain dict
-    :param target_d: target domain dict
-    :return: pairs for which the paths have to be generated returned as a generator
-    """
-    if not isinstance(source_d, list):
-        source_d_ids = [
-            (asin, data["wiki_id"])
-            for asin, data in source_d.items()
-            if isinstance(source_d[asin], dict)
-        ]
-    else:
-        source_d_ids = source_d
-    if not isinstance(target_d, list):
-        target_d_ids = [
-            (asin, data["wiki_id"])
-            for asin, data in target_d.items()
-            if isinstance(target_d[asin], dict)
-        ]
-    else:
-        target_d_ids = target_d
-    return itertools.product(source_d_ids, target_d_ids)
