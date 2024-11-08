@@ -39,11 +39,11 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
     # get correct category item list for checking matched items
     correct_category_items = ""
     if "movies" in amazon_metadata:
-        correct_category_items = "./data/processed/legacy/wikidata-movies.json"
+        correct_category_items = "./data/processed/ids_in_categories/wikidata-movies.json"
     if "books" in amazon_metadata:
-        correct_category_items = "./data/processed/legacy/wikidata-books.json"
+        correct_category_items = "./data/processed/ids_in_categories/wikidata-books.json"
     if "music" in amazon_metadata:
-        correct_category_items = "./data/processed/legacy/wikidata-music.json"
+        correct_category_items = "./data/processed/ids_in_categories/wikidata-music.json"
     with open(correct_category_items) as json_file:
         correct_category_items = json.load(json_file)
     # link to API for queries
