@@ -38,6 +38,9 @@ def get_ids(category: str) -> None:
         query = """SELECT DISTINCT ?item
                     WHERE {
                         ?item wdt:P31/wdt:P279* wd:Q7725634.
+                        MINUS {
+                            ?item wdt:P31/wdt:P279* wd:Q7366.
+                        }
                     }
                     """
     else:
@@ -57,7 +60,7 @@ def get_ids(category: str) -> None:
         retrieved_ids["ids"].append(result["item"]["value"].split("/")[-1])
 
     # save Wikidata IDs to file
-    with open('./data/processed/legacy/wikidata-%s.json' % (category,), 'w',
+    with open('./data/processed/ids_in_categories/wikidata-%s.json' % (category,), 'w',
               encoding='utf-8') as f:
         json.dump(retrieved_ids, f, ensure_ascii=False, indent=4)
 
