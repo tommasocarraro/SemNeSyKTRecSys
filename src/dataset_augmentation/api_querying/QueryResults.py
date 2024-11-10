@@ -1,6 +1,6 @@
 from typing import TypedDict, Optional
 
-from nesy.dataset_augmentation.api_querying.utils import ErrorCode
+from src.dataset_augmentation.api_querying.utils import ErrorCode
 
 
 class QueryResults(TypedDict):

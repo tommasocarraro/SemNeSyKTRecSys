@@ -80,7 +80,7 @@
 # discorso componenti connesse ma forse piu' semplice fare con reachable-nodes API
 # PoC -> troviamo i path e se esiste usiamo chatGPT per capire la plausibilita', doppio checker, similarity di KGTK (metrica migliore e' la complex) + chatGPT
 
-from nesy.data import metadata_stats
+from src.data import metadata_stats
 
 if __name__ == "__main__":
     # update_metadata(
@@ -89,7 +89,16 @@ if __name__ == "__main__":
     # )
     # correct_missing_types("./data/processed/merged_metadata.json")
     # metadata_stats("./data/processed/filtered-metadata.json", errors=['no-title'], save_asins=False)
-    metadata_stats("./data/processed/legacy/complete-filtered-metadata.json", errors=['no-title', '404-error', 'captcha-or-DOM', 'captcha', ], save_asins=False)
+    metadata_stats(
+        "./data/processed/legacy/complete-filtered-metadata.json",
+        errors=[
+            "no-title",
+            "404-error",
+            "captcha-or-DOM",
+            "captcha",
+        ],
+        save_asins=False,
+    )
     # correct_missing_types("./data/processed/merged_metadata.json")
     # entity_linker_title_person_year("./prova.json")
     # metadata_stats("./data/processed/complete-filtered-metadata.json",

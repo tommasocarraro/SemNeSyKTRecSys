@@ -5,7 +5,7 @@ import sqlite3
 from loguru import logger
 from tqdm import tqdm
 
-from nesy.dataset_augmentation.metadata_extraction.amazon_dataset.utils import (
+from src.dataset_augmentation.metadata_extraction.amazon_dataset.utils import (
     object_recursive_delete_fields,
 )
 

@@ -1,14 +1,16 @@
 from itertools import product
 from typing import Callable
 
+import neo4j
 import orjson
-from joblib import delayed
+from joblib import Parallel, delayed
 from loguru import logger
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, ManagedTransaction, Result
 from neo4j.exceptions import DriverError, Neo4jError
+from tqdm import tqdm
 
 from config import NEO4J_DBNAME, NEO4J_PASS, NEO4J_URI, NEO4J_USER
-from nesy.utils import ParallelTqdm
+from src.utils import ParallelTqdm
 from .utils import (
     get_cold_start,
     get_popular,
@@ -94,10 +96,15 @@ def neo4j_path_finder(
 
         # get pairs for which the paths have to be generated
         pairs = product(m_1, m_2)
-        n_pairs = len(m_1) * len(m_2)
+
         # use parallel computing to perform queries
         try:
-            ParallelTqdm(n_jobs=n_threads, prefer="threads", total_tasks=n_pairs)(
+            ParallelTqdm(
+                n_jobs=n_threads,
+                prefer="threads",
+                total_tasks=len(m_1) * len(m_2),
+                desc=f"Computing paths from {source_domain} to {target_domain}",
+            )(
                 delayed(find_path)(first_item, second_item)
                 for (first_item, second_item) in pairs
             )
@@ -129,6 +136,8 @@ def load_or_transform_mapping(mapping_file_name: str, transform: Callable | None
             mapping = orjson.loads(mapping_file.read())
     else:
         mapping = transform(file_path)
+
+    mapping = [wiki_id for (_, wiki_id) in mapping]
 
     return mapping, domain
 
@@ -165,17 +174,17 @@ def get_query(
             MATCH (n2:entity {{wikidata_id: $second_item}})
             
             WITH n1, n2
-            OPTIONAL MATCH (n1)-[r:precomputed]-(n2)
-            WITH n1, n2, COUNT(r) > 0 AS pathExists
+            OPTIONAL MATCH path = (n1)-[r:precomputed]-(n2)
+            WITH n1, n2, path
             
-            WHERE pathExists = false
+            WHERE path IS NULL
             MATCH p=shortestPath((n1)-[r:relation*1..{max_hops}]-(n2))
             WITH n1, n2, length(p) AS pathLength, [n IN nodes(p) | n] AS nodeList, [r IN relationships(p) | r] AS relList
             WITH n1, n2, pathLength, reduce(s = "", i IN range(0, size(relList)-1) |
                 s + 
                 case 
                     when i = 0 
-                    then "(" + coalesce(nodeList[0].wikidata_id, "") + ")"
+                    then "(" + nodeList[0].label + ": " + nodeList[0].wikidata_id + ")"
                     else "" 
                 end +
                 case 
@@ -183,13 +192,13 @@ def get_query(
                     then "-"
                     else "<-"
                 end +
-                "[" + coalesce(relList[i].wikidata_id, "") + "]" +
+                "[" + relList[i].label + ": " + relList[i].wikidata_id + "]" +
                 case 
                     when endNode(relList[i]) = nodeList[i+1] 
                     then "->"
                     else "-"
                 end +
-                "(" + coalesce(nodeList[i+1].wikidata_id, "") + ")"
+                "(" + nodeList[i+1].label + ": " + nodeList[i+1].wikidata_id + ")"
             ) AS pathString
             CREATE (n1)-[r1:precomputed {{path_length: pathLength, path_string: pathString, source_domain: {source_domain}, target_domain: {target_domain}}}]->(n2)
             """

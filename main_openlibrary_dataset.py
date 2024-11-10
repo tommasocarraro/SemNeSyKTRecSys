@@ -1,7 +1,7 @@
 from asyncio import run
 from os.path import join
 
-from nesy.dataset_augmentation.metadata_extraction.open_library import (
+from src.dataset_augmentation.metadata_extraction.open_library import (
     process_dump,
     build_cache,
 )

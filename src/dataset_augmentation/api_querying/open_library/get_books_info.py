@@ -3,7 +3,7 @@ from typing import Optional
 from joblib import Parallel, delayed
 from psycopg_pool import AsyncConnectionPool
 
-from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
+from src.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .execute_queries import execute_queries, Rows
 from ..utils import ErrorCode
 

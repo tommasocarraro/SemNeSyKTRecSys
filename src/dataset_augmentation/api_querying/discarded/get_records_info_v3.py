@@ -3,10 +3,10 @@ from typing import Any
 from loguru import logger
 
 from config import LAST_FM_API_KEY
-from nesy.dataset_augmentation.api_querying.get_request_with_limiter import (
+from src.dataset_augmentation.api_querying.get_request_with_limiter import (
     get_request_with_limiter,
 )
-from nesy.dataset_augmentation.api_querying.utils import (
+from src.dataset_augmentation.api_querying.utils import (
     process_responses_with_joblib,
     get_async_limiter,
     process_http_requests,

@@ -1,8 +1,9 @@
+import json
 from os.path import basename, splitext
 from typing import Optional
+
 import tqdm
 from joblib import Parallel
-import json
 
 
 def remove_ext(file_path: str) -> str:
@@ -47,8 +48,8 @@ class ParallelTqdm(Parallel):
         *,
         total_tasks: Optional[int] = None,
         desc: Optional[str] = None,
-        disable_progressbar: bool = False,
-        show_joblib_header: bool = False,
+        disable_progressbar=False,
+        show_joblib_header=False,
         **kwargs
     ):
         if "verbose" in kwargs:

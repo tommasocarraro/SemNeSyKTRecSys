@@ -5,7 +5,7 @@ from typing import Any, Optional, Union, Literal
 
 from tqdm.auto import tqdm
 
-from nesy.dataset_augmentation.metadata_extraction.amazon_dataset.utils import (
+from src.dataset_augmentation.metadata_extraction.amazon_dataset.utils import (
     correct_missing_types,
 )
 

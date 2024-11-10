@@ -3,7 +3,7 @@ from typing import Any, Union, Optional
 
 from loguru import logger
 
-from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
+from src.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .get_request_with_limiter import get_request_with_limiter
 from .query_records_utils import extract_artist, extract_title, extract_year
 from .score import compute_score_triple, push_to_heap
