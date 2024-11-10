@@ -12,7 +12,7 @@ from joblib import delayed, Parallel
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from nesy.dataset_augmentation import state
+from src.dataset_augmentation import state
 import urllib.parse
 
 

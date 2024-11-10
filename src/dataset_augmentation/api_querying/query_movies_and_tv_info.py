@@ -4,7 +4,7 @@ from typing import Any, Union, Optional
 from loguru import logger
 
 from config import TMDB_API_KEY
-from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
+from src.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .get_request_with_limiter import get_request_with_limiter
 from .query_movies_and_tv_utils import (
     extract_movie_year,

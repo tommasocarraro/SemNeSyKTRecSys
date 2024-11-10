@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 import os.path
-from nesy.dataset_augmentation import query_apis
+from src.dataset_augmentation import query_apis
 
 
 async def main():

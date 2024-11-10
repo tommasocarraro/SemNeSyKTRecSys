@@ -9,14 +9,14 @@ from psycopg import OperationalError
 from psycopg_pool import AsyncConnectionPool
 
 from config import PSQL_CONN_STRING
-from nesy.dataset_augmentation import state
-from nesy.dataset_augmentation.api_querying import (
+from src.dataset_augmentation import state
+from src.dataset_augmentation.api_querying import (
     get_records_info,
     get_movies_and_tv_info,
 )
-from nesy.dataset_augmentation.api_querying.QueryResults import QueryResults
-from nesy.dataset_augmentation.api_querying.open_library import get_books_info
-from nesy.dataset_augmentation.api_querying.utils import ErrorCode
+from src.dataset_augmentation.api_querying.QueryResults import QueryResults
+from src.dataset_augmentation.api_querying.open_library import get_books_info
+from src.dataset_augmentation.api_querying.utils import ErrorCode
 
 
 async def _run_queries(

@@ -1,4 +1,4 @@
-from nesy.paths.neo4j.dataset_preprocessing import (
+from src.paths.dataset_preprocessing import (
     create_csv_files_neo4j,
 )
 

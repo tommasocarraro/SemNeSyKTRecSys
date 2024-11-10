@@ -1,15 +1,16 @@
+import re
 from typing import Any
 
 from loguru import logger
 
 from config import GOOGLE_API_KEY
-from nesy.dataset_augmentation.api_querying.get_request_with_limiter import (
+from src.dataset_augmentation.api_querying.get_request_with_limiter import (
     get_request_with_limiter,
 )
-from nesy.dataset_augmentation.api_querying.utils import (
+from src.dataset_augmentation.api_querying.utils import (
+    process_http_requests,
     process_responses_with_joblib,
     get_async_limiter,
-    process_http_requests,
 )
 
 
@@ -18,10 +19,15 @@ def _extract_info(res: Any):
     try:
         for item in res["itemListElement"]:
             base_body = item["result"]
-            if "Movie" in base_body["@type"]:
+            if "TVSeries" in base_body["@type"]:
                 title = base_body["name"]
-                release_date = base_body["description"]
-                year = release_date.split()[0]
+                release_date = base_body["detailedDescription"]["articleBody"]
+                pattern = r"\b(19|20)\d{2}\b"
+                match = re.search(pattern, release_date)
+                if match:
+                    year = match.group(0)
+                else:
+                    year = None
                 break
     except IndexError as e:
         logger.error(f"Failed to retrieve the year: {e}")
@@ -34,20 +40,18 @@ def _extract_info(res: Any):
     return title, year
 
 
-async def get_movies_info(movie_titles: list[str]):
+async def get_shows_info(show_titles: list[str]):
     """
-    Given a list of movie titles, asynchronously queries the Google Graph Search API.
+    Given a list of show titles, asynchronously queries the Google Graph Search API.
     Args:
-        movie_titles: list of movie titles to be searched
+        show_titles: list of show titles to be searched
 
     Returns: a coroutine which provides all the responses' bodies' in json format when awaited
     """
-    limiter = get_async_limiter(
-        how_many=len(movie_titles), max_rate=240, time_period=60
-    )
-
+    limiter = get_async_limiter(how_many=len(show_titles), max_rate=240, time_period=60)
     tasks = [
         get_request_with_limiter(
+            limiter=limiter,
             url="https://kgsearch.googleapis.com/v1/entities:search",
             title=title,
             params={
@@ -55,15 +59,14 @@ async def get_movies_info(movie_titles: list[str]):
                 "key": GOOGLE_API_KEY,
                 "limit": 10,
                 "indent": "True",
-                "types": ["Movie"],
+                "types": ["TVSeries"],
             },
-            limiter=limiter,
         )
-        for title in movie_titles
+        for title in show_titles
     ]
 
     responses = await process_http_requests(
-        tasks=tasks, tqdm_desc="Querying Google KG Search..."
+        tasks=tasks, tqdm_desc="Querying Google KG Search API..."
     )
 
     return process_responses_with_joblib(responses=responses, fn=_extract_info)

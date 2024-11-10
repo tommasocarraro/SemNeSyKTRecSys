@@ -4,10 +4,10 @@ from typing import Any
 from loguru import logger
 
 from config import GOOGLE_API_KEY
-from nesy.dataset_augmentation.api_querying.get_request_with_limiter import (
+from src.dataset_augmentation.api_querying.get_request_with_limiter import (
     get_request_with_limiter,
 )
-from nesy.dataset_augmentation.api_querying.utils import (
+from src.dataset_augmentation.api_querying.utils import (
     process_http_requests,
     process_responses_with_joblib,
     get_async_limiter,
@@ -15,12 +15,13 @@ from nesy.dataset_augmentation.api_querying.utils import (
 
 
 def _extract_info(res: Any):
-    title, year = None, None
+    title, artist, year = None, None, None
     try:
         for item in res["itemListElement"]:
             base_body = item["result"]
-            if "TVSeries" in base_body["@type"]:
+            if "MusicAlbum" in base_body["@type"]:
                 title = base_body["name"]
+                artist = base_body["description"].split("by")[1].lstrip()
                 release_date = base_body["detailedDescription"]["articleBody"]
                 pattern = r"\b(19|20)\d{2}\b"
                 match = re.search(pattern, release_date)
@@ -37,34 +38,32 @@ def _extract_info(res: Any):
         logger.error(
             f"Type mismatch between the expected and actual json structure: {e}"
         )
-    return title, year
+    return title, artist, year
 
 
-async def get_shows_info(show_titles: list[str]):
+async def get_records_info(record_titles: list[str]):
     """
-    Given a list of show titles, asynchronously queries the Google Graph Search API.
+    Given a list of record titles, asynchronously queries the Google Graph Search API.
     Args:
-        show_titles: list of show titles to be searched
+        record_titles: list of record titles to be searched
 
     Returns: a coroutine which provides all the responses' bodies' in json format when awaited
     """
-    limiter = get_async_limiter(how_many=len(show_titles), max_rate=240, time_period=60)
+    limiter = get_async_limiter(how_many=len(record_titles), max_rate=10, time_period=1)
     tasks = [
         get_request_with_limiter(
-            limiter=limiter,
             url="https://kgsearch.googleapis.com/v1/entities:search",
             title=title,
             params={
                 "query": title,
                 "key": GOOGLE_API_KEY,
-                "limit": 10,
+                "limit": 1,
                 "indent": "True",
-                "types": ["TVSeries"],
             },
+            limiter=limiter,
         )
-        for title in show_titles
+        for title in record_titles
     ]
-
     responses = await process_http_requests(
         tasks=tasks, tqdm_desc="Querying Google KG Search API..."
     )
