@@ -1,7 +1,11 @@
 import torch
 import wandb
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support, confusion_matrix, accuracy_score
+from sklearn.metrics import (
+    precision_recall_fscore_support,
+    confusion_matrix,
+    accuracy_score,
+)
 from src.metrics import compute_metric, check_metrics
 
 
@@ -12,6 +16,7 @@ class Trainer:
     Each model implementation must inherit from this class and implement the train_epoch() method. It is also possible
     to use overloading to redefine the behavior of some methods.
     """
+
     def __init__(self, model, optimizer, wandb_train=False):
         """
         Constructor of the trainer.
@@ -25,7 +30,16 @@ class Trainer:
         self.optimizer = optimizer
         self.wandb_train = wandb_train
 
-    def train(self, train_loader, val_loader, val_metric=None, n_epochs=500, early=None, verbose=10, save_path=None):
+    def train(
+        self,
+        train_loader,
+        val_loader,
+        val_metric=None,
+        n_epochs=500,
+        early=None,
+        verbose=10,
+        save_path=None,
+    ):
         """
         Method for the train of the model.
 
@@ -52,9 +66,20 @@ class Trainer:
             val_score = self.validate(val_loader, val_metric)
             # print epoch data
             if (epoch + 1) % verbose == 0:
-                log_record = "Epoch %d - Train loss %.3f - Val %s %.3f" % (epoch + 1, train_loss, val_metric, val_score)
+                log_record = "Epoch %d - Train loss %.3f - Val %s %.3f" % (
+                    epoch + 1,
+                    train_loss,
+                    val_metric,
+                    val_score,
+                )
                 # add log_dict to log_record
-                log_record += " - " + " - ".join(["%s %.3f" % (k, v) for k, v in log_dict.items() if k != "train_loss"])
+                log_record += " - " + " - ".join(
+                    [
+                        "%s %.3f" % (k, v)
+                        for k, v in log_dict.items()
+                        if k != "train_loss"
+                    ]
+                )
                 # print epoch report
                 print(log_record)
                 if self.wandb_train:
@@ -90,18 +115,18 @@ class Trainer:
         """
         raise NotImplementedError()
 
-    def predict(self, x, dim=1):
+    def predict(self, users, items, dim=1):
         """
-        Method for performing a prediction of the model.
+        Method for performing a prediction of the model for given user-item pairs.
 
-        :param x: tensor containing the user-item pair for which the prediction has to be computed. The first position
-        is the user index, while the second position is the item index
+        :param users: tensor containing user indices for which predictions need to be made
+        :param items: tensor containing item indices corresponding to the users
         :param dim: dimension across which the dot product of the MF has to be computed
-        :return: the prediction of the model for the given user-item pair
+        :return: tensor with the prediction scores for the user-item pairs
         """
-        u_idx, i_idx = x[:, 0], x[:, 1]
         with torch.no_grad():
-            return self.model(u_idx, i_idx, dim)
+            # Call the model with users and items to get predicted scores
+            return self.model(users, items, dim)
 
     def prepare_for_evaluation(self, loader):
         """
@@ -110,12 +135,11 @@ class Trainer:
         :param loader: loader containing evaluation data
         :return: predictions and targets
         """
-        preds, targets = [], []
-        for batch_idx, (X, y) in enumerate(loader):
-            preds_ = self.predict(X)
-            preds.append(preds_)
-            targets.append(y.numpy())
-        return np.concatenate(preds), np.concatenate(targets)
+        pos_preds, neg_preds = [], []
+        for batch_idx, (users, pos_items, neg_items) in enumerate(loader):
+            pos_preds.append(self.predict(users, pos_items))
+            neg_preds.append(self.predict(users, neg_items))
+        return np.concatenate(pos_preds), np.concatenate(neg_preds)
 
     def validate(self, val_loader, val_metric):
         """
@@ -126,34 +150,39 @@ class Trainer:
         :return: validation score based on the given metric averaged across all validation examples
         """
         # prepare predictions and targets for evaluation
-        preds, targets = self.prepare_for_evaluation(val_loader)
+        pos_preds, neg_preds = self.prepare_for_evaluation(val_loader)
         # compute F-score
-        val_score = compute_metric(val_metric, preds, targets)
-        # compute precision and recall
-        p, r, f, _ = precision_recall_fscore_support(targets, preds,
-                                                     beta=float(val_metric.split("-")[1])
-                                                     if "fbeta" in val_metric else 1.0, average=None)
-        # compute other useful metrics used in classification tasks
-        tn, fp, fn, tp = tuple(confusion_matrix(targets, preds).ravel())
-        sensitivity, specificity = tp / (tp + fn), tn / (tn + fp)
+        val_score = compute_metric(val_metric, pos_preds, neg_preds)
+        # # compute precision and recall
+        # p, r, f, _ = precision_recall_fscore_support(
+        #     targets,
+        #     preds,
+        #     beta=float(val_metric.split("-")[1]) if "fbeta" in val_metric else 1.0,
+        #     average=None,
+        # )
+        # # compute other useful metrics used in classification tasks
+        # tn, fp, fn, tp = tuple(confusion_matrix(targets, preds).ravel())
+        # sensitivity, specificity = tp / (tp + fn), tn / (tn + fp)
         # log metrics to WandB servers
-        if self.wandb_train:
-            wandb.log({
-                "neg_prec": p[0],
-                "pos_prec": p[1],
-                "neg_rec": r[0],
-                "pos_rec": r[1],
-                "neg_f": f[0],
-                "pos_f": f[1],
-                "tn": tn,
-                "fp": fp,
-                "fn": fn,
-                "tp": tp,
-                "sensitivity": sensitivity,
-                "specificity": specificity
-            })
+        # if self.wandb_train:
+        #     wandb.log(
+        #         {
+        #             "neg_prec": p[0],
+        #             "pos_prec": p[1],
+        #             "neg_rec": r[0],
+        #             "pos_rec": r[1],
+        #             "neg_f": f[0],
+        #             "pos_f": f[1],
+        #             "tn": tn,
+        #             "fp": fp,
+        #             "fn": fn,
+        #             "tp": tp,
+        #             "sensitivity": sensitivity,
+        #             "specificity": specificity,
+        #         }
+        #     )
 
-        return val_score
+        return np.mean(val_score)
 
     def save_model(self, path):
         """
@@ -161,10 +190,13 @@ class Trainer:
 
         :param path: path where to save the model
         """
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict()
-        }, path)
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            },
+            path,
+        )
 
     def load_model(self, path):
         """
@@ -173,8 +205,8 @@ class Trainer:
         :param path: path from which the model has to be loaded.
         """
         checkpoint = torch.load(path)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     def test(self, test_loader):
         """
@@ -191,15 +223,18 @@ class Trainer:
         preds, targets = self.prepare_for_evaluation(test_loader)
         # compute metrics
         results["fbeta-1.0"] = compute_metric("fbeta-1.0", preds, targets)
-        p, r, f, _ = precision_recall_fscore_support(targets, preds, beta=1., average=None)
+        p, r, f, _ = precision_recall_fscore_support(
+            targets, preds, beta=1.0, average=None
+        )
         results["neg_prec"] = p[0]
         results["pos_prec"] = p[1]
         results["neg_rec"] = r[0]
         results["pos_rec"] = r[1]
         results["neg_f"] = f[0]
         results["pos_f"] = f[1]
-        results["tn"], results["fp"], results["fn"], results["tp"] = \
-            (int(i) for i in tuple(confusion_matrix(targets, preds).ravel()))
+        results["tn"], results["fp"], results["fn"], results["tp"] = (
+            int(i) for i in tuple(confusion_matrix(targets, preds).ravel())
+        )
         results["sensitivity"] = results["tp"] / (results["tp"] + results["fn"])
         results["specificity"] = results["tn"] / (results["tn"] + results["fp"])
         results["acc"] = accuracy_score(targets, preds)
