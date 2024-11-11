@@ -8,10 +8,8 @@ class DataLoader:
 
     It prepares the batches of user-item pairs to learn the MF model or evaluate all the models based on MF.
     """
-    def __init__(self,
-                 data,
-                 batch_size=1,
-                 shuffle=True):
+
+    def __init__(self, data, num_items, batch_size=1, shuffle=True):
         """
         Constructor of the data loader.
 
@@ -19,9 +17,10 @@ class DataLoader:
         :param batch_size: batch size for the training/evaluation of the model
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        self.data = np.array(data)
+        self.data = np.array(data)[data[:, -1] > 0]
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.num_items = num_items
 
     def __len__(self):
         return int(np.ceil(self.data.shape[0] / self.batch_size))
@@ -34,8 +33,13 @@ class DataLoader:
 
         for _, start_idx in enumerate(range(0, n, self.batch_size)):
             end_idx = min(start_idx + self.batch_size, n)
-            data = self.data[idxlist[start_idx:end_idx]]
-            u_i_pairs = data[:, :2]
-            ratings = data[:, -1]
+            batch_data = self.data[idxlist[start_idx:end_idx]]
+            users = batch_data[:, 0]
+            pos_items = batch_data[:, 1]
 
-            yield torch.tensor(u_i_pairs), torch.tensor(ratings).float()
+            # Convert to tensors and yield
+            users = torch.tensor(users, dtype=torch.long)
+            pos_items = torch.tensor(pos_items, dtype=torch.long)
+            neg_items = torch.randint(0, self.num_items, users.shape)
+
+            yield users, pos_items, neg_items
