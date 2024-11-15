@@ -28,6 +28,16 @@ def dataset_export(
     Returns:
 
     """
+    file_paths = dump_from_neo4j(
+        database_name=database_name, export_dir_path=export_dir_path, domains=domains
+    )
+
+    postprocess_neo4j_dump(file_paths=file_paths)
+
+
+def dump_from_neo4j(
+    database_name: str, export_dir_path: str, domains: list[tuple[str, str]]
+) -> list[tuple[str, str]]:
     with GraphDatabase.driver(
         NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS), database=database_name
     ) as driver:
@@ -69,49 +79,48 @@ def dataset_export(
                         create_query(source_domain, target_domain, abspath(temp_file_path))  # type: ignore
                     )
                     res.consume()
-
-                logger.info("Postprocessing the dumps")
-                for temp_file_path, output_file_path in tqdm(
-                    file_paths, dynamic_ncols=True, desc="Postprocessing the dumps..."
-                ):
-                    with open(temp_file_path, "r") as temp_file, open(
-                        output_file_path, "wb"
-                    ) as output_file:
-                        final_dict = {}
-
-                        for line in temp_file:
-                            item = json.loads(line)
-                            n1_asin = item["n1_asin"]
-                            n2_asin = item["n2_asin"]
-                            path = item["path"]
-                            path_length = item["path_length"]
-
-                            if n1_asin not in final_dict:
-                                final_dict[n1_asin] = {}
-
-                            if n2_asin not in final_dict[n1_asin]:
-                                final_dict[n1_asin][n2_asin] = []
-
-                            final_dict[n1_asin][n2_asin].append(
-                                {"path_str": path, "path_length": path_length}
-                            )
-
-                        output_file.write(
-                            orjson.dumps(
-                                dict(sorted(final_dict.items())),
-                                option=orjson.OPT_INDENT_2,
-                            )
-                        )
-
         except (DriverError, Neo4jError) as e:
             logger.error(e)
             exit(1)
+        return file_paths
+
+
+def postprocess_neo4j_dump(file_paths: list[tuple[str, str]]):
+    logger.info("Postprocessing the dumps")
+    for temp_file_path, output_file_path in tqdm(
+        file_paths, dynamic_ncols=True, desc="Postprocessing the dumps..."
+    ):
+        with open(temp_file_path, "r") as temp_file, open(
+            output_file_path, "wb"
+        ) as output_file:
+            final_dict = {}
+
+            for line in temp_file:
+                item = json.loads(line)
+                n1_asin = item["n1_asin"]
+                n2_asin = item["n2_asin"]
+                path = item["path"]
+                path_length = item["path_length"]
+
+                if n1_asin not in final_dict:
+                    final_dict[n1_asin] = {}
+
+                if n2_asin not in final_dict[n1_asin]:
+                    final_dict[n1_asin][n2_asin] = []
+
+                final_dict[n1_asin][n2_asin].append(
+                    {"path_str": path, "path_length": path_length}
+                )
+
+            output_file.write(
+                orjson.dumps(final_dict.items(), option=orjson.OPT_INDENT_2)
+            )
 
 
 def create_query(source_domain: str, target_domain: str, output_file_path: str) -> str:
     return f"""
         CALL apoc.export.json.query(
-            "MATCH (n1:entity)-[r:precomputed]-(n2:entity)
+            "MATCH (n1:entity)-[r:precomputed]->(n2:entity)
              WHERE r.source_domain = {"'" + source_domain + "'"} AND r.target_domain = {"'" + target_domain + "'"} 
              RETURN n1.amazon_asin AS n1_asin, n2.amazon_asin AS n2_asin, r.path_string AS path, r.path_length AS path_length",
             "{output_file_path}",
