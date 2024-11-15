@@ -36,11 +36,6 @@ if NEO4J_URI is None:
     logger.error("Missing Neo4J URI")
     exit(1)
 
-NEO4J_DBNAME = os.getenv("NEO4J_DBNAME")
-if NEO4J_DBNAME is None:
-    logger.error("Missing Neo4J database name")
-    exit(1)
-
 NEO4J_USER = os.getenv("NEO4J_USER")
 if NEO4J_USER is None:
     logger.error("Missing Neo4J user")

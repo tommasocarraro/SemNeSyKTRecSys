@@ -1,16 +1,20 @@
-import os.path
-from loguru import logger
-import pandas as pd
 import csv
 import json
+from os import path
 import re
+from typing import Any
+
+import pandas as pd
+from loguru import logger
 
 
-def process_wikidata_dump(input_file, output_labels_file, output_triples_file):
-    with open(input_file, "r", encoding="utf-8") as f_in, open(
-        output_labels_file, "w", newline="", encoding="utf-8"
+def process_wikidata_dump(
+    input_file_path: str, output_labels_file_path: str, output_triples_file_path: str
+):
+    with open(input_file_path, "r", encoding="utf-8") as f_in, open(
+        output_labels_file_path, "w", newline="", encoding="utf-8"
     ) as f_out_labels, open(
-        output_triples_file, "w", newline="", encoding="utf-8"
+        output_triples_file_path, "w", newline="", encoding="utf-8"
     ) as f_out_triples:
 
         # CSV writers for labels and triples
@@ -59,12 +63,11 @@ def process_wikidata_dump(input_file, output_labels_file, output_triples_file):
                                 triples_writer.writerow([entity_id, prop, object_id])
 
 
-def remove_special_characters(input_string: str) -> str:
-    return re.sub(r"[^\w\d\s]", "", input_string)
-
-
 def create_csv_files_neo4j(
-    claims_path: str, labels_path: str, selected_properties: str = None
+    triples_file_path: str,
+    labels_file_path: str,
+    mapping: dict[str, Any],
+    selected_properties: str | None = None,
 ) -> None:
     """
     It takes as input the claims and labels tsv files of wikidata and creates two csv files for neo4j. A node file
@@ -72,8 +75,9 @@ def create_csv_files_neo4j(
     wikidata triplets. The file is saved at the same folder.
     Also, it gives the possibility to select the properties to include in the relationships.csv file.
 
-    :param claims_path: file containing all the claims of the wikidata dump
-    :param labels_path: file containing the english labels of the wikidata dump
+    :param triples_file_path: file containing all the claims of the wikidata dump
+    :param labels_file_path: file containing the english labels of the wikidata dump
+    :param mapping: dictionary containing wikidata IDs as keys and the respective Amazon ASINs as values
     :param selected_properties: path to the csv file containing the properties to include in the relationships file
     """
     if selected_properties is not None:
@@ -84,21 +88,24 @@ def create_csv_files_neo4j(
     nodes_set = set()
 
     # create labels dictionary
-    logger.debug("Reading the labels file into memory")
+    logger.info("Reading the labels file into memory")
     labels_dict = {}
-    with open(labels_path, "r") as labels_file:
+    with open(labels_file_path, "r") as labels_file:
         next(labels_file)
         for line in labels_file:
             stripped_line = line.strip().split(",")
             node = stripped_line[0]
-            labels_dict[node] = remove_special_characters(stripped_line[1])
+            # remove special characters from labels
+            labels_dict[node] = re.sub(r"[^\w\d\s]", "", stripped_line[1])
 
-    logger.debug("Reading the claims file into memory")
-    with open(claims_path, "r") as claims_file, open(
-        os.path.join(os.path.dirname(claims_path), "relationships.csv"), "w"
+    logger.info(
+        "Reading the claims file into memory and generating the relationships file"
+    )
+    with open(triples_file_path, "r") as claims_file, open(
+        path.join(path.dirname(triples_file_path), "relationships.csv"), "w"
     ) as rels_file:
         rels_writer = csv.writer(rels_file)
-        next(claims_file)  # Skip the input header
+        next(claims_file)  # skip the input header
 
         # write the header to the properties file
         rels_writer.writerow([":START_ID", "wikidata_id", "label", ":END_ID", ":TYPE"])
@@ -119,16 +126,16 @@ def create_csv_files_neo4j(
 
                     rels_writer.writerow([node1, prop, label, node2, "relation"])
 
-    logger.debug("Writing the nodes file to file system")
+    logger.info("Generating the nodes file")
     with open(
-        os.path.join(os.path.dirname(claims_path), "nodes.csv"), "w"
+        path.join(path.dirname(triples_file_path), "nodes.csv"), "w"
     ) as nodes_file:
         nodes_writer = csv.writer(nodes_file)
         # write the header to the nodes file
-        nodes_writer.writerow(["wikidata_id:ID", "label", ":LABEL"])
+        nodes_writer.writerow(["wikidata_id:ID", "label", "amazon_asin", ":LABEL"])
 
         # write the nodes to the file system one at a time
-        for node in (item for item in nodes_set):
+        for node in nodes_set:
             if node in labels_dict:
                 label = labels_dict[node]
             else:
@@ -137,4 +144,5 @@ def create_csv_files_neo4j(
                 type_ = "relation"
             else:
                 type_ = "entity"
-            nodes_writer.writerow([node, label, type_])
+            amazon_asin = mapping[node] if node in mapping else "null"
+            nodes_writer.writerow([node, label, amazon_asin, type_])

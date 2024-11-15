@@ -1,15 +1,13 @@
 from itertools import product
 from typing import Callable
 
-import neo4j
 import orjson
-from joblib import Parallel, delayed
+from joblib import delayed
 from loguru import logger
-from neo4j import GraphDatabase, ManagedTransaction, Result
+from neo4j import GraphDatabase
 from neo4j.exceptions import DriverError, Neo4jError
-from tqdm import tqdm
 
-from config import NEO4J_DBNAME, NEO4J_PASS, NEO4J_URI, NEO4J_USER
+from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
 from src.utils import ParallelTqdm
 from .utils import (
     get_cold_start,
@@ -21,6 +19,7 @@ from .utils import (
 
 
 def neo4j_path_finder(
+    database_name: str,
     mapping_file_1: str,
     mapping_file_2: str,
     max_hops: int = 2,
@@ -35,6 +34,7 @@ def neo4j_path_finder(
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
     matched entities in mapping_file_2. It saves all these paths in a JSON file.
 
+    :param database_name: name of the neo4j database
     :param mapping_file_1: first mapping file
     :param mapping_file_2: second mapping file
     :param max_hops: maximum number of hops allowed for the path
@@ -69,7 +69,7 @@ def neo4j_path_finder(
         NEO4J_URI,
         max_connection_pool_size=n_threads,
         auth=(NEO4J_USER, NEO4J_PASS),
-        database=NEO4J_DBNAME,
+        database=database_name,
     ) as driver:
         try:
             driver.verify_connectivity()
@@ -87,7 +87,7 @@ def neo4j_path_finder(
             :param first_item: wikidata id of the first item
             :param second_item: wikidata id of the second item
             """
-            with driver.session(database=NEO4J_DBNAME) as session:
+            with driver.session(database=database_name) as session:
                 session.execute_write(
                     lambda tx: tx.run(
                         query, first_item=first_item, second_item=second_item
@@ -136,8 +136,6 @@ def load_or_transform_mapping(mapping_file_name: str, transform: Callable | None
             mapping = orjson.loads(mapping_file.read())
     else:
         mapping = transform(file_path)
-
-    mapping = [wiki_id for (_, wiki_id) in mapping]
 
     return mapping, domain
 
