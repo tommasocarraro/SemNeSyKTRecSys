@@ -1,5 +1,8 @@
-import pandas as pd
 import json
+import subprocess
+
+import pandas as pd
+from loguru import logger
 
 
 def compute_cold_start_pairs(mapping_1: dict, mapping_2: dict) -> dict:
@@ -24,10 +27,10 @@ def get_rating_stats(rating_file: str, entity: str) -> dict:
     :param entity: whether to count the number of ratings of users or items
     :return: dictionary reporting the stats
     """
-    if entity == 'item':
-        df_col = 'itemId'
-    elif entity == 'user':
-        df_col = 'userId'
+    if entity == "item":
+        df_col = "itemId"
+    elif entity == "user":
+        df_col = "userId"
     else:
         raise ValueError("Entity must be 'item' or 'user'")
     df = pd.read_csv(rating_file)
@@ -69,9 +72,13 @@ def refine_cold_start_items(cold_start_list: list, target_mapping_file: str) -> 
     :param target_mapping_file: mapping file containing the matches in the target domain
     :return: refined cold-start list
     """
-    with open(target_mapping_file, 'r') as json_file:
+    with open(target_mapping_file, "r") as json_file:
         target_mapping = json.load(json_file)
-    return [(id_, target_mapping[id_]['wiki_id']) for id_ in cold_start_list if isinstance(target_mapping[id_], dict)]
+    return [
+        (id_, target_mapping[id_]["wiki_id"])
+        for id_ in cold_start_list
+        if isinstance(target_mapping[id_], dict)
+    ]
 
 
 def refine_popular_items(popular_list: list, source_mapping_file: str) -> list:
@@ -83,6 +90,31 @@ def refine_popular_items(popular_list: list, source_mapping_file: str) -> list:
     :param source_mapping_file: mapping file containing the matches in the source domain
     :return: refined popular list
     """
-    with open(source_mapping_file, 'r') as json_file:
+    with open(source_mapping_file, "r") as json_file:
         source_mapping = json.load(json_file)
-    return [(id_, source_mapping[id_]['wiki_id']) for id_ in popular_list if isinstance(source_mapping[id_], dict)]
+    return [
+        (id_, source_mapping[id_]["wiki_id"])
+        for id_ in popular_list
+        if isinstance(source_mapping[id_], dict)
+    ]
+
+
+def run_shell_command(args: list[str], use_sudo=False) -> None:
+    if use_sudo:
+        args.insert(0, "sudo")
+    with subprocess.Popen(
+        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    ) as process:
+        try:
+            # Iterate over stdout line by line
+            for line in process.stdout:
+                print(line, end="")  # Print each line as it appears in real-time
+            # Wait for the process to complete and capture the return code
+            process.wait()
+
+            # If an error occurs (non-zero exit), print stderr
+            if process.returncode != 0:
+                logger.error(process.stderr.read())
+
+        except Exception as e:
+            logger.error(e)
