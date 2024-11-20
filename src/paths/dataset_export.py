@@ -14,7 +14,7 @@ from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
 
 
 def dataset_export(
-    database_name: str, export_dir_path: str, domains: list[tuple[str, str]]
+    database_name: str, export_dir_path: str, domains_pairs: list[tuple[str, str]]
 ) -> None:
     """
     Requires in apoc.conf:
@@ -23,13 +23,15 @@ def dataset_export(
     Args:
         database_name:
         export_dir_path:
-        domains:
+        domains_pairs:
 
     Returns:
 
     """
     file_paths = dump_from_neo4j(
-        database_name=database_name, export_dir_path=export_dir_path, domains=domains
+        database_name=database_name,
+        export_dir_path=export_dir_path,
+        domains=domains_pairs,
     )
 
     postprocess_neo4j_dump(file_paths=file_paths)

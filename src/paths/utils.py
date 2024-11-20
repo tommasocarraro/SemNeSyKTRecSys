@@ -1,24 +1,11 @@
-import json
 import subprocess
+from typing import Any, Literal
 
 import pandas as pd
 from loguru import logger
 
 
-def compute_cold_start_pairs(mapping_1: dict, mapping_2: dict) -> dict:
-    """
-    This function takes as input two mapping dictionaries, one from source domain and the other for target domain.
-    Based on statistics about the ratings in the two domains, it creates source-target pairs for which semantic
-    paths have to be generated. The logic is simple. The cold-start items in the target domain are selected. These items
-    are the ones for which it is crucial to get some information from the source domain.
-
-    :param mapping_1: dictionary containing the source domain mapping
-    :param mapping_2: dictionary containing the target domain mapping
-    :return: list of pairs on which the paths have to be computed
-    """
-
-
-def get_rating_stats(rating_file: str, entity: str) -> dict:
+def get_rating_stats(rating_file: str, entity: Literal["item", "user"]) -> dict:
     """
     This function takes as input a rating file and counts the number of ratings for each user or item.
     The stats are returned in a dict.
@@ -39,7 +26,7 @@ def get_rating_stats(rating_file: str, entity: str) -> dict:
     return dict(sorted(ratings_count.items(), key=lambda entity_: entity_[1]))
 
 
-def get_cold_start(stats: dict, threshold: int) -> list:
+def get_cold_start_items(stats: dict, threshold: int) -> list:
     """
     This function takes statistics about ratings in the dataset and returns the list of items (or users)
     that have less than or equal threshold ratings.
@@ -51,7 +38,7 @@ def get_cold_start(stats: dict, threshold: int) -> list:
     return [id_ for id_, count in stats.items() if count <= threshold]
 
 
-def get_popular(stats: dict, threshold: int) -> list:
+def get_popular_items(stats: dict, threshold: int) -> list:
     """
     This function takes statistics about ratings in the dataset and returns the list of items (or users)
     that have more than or equal threshold ratings.
@@ -63,17 +50,17 @@ def get_popular(stats: dict, threshold: int) -> list:
     return [id_ for id_, count in stats.items() if count >= threshold]
 
 
-def refine_cold_start_items(cold_start_list: list, target_mapping_file: str) -> list:
+def refine_cold_start_items(
+    cold_start_list: list, target_mapping: dict[str, Any]
+) -> list:
     """
     This function takes a cold-start list of items and refines it by removing items that have not been matched with
     Wikidata.
 
     :param cold_start_list: list of cold-start items
-    :param target_mapping_file: mapping file containing the matches in the target domain
+    :param target_mapping: mapping containing the matches in the target domain
     :return: refined cold-start list
     """
-    with open(target_mapping_file, "r") as json_file:
-        target_mapping = json.load(json_file)
     return [
         (id_, target_mapping[id_]["wiki_id"])
         for id_ in cold_start_list
@@ -81,17 +68,15 @@ def refine_cold_start_items(cold_start_list: list, target_mapping_file: str) -> 
     ]
 
 
-def refine_popular_items(popular_list: list, source_mapping_file: str) -> list:
+def refine_popular_items(popular_list: list, source_mapping: dict[str, Any]) -> list:
     """
     This function takes a cold-start list of items and refines it by removing items that have not been matched with
     Wikidata.
 
     :param popular_list: list of popular items
-    :param source_mapping_file: mapping file containing the matches in the source domain
+    :param source_mapping: mapping containing the matches in the source domain
     :return: refined popular list
     """
-    with open(source_mapping_file, "r") as json_file:
-        source_mapping = json.load(json_file)
     return [
         (id_, source_mapping[id_]["wiki_id"])
         for id_ in popular_list
@@ -100,6 +85,12 @@ def refine_popular_items(popular_list: list, source_mapping_file: str) -> list:
 
 
 def run_shell_command(args: list[str], use_sudo=False) -> None:
+    """
+    Runs a unix shell command, possibly with admin privileges.
+
+    :param args: shell command to run, split into a list of strings
+    :param use_sudo: whether to run the command as sudo
+    """
     if use_sudo:
         args.insert(0, "sudo")
     with subprocess.Popen(
@@ -118,3 +109,4 @@ def run_shell_command(args: list[str], use_sudo=False) -> None:
 
         except Exception as e:
             logger.error(e)
+            exit(1)

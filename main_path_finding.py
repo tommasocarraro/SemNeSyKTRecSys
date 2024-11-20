@@ -1,3 +1,4 @@
+from src.paths.FilePaths import FilePaths
 from src.paths.dataset_export import dataset_export
 from src.paths.dataset_import import dataset_import
 from src.paths.path_finder import neo4j_path_finder
@@ -15,85 +16,58 @@ if __name__ == "__main__":
 
     n_threads = 12
 
-    neo4j_path_finder(
-        database_name=database_name,
-        mapping_file_1="data/processed/mappings/mapping-movies.json",
-        mapping_file_2="data/processed/mappings/mapping-music.json",
-        max_hops=10,
-        n_threads=n_threads,
-        cold_start=True,
-        popular=True,
-        cs_threshold=5,
-        pop_threshold=300,
-    )
-    neo4j_path_finder(
-        database_name=database_name,
-        mapping_file_1="data/processed/mappings/mapping-movies.json",
-        mapping_file_2="data/processed/mappings/mapping-books.json",
-        max_hops=10,
-        n_threads=n_threads,
-        cold_start=True,
-        popular=True,
-        cs_threshold=5,
-        pop_threshold=300,
-    )
-    neo4j_path_finder(
-        database_name=database_name,
-        mapping_file_1="data/processed/mappings/mapping-books.json",
-        mapping_file_2="data/processed/mappings/mapping-movies.json",
-        max_hops=10,
-        n_threads=n_threads,
-        cold_start=True,
-        popular=True,
-        cs_threshold=5,
-        pop_threshold=300,
-    )
-    neo4j_path_finder(
-        database_name=database_name,
-        mapping_file_1="data/processed/mappings/mapping-books.json",
-        mapping_file_2="data/processed/mappings/mapping-music.json",
-        max_hops=10,
-        n_threads=n_threads,
-        cold_start=True,
-        popular=True,
-        cs_threshold=5,
-        pop_threshold=300,
-    )
-    neo4j_path_finder(
-        database_name=database_name,
-        mapping_file_1="data/processed/mappings/mapping-music.json",
-        mapping_file_2="data/processed/mappings/mapping-books.json",
-        max_hops=10,
-        n_threads=n_threads,
-        cold_start=True,
-        popular=True,
-        cs_threshold=5,
-        pop_threshold=300,
-    )
-    neo4j_path_finder(
-        database_name=database_name,
-        mapping_file_1="data/processed/mappings/mapping-music.json",
-        mapping_file_2="data/processed/mappings/mapping-movies.json",
-        max_hops=10,
-        n_threads=n_threads,
-        cold_start=True,
-        popular=True,
-        cs_threshold=5,
-        pop_threshold=300,
-    )
+    # dictionary containing the file paths for both mappings and reviews for each domain, also the popularity threshold
+    # to be used when selecting the items from which paths should start
+    domains = {
+        "movies": {
+            "mapping_file_path": "data/processed/mappings/mapping-movies.json",
+            "reviews_file_path": "data/processed/legacy/reviews_Movies_and_TV_5.csv",
+            "pop_threshold": 300,
+        },
+        "music": {
+            "mapping_file_path": "data/processed/mappings/mapping-music.json",
+            "reviews_file_path": "data/processed/legacy/reviews_CDs_and_Vinyl_5.csv",
+            "pop_threshold": 300,
+        },
+        "books": {
+            "mapping_file_path": "data/processed/mappings/mapping-books.json",
+            "reviews_file_path": "data/processed/legacy/reviews_Books_5.csv",
+            "pop_threshold": 300,
+        },
+    }
+
+    # list of domain pairs for which we want to find paths
+    domain_pairs = [
+        ("movies", "music"),
+        ("movies", "books"),
+        ("books", "movies"),
+        ("books", "music"),
+        ("music", "books"),
+        ("music", "movies"),
+    ]
+
+    for source_name, target_name in domain_pairs:
+        file_paths = FilePaths(
+            source_domain_name=source_name,
+            mapping_source_domain=domains[source_name]["mapping_file_path"],
+            reviews_source_domain=domains[source_name]["reviews_file_path"],
+            target_domain_name=target_name,
+            mapping_target_domain=domains[target_name]["mapping_file_path"],
+            reviews_target_domain=domains[target_name]["reviews_file_path"],
+        )
+        neo4j_path_finder(
+            database_name=database_name,
+            file_paths=file_paths,
+            max_hops=10,
+            n_threads=n_threads,
+            cs_threshold=5,
+            pop_threshold=domains[source_name]["pop_threshold"],
+        )
 
     should_export = True
     if should_export:
-        domains = [
-            ("movies", "music"),
-            ("movies", "books"),
-            ("books", "movies"),
-            ("books", "music"),
-            ("music", "books"),
-            ("music", "movies"),
-        ]
         dataset_export(
             database_name=database_name,
             export_dir_path="data/processed/paths/",
-            domains=domains,
+            domains_pairs=domain_pairs,
         )
