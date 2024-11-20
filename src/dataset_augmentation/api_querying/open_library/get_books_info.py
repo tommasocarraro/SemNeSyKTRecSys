@@ -4,7 +4,7 @@ from joblib import Parallel, delayed
 from psycopg_pool import AsyncConnectionPool
 
 from src.dataset_augmentation.api_querying.QueryResults import QueryResults
-from .execute_queries import execute_queries, Rows
+from .execute_queries import Rows, execute_queries
 from ..utils import ErrorCode
 
 

@@ -1,5 +1,5 @@
 import heapq
-from typing import Any, Union, Optional
+from typing import Any, Optional, Union
 
 from loguru import logger
 
@@ -7,19 +7,19 @@ from config import TMDB_API_KEY
 from src.dataset_augmentation.api_querying.QueryResults import QueryResults
 from .get_request_with_limiter import get_request_with_limiter
 from .query_movies_and_tv_utils import (
-    extract_movie_year,
-    extract_tv_year,
     extract_movie_director,
     extract_movie_id,
+    extract_movie_year,
     extract_title,
+    extract_tv_year,
 )
 from .score import compute_score_pair, push_to_heap
 from .utils import (
-    process_responses_with_joblib,
-    process_http_requests,
-    get_async_limiter,
     ErrorCode,
     encode_title,
+    get_async_limiter,
+    process_http_requests,
+    process_responses_with_joblib,
 )
 
 

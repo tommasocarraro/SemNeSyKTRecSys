@@ -70,7 +70,7 @@ def metadata_stats(metadata, errors, save_asins=False):
                         errors["person+year"]["asins"].append(link_prefix + asin)
 
     if save_asins:
-        with open(metadata[:-5] + "_stats.json", 'w', encoding='utf-8') as f:
+        with open(metadata[:-5] + "_stats.json", "w", encoding="utf-8") as f:
             json.dump(errors, f, ensure_ascii=False, indent=4)
     else:
         print(errors)

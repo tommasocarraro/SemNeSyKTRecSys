@@ -1,13 +1,13 @@
 from asyncio import CancelledError
 from typing import Optional
 
-from psycopg import OperationalError, AsyncConnection
+from psycopg import AsyncConnection, OperationalError
 from psycopg_pool import AsyncConnectionPool
 from tqdm.asyncio import tqdm
 
 from .queries import query_title, query_title_authors, query_title_year
 from .utils import set_sim_threshold
-from ..utils import _add_signal_handlers, ErrorCode
+from ..utils import ErrorCode, _add_signal_handlers
 
 type Row = list[tuple[str, str]]
 type Rows = list[Row]

@@ -2,7 +2,7 @@ from asyncio import Lock
 from asyncio.exceptions import CancelledError
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Union, Any
+from typing import Any, Union
 
 import aiohttp
 from aiohttp import ClientResponseError

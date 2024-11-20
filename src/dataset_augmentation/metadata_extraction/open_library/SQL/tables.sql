@@ -10,15 +10,15 @@ CREATE TABLE editions
     key         TEXT PRIMARY KEY,
     title       VARCHAR(200),
     title_query VARCHAR(200),
-    authors     TEXT[],
+    authors     TEXT [],
     year        CHAR(4),
-    works       TEXT[],
-    isbns       TEXT[]
+    works       TEXT [],
+    isbns       TEXT []
 );
 
 CREATE TABLE works
 (
     key     TEXT PRIMARY KEY,
     title   VARCHAR(200),
-    authors TEXT[]
+    authors TEXT []
 );

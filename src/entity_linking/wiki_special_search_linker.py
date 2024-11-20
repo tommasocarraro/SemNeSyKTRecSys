@@ -1,13 +1,16 @@
-import logging
 import json
+import logging
 import os
 import re
-import requests
-from joblib import Parallel, delayed
 import traceback
 
+import requests
+from joblib import Parallel, delayed
 
-def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reason: str = None, n_cores: int = 1) -> None:
+
+def entity_linker_api_query(
+    amazon_metadata: str, mapping_file: str, retry_reason: str = None, n_cores: int = 1
+) -> None:
     """
     This function uses the Wikidata API (action=query) to get the ID of wikidata entities corresponding to the Amazon
     items in the given Amazon metadata. The API is accessed using HTTP requests.
@@ -39,11 +42,17 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
     # get correct category item list for checking matched items
     correct_category_items = ""
     if "movies" in amazon_metadata:
-        correct_category_items = "./data/processed/ids_in_categories/wikidata-movies.json"
+        correct_category_items = (
+            "./data/processed/ids_in_categories/wikidata-movies.json"
+        )
     if "books" in amazon_metadata:
-        correct_category_items = "./data/processed/ids_in_categories/wikidata-books.json"
+        correct_category_items = (
+            "./data/processed/ids_in_categories/wikidata-books.json"
+        )
     if "music" in amazon_metadata:
-        correct_category_items = "./data/processed/ids_in_categories/wikidata-music.json"
+        correct_category_items = (
+            "./data/processed/ids_in_categories/wikidata-music.json"
+        )
     with open(correct_category_items) as json_file:
         correct_category_items = json.load(json_file)
     # link to API for queries
@@ -58,7 +67,7 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
     # Configure the logger
     logging.basicConfig(level=logging.INFO)  # Set the desired log level
     # Create a FileHandler to write log messages to a file
-    file_handler = logging.FileHandler('output.log')
+    file_handler = logging.FileHandler("output.log")
     # Add the file handler to the logger
     logging.getLogger().addHandler(file_handler)
 
@@ -72,15 +81,18 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
         try:
             asin, metadata = item_metadata
             # check if the match has been already created
-            if (asin not in temp_dict or
-                    (retry_reason is not None and temp_dict[asin] == retry_reason)):
+            if asin not in temp_dict or (
+                retry_reason is not None and temp_dict[asin] == retry_reason
+            ):
                 # check if metadata is available
                 if isinstance(metadata, dict):
                     year = None
                     if metadata["year"] is None:
                         # try to get year from title, if available
-                        year_groups = re.search(r"\((19\d{2}|20\d{2})\)|\[(19\d{2}|20\d{2})\]",
-                                                metadata["title"])
+                        year_groups = re.search(
+                            r"\((19\d{2}|20\d{2})\)|\[(19\d{2}|20\d{2})\]",
+                            metadata["title"],
+                        )
                         if year_groups is not None:
                             year = year_groups.group(1) or year_groups.group(2)
                             year = int(year)
@@ -142,7 +154,7 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
                             "action": "query",
                             "format": "json",
                             "list": "search",
-                            "srsearch": query
+                            "srsearch": query,
                         }
 
                         response = requests.get(wikidata_api_url, params=params)
@@ -150,14 +162,18 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
 
                         data = response.json()
 
-                        if "error" in data and data["error"]["info"].startswith("Search request is longer"):
+                        if "error" in data and data["error"]["info"].startswith(
+                            "Search request is longer"
+                        ):
                             # if the query is too long for wikidata, it could be due to a long person string or title
                             # in that case, we move at the next query
                             exception = True
                             continue
 
                         if "search" in data["query"] and data["query"]["search"]:
-                            matched = analyze_result(data, correct_category_items, asin, combs[i])
+                            matched = analyze_result(
+                                data, correct_category_items, asin, combs[i]
+                            )
                             if matched:
                                 break
 
@@ -178,7 +194,9 @@ def entity_linker_api_query(amazon_metadata: str, mapping_file: str, retry_reaso
 
     # use parallel computing to perform HTTP requests
     try:
-        Parallel(n_jobs=n_cores, prefer="threads")(delayed(entity_link)(item) for item in m_data.items())
+        Parallel(n_jobs=n_cores, prefer="threads")(
+            delayed(entity_link)(item) for item in m_data.items()
+        )
     except (KeyboardInterrupt, Exception):
         update_file(file_handler, temp_dict, mapping_file)
         print("Interruption occurred! Mapping file has been saved!")
@@ -199,17 +217,20 @@ def update_file(file_handler, temp_dict, mapping_file):
     # close the file handler
     file_handler.close()
     # create dictionary with new retrieved data
-    with open('./output.log', 'r') as file:
+    with open("./output.log", "r") as file:
         for line in file:
             split_line = line.split(" - ")
             if len(split_line) == 3:
                 amazon_id, wiki_id, matching_attrs = split_line
-                temp_dict[amazon_id] = {"wiki_id": wiki_id, "matching_attributes": matching_attrs.strip()}
+                temp_dict[amazon_id] = {
+                    "wiki_id": wiki_id,
+                    "matching_attributes": matching_attrs.strip(),
+                }
             else:
                 amazon_id, error = split_line
                 temp_dict[amazon_id] = error.strip()
     # save to file - if the file was already existing, it will be updated. If not, it will be created
-    with open(mapping_file, 'w', encoding='utf-8') as f:
+    with open(mapping_file, "w", encoding="utf-8") as f:
         json.dump(temp_dict, f, ensure_ascii=False, indent=4)
     # delete temporary log file
     os.remove("./output.log")
@@ -218,7 +239,12 @@ def update_file(file_handler, temp_dict, mapping_file):
 def create_queries_list(title, person, year):
     queries, combs = None, None
     if person is not None and year is not None:
-        queries = [title + " " + person + " " + str(year), title + " " + person, title + " " + str(year), title]
+        queries = [
+            title + " " + person + " " + str(year),
+            title + " " + person,
+            title + " " + str(year),
+            title,
+        ]
         combs = ["title,person,year", "title,person", "title,year", "title"]
     elif person is not None and year is None:
         queries = [title + " " + person, title]

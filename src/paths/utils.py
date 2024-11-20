@@ -62,7 +62,7 @@ def refine_cold_start_items(
     :return: refined cold-start list
     """
     return [
-        (id_, target_mapping[id_]["wiki_id"])
+        target_mapping[id_]["wiki_id"]
         for id_ in cold_start_list
         if isinstance(target_mapping[id_], dict)
     ]
@@ -78,7 +78,7 @@ def refine_popular_items(popular_list: list, source_mapping: dict[str, Any]) -> 
     :return: refined popular list
     """
     return [
-        (id_, source_mapping[id_]["wiki_id"])
+        source_mapping[id_]["wiki_id"]
         for id_ in popular_list
         if isinstance(source_mapping[id_], dict)
     ]

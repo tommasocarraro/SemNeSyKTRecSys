@@ -1,6 +1,6 @@
 import threading
 from itertools import product, takewhile
-from typing import Any, Optional
+from typing import Optional
 
 import orjson
 from joblib import delayed
@@ -28,6 +28,7 @@ def neo4j_path_finder(
     shortest_path: bool = True,
     cs_threshold: Optional[int] = 5,
     pop_threshold: Optional[int] = 50,
+    pop_threshold_exclude: Optional[int] = None,
     n_threads: int = 1,
 ) -> None:
     """
@@ -40,11 +41,20 @@ def neo4j_path_finder(
     :param shortest_path: whether to find just the shortest path or all the paths connecting the two entities
     :param cs_threshold: threshold to select cold-start items,
     :param pop_threshold: threshold to select popular items
+    :param pop_threshold_exclude: useful to compute paths with lower threshold than the last used, set this value to
+    the pop_threshold last used and all the items from the source domain of >= pop will be excluded
     :param n_threads: number of processors to be used to execute this function
     """
+    if pop_threshold_exclude is not None and pop_threshold_exclude <= pop_threshold:
+        logger.warning(
+            "Parameter pop_threshold_exclude should be greater than pop_threshold"
+        )
 
     source_mapping, target_mapping = load_mappings(
-        file_paths=file_paths, cs_threshold=cs_threshold, pop_threshold=pop_threshold
+        file_paths=file_paths,
+        cs_threshold=cs_threshold,
+        pop_threshold=pop_threshold,
+        pop_threshold_exclude=pop_threshold_exclude,
     )
 
     with GraphDatabase.driver(
@@ -118,7 +128,8 @@ def load_mappings(
     file_paths: FilePaths,
     pop_threshold: Optional[int] = None,
     cs_threshold: Optional[int] = None,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+    pop_threshold_exclude: Optional[int] = None,
+) -> tuple[list[str], list[str]]:
     """
     Loads source and target mappings. If both pop_threshold and cs_threshold are set, restrict the items based on said
     thresholds through the ratings files.
@@ -126,26 +137,53 @@ def load_mappings(
     :param file_paths: data class which contains the file paths needed for path finding
     :param pop_threshold: threshold to select popular items
     :param cs_threshold: threshold to select cold-start items
+    :param pop_threshold_exclude: useful to compute paths with lower threshold than the last used, set this value to
+    the pop_threshold last used and all the items from the source domain of >= pop will be excluded
     :return: source and target mappings
     """
-    # first load both the domains' mappings
+    # load both domains' full mappings from the json files
     with open(file_paths.mapping_source_domain, "rb") as mapping_source_file:
-        source_mapping = orjson.loads(mapping_source_file.read())
+        source_mapping_json = orjson.loads(mapping_source_file.read())
     with open(file_paths.mapping_target_domain, "rb") as mapping_target_file:
-        target_mapping = orjson.loads(mapping_target_file.read())
+        target_mapping_json = orjson.loads(mapping_target_file.read())
 
-    # then check if both pop and cs thresholds are set
     if pop_threshold is not None and cs_threshold is not None:
+        # if both pop and cs thresholds are set, filter the mappings so they only include the items within the parameters
         source_stats = get_rating_stats(file_paths.reviews_source_domain, "item")
-        pop_list = get_popular_items(source_stats, pop_threshold)
-        source_mapping = refine_popular_items(pop_list, source_mapping)
 
+        # if pop_threshold_exclude is set, retrieve the list of mappings already computed
+        if pop_threshold_exclude is not None:
+            pop_list_old = get_popular_items(source_stats, pop_threshold_exclude)
+            source_mapping_prev = refine_popular_items(
+                pop_list_old, source_mapping_json
+            )
+        else:
+            source_mapping_prev = []
+
+        # retrieve the list of mappings to compute
+        pop_list = get_popular_items(source_stats, pop_threshold)
+        source_mapping_new = refine_popular_items(pop_list, source_mapping_json)
+
+        # perform set difference to filter the items already computed
+        source_mapping = list(set(source_mapping_new) - set(source_mapping_prev))
+
+        # get the filtered mapping for the target domain
         target_stats = get_rating_stats(file_paths.reviews_target_domain, "item")
         cs_list = get_cold_start_items(target_stats, cs_threshold)
-        target_mapping = refine_cold_start_items(cs_list, target_mapping)
+        target_mapping = refine_cold_start_items(cs_list, target_mapping_json)
 
     elif pop_threshold is None and cs_threshold is None:
-        pass  # do nothing
+        # if the thresholds aren't set simply convert the dicts to lists of wikidata ids
+        source_mapping = [
+            obj["wiki_id"]
+            for obj in source_mapping_json.values()
+            if isinstance(obj, dict)
+        ]
+        target_mapping = [
+            obj["wiki_id"]
+            for obj in target_mapping_json.values()
+            if isinstance(obj, dict)
+        ]
 
     else:
         logger.error(

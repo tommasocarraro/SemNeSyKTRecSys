@@ -2,7 +2,6 @@ import os
 
 from src.dataset_augmentation.metadata_extraction.amazon_dataset import (
     merge_metadata_for_wikidata,
-    extract_metadata,
 )
 
 

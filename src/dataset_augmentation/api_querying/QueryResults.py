@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional
+from typing import Optional, TypedDict
 
 from src.dataset_augmentation.api_querying.utils import ErrorCode
 

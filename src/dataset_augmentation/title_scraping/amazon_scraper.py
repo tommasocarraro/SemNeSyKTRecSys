@@ -12,8 +12,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service as ChromeService
 
+
 def scrape_title_amazon(
-    asins: list[str], n_cores: int, batch_size: int, save_tmp: bool = True, batch_i_start: int = 0, batch_i_end: int =0
+    asins: list[str],
+    n_cores: int,
+    batch_size: int,
+    save_tmp: bool = True,
+    batch_i_start: int = 0,
+    batch_i_end: int = 0,
 ) -> dict[str, str]:
     """
     This function takes as input a list of Amazon ASINs and performs http requests with Selenium to get the title
@@ -71,7 +77,9 @@ def scrape_title_amazon(
                 urls = [f"https://www.amazon.com/dp/{asin}" for asin in asins]
                 # Set up the Chrome driver for the current batch
                 chrome_service = ChromeService(executable_path="./chromedriver")
-                driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
+                driver = webdriver.Chrome(
+                    service=chrome_service, options=chrome_options
+                )
                 bot_counter = 0
                 # start the scraping loop
                 for counter, url in enumerate(urls):
@@ -107,11 +115,15 @@ def scrape_title_amazon(
                                     spans = person_year_div.find_all("span")
                                     for i, span in enumerate(spans):
                                         if "Director" in span.text:
-                                            batch_dict[asin]["person"] = spans[i + 2].text
+                                            batch_dict[asin]["person"] = spans[
+                                                i + 2
+                                            ].text
                                             found_person = True
                                             break
                                         if "Actors" in span.text:
-                                            batch_dict[asin]["person"] = spans[i + 2].text
+                                            batch_dict[asin]["person"] = spans[
+                                                i + 2
+                                            ].text
                                             found_person = True
                                             break
                                     if not found_person:
