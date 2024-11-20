@@ -1,5 +1,5 @@
 import heapq
-from typing import Any, Union, Optional
+from typing import Any, Optional, Union
 
 from loguru import logger
 
@@ -8,10 +8,10 @@ from .get_request_with_limiter import get_request_with_limiter
 from .query_google_kg_search_utils import extract_book_author, extract_book_year
 from .score import compute_score_triple, push_to_heap
 from .utils import (
-    process_responses_with_joblib,
+    ErrorCode,
     get_async_limiter,
     process_http_requests,
-    ErrorCode,
+    process_responses_with_joblib,
 )
 
 

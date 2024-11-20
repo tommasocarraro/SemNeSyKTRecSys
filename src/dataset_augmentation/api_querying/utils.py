@@ -1,19 +1,19 @@
 import asyncio
 import os
 import signal
+import urllib.parse
 from asyncio import CancelledError
 from enum import Enum
 from json import JSONDecodeError
-from typing import Sequence, Callable, Coroutine, Generator, Any
+from typing import Any, Callable, Coroutine, Generator, Sequence
 
 from aiohttp import ClientResponseError
 from aiolimiter import AsyncLimiter
-from joblib import delayed, Parallel
+from joblib import Parallel, delayed
 from loguru import logger
 from tqdm.asyncio import tqdm
 
 from src.dataset_augmentation import state
-import urllib.parse
 
 
 def encode_title(string: str) -> str:

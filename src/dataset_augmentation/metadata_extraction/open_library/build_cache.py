@@ -5,7 +5,7 @@ from loguru import logger
 from psycopg import connect
 
 from config import PSQL_CONN_STRING
-from .utils import _copy_into_table, _reset_database, _load_sql
+from .utils import _copy_into_table, _load_sql, _reset_database
 
 
 def build_cache(

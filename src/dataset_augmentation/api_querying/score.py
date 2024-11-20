@@ -1,5 +1,5 @@
 import heapq
-from typing import Union, Optional
+from typing import Optional, Union
 
 from jaro import jaro_winkler_metric
 

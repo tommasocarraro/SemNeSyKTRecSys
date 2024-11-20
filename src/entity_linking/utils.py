@@ -1,6 +1,7 @@
-import sys
-from SPARQLWrapper import SPARQLWrapper, JSON
 import json
+import sys
+
+from SPARQLWrapper import JSON, SPARQLWrapper
 
 
 def get_ids(category: str) -> None:
@@ -50,7 +51,10 @@ def get_ids(category: str) -> None:
     retrieved_ids = {"ids": []}
 
     # execute the query
-    user_agent = "WDQS-example Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
+    user_agent = "WDQS-example Python/%s.%s" % (
+        sys.version_info[0],
+        sys.version_info[1],
+    )
     sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
@@ -60,8 +64,11 @@ def get_ids(category: str) -> None:
         retrieved_ids["ids"].append(result["item"]["value"].split("/")[-1])
 
     # save Wikidata IDs to file
-    with open('./data/processed/ids_in_categories/wikidata-%s.json' % (category,), 'w',
-              encoding='utf-8') as f:
+    with open(
+        "./data/processed/ids_in_categories/wikidata-%s.json" % (category,),
+        "w",
+        encoding="utf-8",
+    ) as f:
         json.dump(retrieved_ids, f, ensure_ascii=False, indent=4)
 
 
@@ -100,7 +107,7 @@ def linking_stats(mapping_file, errors, save_asins=False):
                 errors["matched"] = {"counter": 1}
 
     if save_asins:
-        with open(mapping_file[:-5] + "_stats.json", 'w', encoding='utf-8') as f:
+        with open(mapping_file[:-5] + "_stats.json", "w", encoding="utf-8") as f:
             json.dump(errors, f, ensure_ascii=False, indent=4)
     else:
         print(errors)

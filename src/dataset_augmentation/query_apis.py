@@ -2,7 +2,7 @@ import json
 import os.path
 import signal
 from asyncio import CancelledError
-from typing import Any, Union, Literal, Optional, TextIO
+from typing import Any, Literal, Optional, TextIO, Union
 
 from loguru import logger
 from psycopg import OperationalError
@@ -11,8 +11,8 @@ from psycopg_pool import AsyncConnectionPool
 from config import PSQL_CONN_STRING
 from src.dataset_augmentation import state
 from src.dataset_augmentation.api_querying import (
-    get_records_info,
     get_movies_and_tv_info,
+    get_records_info,
 )
 from src.dataset_augmentation.api_querying.QueryResults import QueryResults
 from src.dataset_augmentation.api_querying.open_library import get_books_info

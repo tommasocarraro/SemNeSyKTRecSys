@@ -14,39 +14,68 @@ if __name__ == "__main__":
             use_sudo=True,
         )
 
-    n_threads = 12
-
     # dictionary containing the file paths for both mappings and reviews for each domain, also the popularity threshold
     # to be used when selecting the items from which paths should start
     domains = {
         "movies": {
             "mapping_file_path": "data/processed/mappings/mapping-movies.json",
             "reviews_file_path": "data/processed/legacy/reviews_Movies_and_TV_5.csv",
-            "pop_threshold": 300,
         },
         "music": {
             "mapping_file_path": "data/processed/mappings/mapping-music.json",
             "reviews_file_path": "data/processed/legacy/reviews_CDs_and_Vinyl_5.csv",
-            "pop_threshold": 300,
         },
         "books": {
             "mapping_file_path": "data/processed/mappings/mapping-books.json",
             "reviews_file_path": "data/processed/legacy/reviews_Books_5.csv",
-            "pop_threshold": 300,
         },
     }
 
     # list of domain pairs for which we want to find paths
     domain_pairs = [
-        ("movies", "music"),
-        ("movies", "books"),
-        ("books", "movies"),
-        ("books", "music"),
-        ("music", "books"),
-        ("music", "movies"),
+        {
+            "source": "movies",
+            "target": "music",
+            "pop_threshold": 300,
+            "cs_threshold": 5,
+        },
+        {
+            "source": "movies",
+            "target": "books",
+            "pop_threshold": 300,
+            "cs_threshold": 5,
+        },
+        {
+            "source": "books",
+            "target": "movies",
+            "pop_threshold": 300,
+            "cs_threshold": 5,
+        },
+        {
+            "source": "books",
+            "target": "music",
+            "pop_threshold": 300,
+            "cs_threshold": 5,
+        },
+        {
+            "source": "music",
+            "target": "books",
+            "pop_threshold": 200,
+            "pop_threshold_exclude": 250,
+            "cs_threshold": 5,
+        },
+        {
+            "source": "music",
+            "target": "movies",
+            "pop_threshold": 200,
+            "pop_threshold_exclude": 250,
+            "cs_threshold": 5,
+        },
     ]
 
-    for source_name, target_name in domain_pairs:
+    for pair_dict in domain_pairs:
+        source_name = pair_dict["source"]
+        target_name = pair_dict["target"]
         file_paths = FilePaths(
             source_domain_name=source_name,
             mapping_source_domain=domains[source_name]["mapping_file_path"],
@@ -59,9 +88,10 @@ if __name__ == "__main__":
             database_name=database_name,
             file_paths=file_paths,
             max_hops=10,
-            n_threads=n_threads,
-            cs_threshold=5,
-            pop_threshold=domains[source_name]["pop_threshold"],
+            n_threads=12,
+            cs_threshold=pair_dict["cs_threshold"],
+            pop_threshold=pair_dict["pop_threshold"],
+            pop_threshold_exclude=pair_dict.get("pop_threshold_exclude"),
         )
 
     should_export = True
@@ -69,5 +99,5 @@ if __name__ == "__main__":
         dataset_export(
             database_name=database_name,
             export_dir_path="data/processed/paths/",
-            domains_pairs=domain_pairs,
+            domain_pairs=domain_pairs,
         )

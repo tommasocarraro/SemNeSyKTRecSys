@@ -1,5 +1,5 @@
 import re
-from typing import Callable, Any, Optional
+from typing import Any, Callable, Optional
 
 import orjson as json
 from tqdm.auto import tqdm

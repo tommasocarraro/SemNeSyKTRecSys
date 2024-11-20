@@ -1,4 +1,5 @@
 import json
+
 from src.dataset_augmentation.title_scraping.amazon_scraper import scrape_title_amazon
 from src.dataset_augmentation.title_scraping.captcha_scraper import scrape_title_captcha
 from src.dataset_augmentation.title_scraping.google_scraper import (
@@ -7,7 +8,6 @@ from src.dataset_augmentation.title_scraping.google_scraper import (
 from src.dataset_augmentation.title_scraping.wayback_machine_scraper import (
     scrape_title_wayback,
 )
-from src.dataset_augmentation.title_scraping.utils import metadata_stats
 
 
 def metadata_scraping(

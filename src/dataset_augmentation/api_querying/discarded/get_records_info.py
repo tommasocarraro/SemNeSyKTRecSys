@@ -7,9 +7,9 @@ from src.dataset_augmentation.api_querying.get_request_with_limiter import (
     get_request_with_limiter,
 )
 from src.dataset_augmentation.api_querying.utils import (
+    get_async_limiter,
     process_http_requests,
     process_responses_with_joblib,
-    get_async_limiter,
 )
 
 

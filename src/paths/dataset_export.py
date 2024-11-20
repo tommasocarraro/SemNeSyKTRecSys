@@ -1,8 +1,7 @@
-import json
 from collections import defaultdict
-from os import makedirs
-from os.path import abspath, join
-from typing import LiteralString, OrderedDict
+from os import makedirs, remove
+from os.path import abspath, join, splitext
+from typing import Any, LiteralString
 
 import orjson
 from loguru import logger
@@ -14,43 +13,55 @@ from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
 
 
 def dataset_export(
-    database_name: str, export_dir_path: str, domains_pairs: list[tuple[str, str]]
+    database_name: str, export_dir_path: str, domain_pairs: list[dict[str, Any]]
 ) -> None:
     """
-    Requires in apoc.conf:
+    Dumps the precomputed shortest paths from the neo4j database for all the given pairs of domains in json format.
+    Requires the following settings in apoc.conf:
     apoc.export.file.enabled=true
     apoc.import.file.use_neo4j_config=false
-    Args:
-        database_name:
-        export_dir_path:
-        domains_pairs:
 
-    Returns:
-
+    :param database_name: name of the neo4j database
+    :param export_dir_path: directory to export to
+    :param domain_pairs: pairs of domains to export
     """
     file_paths = dump_from_neo4j(
         database_name=database_name,
         export_dir_path=export_dir_path,
-        domains=domains_pairs,
+        domain_pairs=domain_pairs,
     )
 
-    postprocess_neo4j_dump(file_paths=file_paths)
+    postprocess_neo4j_dump(jsonl_file_paths=file_paths)
 
 
 def dump_from_neo4j(
-    database_name: str, export_dir_path: str, domains: list[tuple[str, str]]
-) -> list[tuple[str, str]]:
+    database_name: str, export_dir_path: str, domain_pairs: list[dict[str, Any]]
+) -> list[str]:
+    """
+    Dumps the precomputed shortest paths from the neo4j database for all the given pairs of domains in jsonl format.
+    Requires the following settings in apoc.conf:
+    apoc.export.file.enabled=true
+    apoc.import.file.use_neo4j_config=false
+
+    :param database_name: name of the neo4j database
+    :param export_dir_path: directory to export to
+    :param domain_pairs: pairs of domains to export
+    :return: the list of jsonl files to which the database export to
+    """
     with GraphDatabase.driver(
         NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS), database=database_name
     ) as driver:
+        # make sure that the export dir exists, if not create it
         makedirs(export_dir_path, exist_ok=True)
 
+        # test connectivity to neo4j
         try:
             driver.verify_connectivity()
         except DriverError as e:
             logger.error(e)
             exit(1)
 
+        # query literals used for the creation of indexes
         index_queries: list[LiteralString] = [
             "CREATE LOOKUP INDEX rel_label_lookup_index IF NOT EXISTS FOR ()-[r]-()             ON EACH type(r)",
             "CREATE TEXT   INDEX rel_text_index_source  IF NOT EXISTS FOR ()-[r:precomputed]-() ON (r.source_domain)",
@@ -63,63 +74,76 @@ def dump_from_neo4j(
                 for index_query in index_queries:
                     session.run(index_query)
 
-                file_paths = []
-                for source_domain, target_domain in domains:
+                jsonl_file_paths = []
+                for pair_dict in domain_pairs:
+                    source_domain = pair_dict["source"]
+                    target_domain = pair_dict["target"]
                     logger.info(
                         f"Dumping precomputed paths for {source_domain}->{target_domain}"
                     )
-                    base_output_file_path = join(
+
+                    output_file_path = join(
                         export_dir_path,
-                        source_domain + "->" + target_domain,
+                        source_domain + "->" + target_domain + ".jsonl",
                     )
+                    jsonl_file_paths.append(output_file_path)
 
-                    temp_file_path = base_output_file_path + ".jsonl"
-                    output_file_path = base_output_file_path + ".json"
-                    file_paths.append((temp_file_path, output_file_path))
-
+                    # the query doesn't actually return anything, I'm consuming the result in order to force the query
+                    # to be run eagerly instead of lazily
                     res = session.run(
-                        create_query(source_domain, target_domain, abspath(temp_file_path))  # type: ignore
+                        create_query(source_domain, target_domain, abspath(output_file_path))  # type: ignore
                     )
                     res.consume()
         except (DriverError, Neo4jError) as e:
             logger.error(e)
             exit(1)
-        return file_paths
+        return jsonl_file_paths
 
 
-def postprocess_neo4j_dump(file_paths: list[tuple[str, str]]):
+def postprocess_neo4j_dump(jsonl_file_paths: list[str]) -> None:
+    """
+    Postprocesses the jsonl files into json files for easier handling in the model's pipeline.
+
+    :param jsonl_file_paths: list of the jsonl files exported previously by neo4j
+    """
     logger.info("Postprocessing the dumps")
-    for temp_file_path, output_file_path in tqdm(
-        file_paths, dynamic_ncols=True, desc="Postprocessing the dumps..."
+
+    for jsonl_file_path in tqdm(
+        jsonl_file_paths, dynamic_ncols=True, desc="Postprocessing the dumps..."
     ):
-        with open(temp_file_path, "r") as temp_file, open(
+        output_file_path = splitext(jsonl_file_path)[0] + ".json"
+
+        with open(jsonl_file_path, "rb") as jsonl_file, open(
             output_file_path, "wb"
         ) as output_file:
-            final_dict = {}
+            final_dict = defaultdict(lambda: defaultdict(list))
 
-            for line in temp_file:
-                item = json.loads(line)
+            for line in jsonl_file:
+                item = orjson.loads(line)
                 n1_asin = item["n1_asin"]
                 n2_asin = item["n2_asin"]
                 path = item["path"]
                 path_length = item["path_length"]
 
-                if n1_asin not in final_dict:
-                    final_dict[n1_asin] = {}
-
-                if n2_asin not in final_dict[n1_asin]:
-                    final_dict[n1_asin][n2_asin] = []
-
                 final_dict[n1_asin][n2_asin].append(
                     {"path_str": path, "path_length": path_length}
                 )
 
-            output_file.write(
-                orjson.dumps(final_dict.items(), option=orjson.OPT_INDENT_2)
-            )
+            # write the final json file to file system
+            output_file.write(orjson.dumps(final_dict, option=orjson.OPT_INDENT_2))
+            # delete the jsonl file as it's no longer needed
+            remove(jsonl_file_path)
 
 
 def create_query(source_domain: str, target_domain: str, output_file_path: str) -> str:
+    """
+    Creates the query used to export the paths from neo4j for a given pair of domains.
+
+    :param source_domain: the name of the source domain
+    :param target_domain: the name of the target domain
+    :param output_file_path: the path to the output file
+    :return: the query used to export the paths from neo4j for a given pair of domains
+    """
     return f"""
         CALL apoc.export.json.query(
             "MATCH (n1:entity)-[r:precomputed]->(n2:entity)

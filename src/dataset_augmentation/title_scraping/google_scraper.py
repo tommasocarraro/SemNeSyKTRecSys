@@ -1,8 +1,9 @@
 import json
 import os
+import random
 import time
 from multiprocessing import Manager
-import random
+
 from bs4 import BeautifulSoup
 from joblib import Parallel, delayed
 from selenium import webdriver
@@ -94,7 +95,11 @@ def scrape_title_google_search(
                 divs = soup.find_all("div", class_="yuRUbf")
                 item_title = None
                 for div in divs:
-                    if asin in div.a["href"] and "review" not in div.a["href"] and "amazon" in div.a["href"]:
+                    if (
+                        asin in div.a["href"]
+                        and "review" not in div.a["href"]
+                        and "amazon" in div.a["href"]
+                    ):
                         if "..." not in div.h3.text:
                             title = div.h3.text
                             title = (
@@ -109,9 +114,11 @@ def scrape_title_google_search(
                     item_title = "404-error"
                     batch_dict[asin] = "404-error"
                 else:
-                    batch_dict[asin] = {"title": item_title,
-                                        "person": None,
-                                        "year": None}
+                    batch_dict[asin] = {
+                        "title": item_title,
+                        "person": None,
+                        "year": None,
+                    }
                 print("%s - %s" % (asin, item_title))
             # Close the browser window
             driver.quit()

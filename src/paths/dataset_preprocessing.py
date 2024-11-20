@@ -1,7 +1,7 @@
 import csv
 import json
-from os import path
 import re
+from os import path
 from typing import Any
 
 import pandas as pd

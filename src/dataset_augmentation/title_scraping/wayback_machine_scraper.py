@@ -112,7 +112,7 @@ def scrape_title_wayback(
                             batch_dict[asin] = {
                                 "title": title_element.text.strip(),
                                 "person": None,
-                                "year": None
+                                "year": None,
                             }
                             print_str = title_element.text.strip()
                             # one has been found, no need to continue the search
@@ -125,7 +125,7 @@ def scrape_title_wayback(
                                 batch_dict[asin] = batch_dict[asin] = {
                                     "title": title_element.text.strip(),
                                     "person": None,
-                                    "year": None
+                                    "year": None,
                                 }
                                 print_str = title_element.text.strip()
                                 # one has been found, no need to continue the search

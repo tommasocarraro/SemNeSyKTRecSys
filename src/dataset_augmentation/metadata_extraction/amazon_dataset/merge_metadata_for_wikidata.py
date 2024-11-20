@@ -1,13 +1,9 @@
-import orjson
 import os
 import re
-from typing import Any, Optional, Union, Literal
+from typing import Any, Optional
 
+import orjson
 from tqdm.auto import tqdm
-
-from src.dataset_augmentation.metadata_extraction.amazon_dataset.utils import (
-    correct_missing_types,
-)
 
 
 def _extract_year_from_title_tags(title: Optional[str]) -> Optional[int]:
