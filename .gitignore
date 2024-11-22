@@ -163,6 +163,7 @@ cython_debug/
 **/*.gz
 **/*.txt
 **/*.db
+**/*.npy
 **/*.db-journal
 **/*.db-shm
 /data/paths/
