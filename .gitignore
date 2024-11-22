@@ -162,6 +162,7 @@ cython_debug/
 **/*.tsv
 **/*.gz
 **/*.txt
+**/*.csv
 **/*.db
 **/*.npy
 **/*.db-journal
