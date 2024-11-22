@@ -19,15 +19,15 @@ if __name__ == "__main__":
     domains = {
         "movies": {
             "mapping_file_path": "data/processed/mappings/mapping-movies.json",
-            "reviews_file_path": "data/processed/legacy/reviews_Movies_and_TV_5.csv",
+            "reviews_file_path": "data/ratings/reviews_Movies_and_TV_5.csv",
         },
         "music": {
             "mapping_file_path": "data/processed/mappings/mapping-music.json",
-            "reviews_file_path": "data/processed/legacy/reviews_CDs_and_Vinyl_5.csv",
+            "reviews_file_path": "data/ratings/reviews_CDs_and_Vinyl_5.csv",
         },
         "books": {
             "mapping_file_path": "data/processed/mappings/mapping-books.json",
-            "reviews_file_path": "data/processed/legacy/reviews_Books_5.csv",
+            "reviews_file_path": "data/ratings/reviews_Books_5.csv",
         },
     }
 
@@ -98,6 +98,6 @@ if __name__ == "__main__":
     if should_export:
         dataset_export(
             database_name=database_name,
-            export_dir_path="data/processed/paths/",
+            export_dir_path="data/kg_paths/",
             domain_pairs=domain_pairs,
         )
