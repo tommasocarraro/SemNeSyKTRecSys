@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from src import device
 
 
 class DataLoader:
@@ -38,4 +39,4 @@ class DataLoader:
             u_i_pairs = data[:, :2]
             ratings = data[:, -1]
 
-            yield torch.tensor(u_i_pairs), torch.tensor(ratings).float()
+            yield torch.tensor(u_i_pairs).to(device), torch.tensor(ratings).float().to(device)

@@ -3,6 +3,7 @@ import wandb
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix, accuracy_score
 from src.metrics import compute_metric, check_metrics
+from src import device
 
 
 class Trainer:
@@ -21,7 +22,7 @@ class Trainer:
         :param wandb_train: whether to log data on Weights and Biases servers. This is used when using hyper-parameter
         optimization
         """
-        self.model = model
+        self.model = model.to(device)
         self.optimizer = optimizer
         self.wandb_train = wandb_train
 
@@ -113,8 +114,8 @@ class Trainer:
         preds, targets = [], []
         for batch_idx, (X, y) in enumerate(loader):
             preds_ = self.predict(X)
-            preds.append(preds_)
-            targets.append(y.numpy())
+            preds.append(preds_.cpu().numpy())
+            targets.append(y.cpu().numpy())
         return np.concatenate(preds), np.concatenate(targets)
 
     def validate(self, val_loader, val_metric):
