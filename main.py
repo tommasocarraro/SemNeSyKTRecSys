@@ -8,8 +8,8 @@ from src.models.mf import MFTrainer, MatrixFactorization
 process = process_source_target(
     0,
     "./data/ratings/reviews_Movies_and_TV_5.csv",
-    "./data/ratings/reviews_Books_5.csv",
-    "./data/kg_paths/movies(pop:300)-books(cs:5).json",
+    "./data/ratings/reviews_CDs_and_Vinyl_5.csv",
+    "./data/kg_paths/movies(pop:300)-music(cs:5).json",
     save_path="./data/saved_data/dataset.npy",
 )
 
