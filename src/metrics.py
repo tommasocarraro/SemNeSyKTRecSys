@@ -1,6 +1,8 @@
 import numpy as np
-from sklearn.metrics import fbeta_score, accuracy_score
-valid_metrics = ['mse', 'rmse', 'fbeta', 'acc']
+from numpy.typing import NDArray
+from sklearn.metrics import accuracy_score, fbeta_score
+
+valid_metrics = ["mse", "rmse", "fbeta", "acc", "auc"]
 
 
 def mse(pred_scores, ground_truth):
@@ -11,7 +13,9 @@ def mse(pred_scores, ground_truth):
     :param ground_truth: target ratings for validation user-item pairs
     :return: Squared error for each user
     """
-    assert pred_scores.shape == ground_truth.shape, "predictions and targets must match in shape."
+    assert (
+        pred_scores.shape == ground_truth.shape
+    ), "predictions and targets must match in shape."
     return np.square(pred_scores - ground_truth)
 
 
@@ -23,7 +27,9 @@ def fbeta(pred_scores, ground_truth, beta):
     :param ground_truth: target ratings for validation user-item pairs
     :return: f-beta measure
     """
-    return fbeta_score(ground_truth, pred_scores, beta=beta, pos_label=0, average='binary')
+    return fbeta_score(
+        ground_truth, pred_scores, beta=beta, pos_label=0, average="binary"
+    )
 
 
 def acc(pred_scores, ground_truth):
@@ -37,7 +43,7 @@ def acc(pred_scores, ground_truth):
     return accuracy_score(ground_truth, pred_scores)
 
 
-def isfloat(num):
+def isfloat(num: str):
     """
     Check if a string contains a float.
 
@@ -51,21 +57,33 @@ def isfloat(num):
         return False
 
 
-def check_metrics(metrics):
+def check_metrics(metrics: str | list[str]):
     """
     Check if the given list of metrics' names is correct.
 
     :param metrics: list of str containing the name of some metrics
     """
-    err_msg = "Some of the given metrics are not valid. The accepted metrics are " + str(valid_metrics)
+    err_msg = f"Some of the given metrics are not valid. The accepted metrics are {valid_metrics}"
     if isinstance(metrics, str):
         metrics = [metrics]
-    assert all([isinstance(m, str) for m in metrics]), "The metrics must be represented as strings"
+    assert all(
+        [isinstance(m, str) for m in metrics]
+    ), "The metrics must be represented as strings"
     assert all([m in valid_metrics for m in metrics if "-" not in m]), err_msg
-    assert all([m.split("-")[0] in valid_metrics and isfloat(m.split("-")[1]) for m in metrics if "-" in m]), err_msg
+    assert all(
+        [
+            m.split("-")[0] in valid_metrics and isfloat(m.split("-")[1])
+            for m in metrics
+            if "-" in m
+        ]
+    ), err_msg
 
 
-def compute_metric(metric, pred_scores, ground_truth=None):
+def auc(pos_preds: NDArray, neg_preds: NDArray):
+    return np.mean((pos_preds - neg_preds) > 0)
+
+
+def compute_metric(metric: str, pred_scores: NDArray, ground_truth: NDArray = None):
     """
     Compute the given metric on the given predictions and ground truth.
 
@@ -81,5 +99,7 @@ def compute_metric(metric, pred_scores, ground_truth=None):
     else:
         if metric == "mse" or metric == "rmse":
             return mse(pred_scores, ground_truth)
-        if metric == "acc":
+        elif metric == "acc":
             return acc(pred_scores, ground_truth)
+        elif metric == "auc":
+            return auc(pred_scores, ground_truth)
