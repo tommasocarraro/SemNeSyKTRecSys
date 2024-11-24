@@ -1,6 +1,7 @@
 import torch
-from src.trainer import Trainer
 from tqdm import tqdm
+
+from src.trainer import Trainer
 
 
 class MatrixFactorization(torch.nn.Module):
@@ -14,6 +15,7 @@ class MatrixFactorization(torch.nn.Module):
     The model has inside two vectors: one containing the biases of the users of the system, one containing the biases
     of the items of the system.
     """
+
     def __init__(self, n_users, n_items, n_factors, normalize=False):
         """
         Constructor of the matrix factorization model.
@@ -58,6 +60,7 @@ class MFTrainer(Trainer):
     """
     Basic trainer for training a Matrix Factorization model using gradient descent.
     """
+
     def __init__(self, mf_model, optimizer, loss, wandb_train=False):
         """
         Constructor of the trainer for the MF model.
@@ -72,13 +75,17 @@ class MFTrainer(Trainer):
 
     def train_epoch(self, train_loader, epoch=None):
         train_loss = 0.0
-        for batch_idx, (u_i_pairs, ratings) in enumerate(tqdm(train_loader)):
+        for batch_idx, (user, pos_items, neg_items) in enumerate(tqdm(train_loader)):
             self.optimizer.zero_grad()
-            loss = self.loss(self.model(u_i_pairs[:, 0], u_i_pairs[:, 1]), ratings)
+            pos_preds = self.model(user, pos_items)
+            neg_preds = self.model(user, neg_items)
+            loss = self.loss(pos_preds, neg_preds)
             train_loss += loss.item()
             loss.backward()
             self.optimizer.step()
-        return train_loss / len(train_loader), {"train_loss": train_loss / len(train_loader)}
+        return train_loss / len(train_loader), {
+            "train_loss": train_loss / len(train_loader)
+        }
 
 
 class MFTrainerClassifier(MFTrainer):
@@ -90,6 +97,7 @@ class MFTrainerClassifier(MFTrainer):
     The objective is to discriminate between class 1 ("likes") and class 0 ("dislikes"). Note the focal loss is a
     generalization of the binary cross-entropy to deal with imbalance data.
     """
+
     def __init__(self, mf_model, optimizer, loss, wandb_train=False, threshold=0.5):
         """
         Constructor of the trainer for the MF model for binary classification.
@@ -100,7 +108,9 @@ class MFTrainerClassifier(MFTrainer):
         :param wandb_train: whether the data has to be logged to WandB or not
         :param threshold: threshold used to determine whether an example is negative or positive (decision boundary)
         """
-        super(MFTrainerClassifier, self).__init__(mf_model, optimizer, loss, wandb_train)
+        super(MFTrainerClassifier, self).__init__(
+            mf_model, optimizer, loss, wandb_train
+        )
         self.threshold = threshold
 
     def predict(self, x, dim=1):
