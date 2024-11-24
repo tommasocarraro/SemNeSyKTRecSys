@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.metrics import accuracy_score, fbeta_score
@@ -57,7 +59,7 @@ def isfloat(num: str):
         return False
 
 
-def check_metrics(metrics: str | list[str]):
+def check_metrics(metrics: Union[str, list[str]]):
     """
     Check if the given list of metrics' names is correct.
 
