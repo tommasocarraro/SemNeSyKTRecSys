@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split as train_test_split_sklearn
 import numpy as np
 from scipy.sparse import csr_array
 from collections import defaultdict
+import py7zr
 
 
 def train_test_split(
@@ -147,6 +148,14 @@ def process_source_target(
     )
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
+    # check if path file is compressed
+    if paths_file_path.split(".")[-1] == "7z":
+        print("Decompressing file %s" % (paths_file_path, ))
+        with py7zr.SevenZipFile(paths_file_path, mode='r') as archive:
+            archive.extractall(path="/".join(paths_file_path.split("/")[:-1]))
+        # update path
+        paths_file_path = paths_file_path[:-3]
+
     with open(paths_file_path, "r") as json_paths:
         paths_file_path = json.load(json_paths)
     available_path_pairs = np.array(
