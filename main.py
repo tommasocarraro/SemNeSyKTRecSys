@@ -16,10 +16,10 @@ process = process_source_target(
 tr_loader = DataLoader(process["src_tr"], process["src_n_items"], 512)
 val_loader = DataLoader(process["src_val"], process["src_n_items"], 512)
 
-mf = MatrixFactorization(process["src_n_users"], process["src_n_items"], 10)
+mf = MatrixFactorization(process["src_n_users"], process["src_n_items"], 20)
 
 tr = MFTrainer(
-    mf, torch.optim.Adam(mf.parameters(), lr=1e-3, weight_decay=0.0001), BPRLoss()
+    mf, torch.optim.Adam(mf.parameters(), lr=0.001, weight_decay=0.0001), BPRLoss()
 )
 
 tr.train(tr_loader, val_loader, "auc", verbose=1)

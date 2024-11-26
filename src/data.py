@@ -21,29 +21,47 @@ def train_test_split(
     rating (LOO)
     :param user_level: whether the train test split has to be performed at the user level or ratings can
     be sampled randomly independently of the user. Defaults to False, meaning that the split is not done at the
-    user level. In case the split is not done at the user level, a stratified split is performed to mantain the
+    user level. In case the split is not done at the user level, a stratified split is performed to maintain the
     distribution of the classes
     :return: train and test set dataframes
     """
     if user_level:
-        # Create a dictionary where each key is a user and the value is a list of indices for that user
-        user_indices = defaultdict(list)
-        for idx, user_id in enumerate(ratings[:, 0]):
-            user_indices[user_id].append(idx)
+        # Create a dictionary where each key is a user and the value is a list of indices for positive and negative
+        # ratings
+        user_indices_pos = defaultdict(list)
+        user_indices_neg = defaultdict(list)
 
-        # For each user, randomly sample 20% of the indices
+        for idx, user_id in enumerate(ratings[:, 0]):
+            if ratings[idx, -1] == 1:
+                user_indices_pos[user_id].append(idx)
+            else:
+                user_indices_neg[user_id].append(idx)
+
+        # For each user, maintain the positive-negative rating distribution while sampling frac % for test set
         test_indices = []
-        for user_id, indices in user_indices.items():
-            sample_size = max(1, int(len(indices) * 0.2))  # Ensure at least 1 rating per user
-            sampled_indices = np.random.choice(indices, size=sample_size, replace=False)
-            test_indices.extend(sampled_indices)
+        for user_id in user_indices_pos.keys():
+            pos_indices = user_indices_pos[user_id]
+            neg_indices = user_indices_neg[user_id]
+
+            # Calculate sample size based on the number of positive ratings for this user
+            sample_size_pos = max(1, int(len(pos_indices) * frac))
+            sample_size_neg = max(1, int(len(neg_indices) * frac))
+
+            # sample is done if at least one positive interaction can remain in the training set
+            if len(pos_indices) > 1:
+                sampled_pos = np.random.choice(pos_indices, size=sample_size_pos, replace=False)
+                test_indices.extend(sampled_pos)
+            # sample is done if at least one negative interaction can remain in the training set
+            if len(neg_indices) > 1:
+                sampled_neg = np.random.choice(neg_indices, size=sample_size_neg, replace=False)
+                test_indices.extend(sampled_neg)
 
         # Create test set and training set based on the sampled indices
         test_set = ratings[test_indices]
         train_set = np.delete(ratings, test_indices, axis=0)
         return train_set, test_set
     else:
-        # we use scikit-learn train-test split
+        # We use scikit-learn train-test split for the entire dataset
         return train_test_split_sklearn(
             ratings, random_state=seed, stratify=ratings[:, -1], test_size=frac
         )
