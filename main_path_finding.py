@@ -5,7 +5,7 @@ from src.paths.path_finder import neo4j_path_finder
 
 if __name__ == "__main__":
     database_name = "wikidata"
-    should_import = True
+    should_import = False
     if should_import:
         dataset_import(
             database_name=database_name,
@@ -61,14 +61,12 @@ if __name__ == "__main__":
             "source": "music",
             "target": "books",
             "pop_threshold": 200,
-            "pop_threshold_exclude": 250,
             "cs_threshold": 5,
         },
         {
             "source": "music",
             "target": "movies",
             "pop_threshold": 200,
-            "pop_threshold_exclude": 250,
             "cs_threshold": 5,
         },
     ]
@@ -84,15 +82,15 @@ if __name__ == "__main__":
             mapping_target_domain=domains[target_name]["mapping_file_path"],
             reviews_target_domain=domains[target_name]["reviews_file_path"],
         )
-        neo4j_path_finder(
-            database_name=database_name,
-            file_paths=file_paths,
-            max_hops=10,
-            n_threads=12,
-            cs_threshold=pair_dict["cs_threshold"],
-            pop_threshold=pair_dict["pop_threshold"],
-            pop_threshold_exclude=pair_dict.get("pop_threshold_exclude"),
-        )
+        # neo4j_path_finder(
+        #     database_name=database_name,
+        #     file_paths=file_paths,
+        #     max_hops=10,
+        #     n_threads=12,
+        #     cs_threshold=pair_dict["cs_threshold"],
+        #     pop_threshold=pair_dict["pop_threshold"],
+        #     pop_threshold_exclude=pair_dict.get("pop_threshold_exclude"),
+        # )
 
     should_export = True
     if should_export:
@@ -100,4 +98,5 @@ if __name__ == "__main__":
             database_name=database_name,
             export_dir_path="data/kg_paths/",
             domain_pairs=domain_pairs,
+            mappings_file_paths=domains,
         )

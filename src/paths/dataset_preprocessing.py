@@ -2,7 +2,6 @@ import csv
 import json
 import re
 from os import path
-from typing import Any
 
 import pandas as pd
 from loguru import logger
@@ -66,7 +65,6 @@ def process_wikidata_dump(
 def create_csv_files_neo4j(
     triples_file_path: str,
     labels_file_path: str,
-    mapping: dict[str, Any],
     selected_properties: str | None = None,
 ) -> None:
     """
@@ -77,7 +75,6 @@ def create_csv_files_neo4j(
 
     :param triples_file_path: file containing all the claims of the wikidata dump
     :param labels_file_path: file containing the english labels of the wikidata dump
-    :param mapping: dictionary containing wikidata IDs as keys and the respective Amazon ASINs as values
     :param selected_properties: path to the csv file containing the properties to include in the relationships file
     """
     if selected_properties is not None:
@@ -132,7 +129,7 @@ def create_csv_files_neo4j(
     ) as nodes_file:
         nodes_writer = csv.writer(nodes_file)
         # write the header to the nodes file
-        nodes_writer.writerow(["wikidata_id:ID", "label", "amazon_asin", ":LABEL"])
+        nodes_writer.writerow(["wikidata_id:ID", "label", ":LABEL"])
 
         # write the nodes to the file system one at a time
         for node in nodes_set:
@@ -144,5 +141,4 @@ def create_csv_files_neo4j(
                 type_ = "relation"
             else:
                 type_ = "entity"
-            amazon_asin = mapping[node] if node in mapping else "null"
-            nodes_writer.writerow([node, label, amazon_asin, type_])
+            nodes_writer.writerow([node, label, type_])

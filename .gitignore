@@ -160,7 +160,6 @@ cython_debug/
 #.idea/
 
 **/*.tsv
-**/*.gz
 **/*.txt
 **/*.csv
 **/*.db
