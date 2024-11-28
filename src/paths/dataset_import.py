@@ -1,8 +1,9 @@
+import os.path
 from os import path
 
 from loguru import logger
 from neo4j import GraphDatabase
-from neo4j.exceptions import DriverError
+from neo4j.exceptions import ClientError, DriverError
 
 from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
 from src.paths.utils import run_shell_command
@@ -38,11 +39,19 @@ def dataset_import(
         # first verify if the neo4j server is up and running
         try:
             driver.verify_connectivity()
+            logger.info("Neo4j up and running")
         except DriverError as e:
             logger.error(e)
             exit(1)
 
         # then stop the database if it's running
+        try:
+            with driver.session() as session:
+                session.run(f"DROP DATABASE {database_name}")  # type: ignore
+            logger.info(f"{database_name} database stopped")
+        except (DriverError, ClientError) as e:
+            logger.error(e)
+            exit(1)
 
         args = [
             "neo4j-admin",
@@ -55,3 +64,28 @@ def dataset_import(
             "--overwrite-destination",
         ]
         run_shell_command(args=args, use_sudo=use_sudo)
+
+        if os.path.exists("import.report"):
+            os.remove("import.report")
+
+        try:
+            with driver.session() as session:
+                session.run(f"CREATE DATABASE {database_name} IF NOT EXISTS")  # type: ignore
+            logger.info("Database correctly imported")
+        except (DriverError, ClientError) as e:
+            logger.error(e)
+            logger.error(
+                f"Something unexpected occurred. You may need to run the following query to finalize the import:\nCREATE DATABASE {database_name}"
+            )
+            exit(1)
+
+        try:
+            with driver.session(database=database_name) as session:
+                session.run(
+                    "CREATE TEXT INDEX node_wikidata_id_text_index FOR (n:entity) ON (n.wikidata_id)"
+                )
+            logger.info("Index created successfully")
+        except (DriverError, ClientError) as e:
+            logger.error(e)
+            logger.error("Failed to create index")
+            exit(1)

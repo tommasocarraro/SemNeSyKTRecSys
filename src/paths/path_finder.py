@@ -9,7 +9,6 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import DriverError, Neo4jError
 
 from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
-from src.utils import ParallelTqdm
 from .FilePaths import FilePaths
 from .neo4j_make_query import make_query
 from .utils import (
@@ -18,6 +17,7 @@ from .utils import (
     get_rating_stats,
     refine_cold_start_items,
     refine_popular_items,
+    ParallelTqdm,
 )
 
 
@@ -95,6 +95,11 @@ def neo4j_path_finder(
             :param first_item: wikidata id of the first item
             :param second_item: wikidata id of the second item
             """
+            # double-checking the types as python does not enforce typing at runtime
+            # and neo4j fails the query quietly if the parameters are incorrect
+            if not isinstance(first_item, str) or not isinstance(second_item, str):
+                logger.error(f"Function find_path only accepts strings as parameters")
+                exit(1)
             with driver.session(database=database_name) as session:
                 session.execute_write(
                     lambda tx: tx.run(
