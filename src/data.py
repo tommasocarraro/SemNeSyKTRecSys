@@ -75,6 +75,25 @@ def train_test_split(
         )
 
 
+def decompress(path):
+    """
+    It decompressed a given compressed file. If the file has no 7z extension, nothing is done by the function
+
+    :param path: path to the compressed file
+    :return: the path without the compression extension
+    """
+    # check if path file is compressed
+    if path.split(".")[-1] == "7z":
+        # check if it is already decompressed
+        if not os.path.exists(path[:-3]):
+            print("Decompressing file %s" % (path,))
+            with py7zr.SevenZipFile(path, mode='r') as archive:
+                archive.extractall(path="/".join(path.split("/")[:-1]))
+        # update path to the final file
+        return path[:-3]
+    return path
+
+
 def process_source_target(
     seed: float,
     source_dataset_path: str,
@@ -110,6 +129,9 @@ def process_source_target(
     """
     if os.path.exists(save_path):
         return np.load(save_path, allow_pickle=True).item()
+    # decompress source and target rating files, if needed
+    source_dataset_path = decompress(source_dataset_path)
+    target_dataset_path = decompress(target_dataset_path)
     # get source and target ratings
     src_ratings = pd.read_csv(
         source_dataset_path, usecols=["userId", "itemId", "rating"]
@@ -174,15 +196,8 @@ def process_source_target(
     )
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
-    # check if path file is compressed
-    if paths_file_path.split(".")[-1] == "7z":
-        # check if it is already decompressed
-        if not os.path.exists(paths_file_path[:-3]):
-            print("Decompressing file %s" % (paths_file_path, ))
-            with py7zr.SevenZipFile(paths_file_path, mode='r') as archive:
-                archive.extractall(path="/".join(paths_file_path.split("/")[:-1]))
-        # update path to the final JSON file
-        paths_file_path = paths_file_path[:-3]
+    # decompress the file containing the paths from source to target domain
+    paths_file_path = decompress(paths_file_path)
 
     with open(paths_file_path, "r") as json_paths:
         paths_file_path = json.load(json_paths)
