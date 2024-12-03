@@ -7,19 +7,19 @@ from src.models.mf import MFTrainer, MatrixFactorization
 
 process = process_source_target(
     0,
-    "./data/ratings/reviews_Movies_and_TV_5.csv",
     "./data/ratings/reviews_CDs_and_Vinyl_5.csv",
-    "./data/kg_paths/movies(pop:300)-music(cs:5).json.7z",
-    save_path="./data/saved_data/dataset.npy",
+    "./data/ratings/reviews_Movies_and_TV_5.csv",
+    "./data/kg_paths/music(pop:200)->movies(cs:5).json.7z",
+    save_path="./data/saved_data/",
 )
 
 tr_loader = DataLoader(process["src_tr"], process["src_n_items"], 512)
 val_loader = DataLoader(process["src_val"], process["src_n_items"], 512)
 
-mf = MatrixFactorization(process["src_n_users"], process["src_n_items"], 20)
+mf = MatrixFactorization(process["src_n_users"], process["src_n_items"], 10)
 
 tr = MFTrainer(
     mf, torch.optim.Adam(mf.parameters(), lr=0.001, weight_decay=0.0001), BPRLoss()
 )
 
-tr.train(tr_loader, val_loader, "auc", verbose=1)
+tr.train(tr_loader, val_loader, "auc", early=10, verbose=1)
