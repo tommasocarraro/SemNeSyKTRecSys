@@ -7,6 +7,7 @@ import numpy as np
 from scipy.sparse import csr_array
 from collections import defaultdict
 import py7zr
+from loguru import logger
 
 
 def train_test_split(
@@ -55,12 +56,16 @@ def train_test_split(
 
             # sample is done if at least one positive interaction can remain in the training set
             if len(pos_indices) > 1:
-                sampled_pos = np.random.choice(pos_indices, size=sample_size_pos, replace=False)
+                sampled_pos = np.random.choice(
+                    pos_indices, size=sample_size_pos, replace=False
+                )
                 test_indices.extend(sampled_pos)
             # sample is done if at least one negative interaction can remain in the training set
             # if frac is None, it does LOO sampling, so the negatives are not sampled
             if len(neg_indices) > 1 and frac is not None:
-                sampled_neg = np.random.choice(neg_indices, size=sample_size_neg, replace=False)
+                sampled_neg = np.random.choice(
+                    neg_indices, size=sample_size_neg, replace=False
+                )
                 test_indices.extend(sampled_neg)
 
         # Create test set and training set based on the sampled indices
@@ -68,7 +73,9 @@ def train_test_split(
         train_set = np.delete(ratings, test_indices, axis=0)
         return train_set, test_set
     else:
-        assert frac is not None, "`frac` cannot be None if the split is not on the user level."
+        assert (
+            frac is not None
+        ), "`frac` cannot be None if the split is not on the user level."
         # We use scikit-learn train-test split for the entire dataset
         return train_test_split_sklearn(
             ratings, random_state=seed, stratify=ratings[:, -1], test_size=frac
@@ -87,7 +94,7 @@ def decompress(path):
         # check if it is already decompressed
         if not os.path.exists(path[:-3]):
             print("Decompressing file %s" % (path,))
-            with py7zr.SevenZipFile(path, mode='r') as archive:
+            with py7zr.SevenZipFile(path, mode="r") as archive:
                 archive.extractall(path="/".join(path.split("/")[:-1]))
         # update path to the final file
         return path[:-3]
@@ -127,8 +134,11 @@ def process_source_target(
     :param target_user_level_split: whether the split for the target dataset has to be done at the user level or not
     :param save_path: path where to save the dataset. None if the dataset has no to be saved on disk.
     """
-    if os.path.exists(save_path):
-        return np.load(save_path, allow_pickle=True).item()
+    actual_save_path = make_saved_dataset_path(
+        save_path=save_path, source_dataset_path=source_dataset_path
+    )
+    if os.path.exists(actual_save_path):
+        return np.load(actual_save_path, allow_pickle=True).item()
     # decompress source and target rating files, if needed
     source_dataset_path = decompress(source_dataset_path)
     target_dataset_path = decompress(target_dataset_path)
@@ -184,12 +194,18 @@ def process_source_target(
 
     # create train and validation set for source domain dataset
     src_tr, src_val = train_test_split(
-        seed, src_ratings.to_numpy(), frac=source_val_size, user_level=source_user_level_split
+        seed,
+        src_ratings.to_numpy(),
+        frac=source_val_size,
+        user_level=source_user_level_split,
     )
 
     # create train, validation and test set for target domain dataset
     tgt_tr, tgt_te = train_test_split(
-        seed, tgt_ratings.to_numpy(), frac=target_test_size, user_level=target_user_level_split
+        seed,
+        tgt_ratings.to_numpy(),
+        frac=target_test_size,
+        user_level=target_user_level_split,
     )
     tgt_tr_small, tgt_val = train_test_split(
         seed, tgt_tr, frac=target_val_size, user_level=target_user_level_split
@@ -233,9 +249,18 @@ def process_source_target(
     }
 
     if save_path is not None:
-        directory = os.path.dirname(save_path)
+        directory = os.path.dirname(actual_save_path)
         if not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
-        np.save(save_path, dataset)
+        np.save(actual_save_path, dataset)
 
     return dataset
+
+
+def make_saved_dataset_path(save_path: str, source_dataset_path: str) -> str:
+    if not os.path.isdir(save_path):
+        logger.error("save_path should be a directory")
+        exit(1)
+
+    source_file_name = os.path.splitext(os.path.basename(source_dataset_path))[0]
+    return os.path.join(save_path, f"{source_file_name}_source_dataset.npy")
