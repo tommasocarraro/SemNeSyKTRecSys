@@ -44,15 +44,22 @@ def train_test_split(
             neg_indices = user_indices_neg[user_id]
 
             # Calculate sample size based on the number of positive ratings for this user
-            sample_size_pos = max(1, int(len(pos_indices) * frac))
-            sample_size_neg = max(1, int(len(neg_indices) * frac))
+            if frac is not None:
+                sample_size_pos = max(1, int(len(pos_indices) * frac))
+                sample_size_neg = max(1, int(len(neg_indices) * frac))
+            else:
+                # when frac is None, it performs LOO sampling, so just one positive interaction for each user
+                # is held out
+                sample_size_pos = 1
+                sample_size_neg = 1
 
             # sample is done if at least one positive interaction can remain in the training set
             if len(pos_indices) > 1:
                 sampled_pos = np.random.choice(pos_indices, size=sample_size_pos, replace=False)
                 test_indices.extend(sampled_pos)
             # sample is done if at least one negative interaction can remain in the training set
-            if len(neg_indices) > 1:
+            # if frac is None, it does LOO sampling, so the negatives are not sampled
+            if len(neg_indices) > 1 and frac is not None:
                 sampled_neg = np.random.choice(neg_indices, size=sample_size_neg, replace=False)
                 test_indices.extend(sampled_neg)
 
@@ -61,6 +68,7 @@ def train_test_split(
         train_set = np.delete(ratings, test_indices, axis=0)
         return train_set, test_set
     else:
+        assert frac is not None, "`frac` cannot be None if the split is not on the user level."
         # We use scikit-learn train-test split for the entire dataset
         return train_test_split_sklearn(
             ratings, random_state=seed, stratify=ratings[:, -1], test_size=frac
