@@ -13,13 +13,13 @@ process = process_source_target(
     save_path="./data/saved_data/",
 )
 
-tr_loader = DataLoader(process["src_tr"], process["src_n_items"], 512)
+tr_loader = DataLoader(process["src_tr"], process["src_n_items"], 128)
 val_loader = DataLoader(process["src_val"], process["src_n_items"], 512)
 
-mf = MatrixFactorization(process["src_n_users"], process["src_n_items"], 10)
+mf = MatrixFactorization(process["src_n_users"], process["src_n_items"], 50)
 
 tr = MFTrainer(
-    mf, torch.optim.Adam(mf.parameters(), lr=0.001, weight_decay=0.0001), BPRLoss()
+    mf, torch.optim.Adam(mf.parameters(), lr=0.01, weight_decay=0.0001), BPRLoss()
 )
 
 tr.train(tr_loader, val_loader, "auc", early=10, verbose=1)
