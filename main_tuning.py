@@ -1,6 +1,6 @@
 from src.data import process_source_target
 from src.tuning import mf_tuning
-from src.configs import SWEEP_CONFIG_MF, SWEEP_CONFIG_MF_TOY
+from src.configs import SWEEP_CONFIG_MF
 
 dataset = process_source_target(
     0,
@@ -10,5 +10,5 @@ dataset = process_source_target(
     save_path="./data/saved_data/",
 )
 
-mf_tuning(0, SWEEP_CONFIG_MF_TOY, dataset["src_tr"], dataset["src_val"], dataset["src_n_users"],
-          dataset["src_n_items"], "auc", exp_name="stupid_trial")
+mf_tuning(0, SWEEP_CONFIG_MF, dataset["src_tr"], dataset["src_val"], dataset["src_n_users"],
+          dataset["src_n_items"], "auc", exp_name="SemNeSyKTRecSys")
