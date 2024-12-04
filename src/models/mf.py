@@ -49,7 +49,7 @@ class MatrixFactorization(torch.nn.Module):
         """
         pred = torch.sum(self.u_emb(u_idx) * self.i_emb(i_idx), dim=dim, keepdim=True)
         # add user and item biases to the prediction
-        pred += self.u_bias(u_idx) + self.i_bias(i_idx)
+        pred = pred + self.u_bias(u_idx) + self.i_bias(i_idx)
         pred = pred.squeeze()
         if self.normalize:
             pred = torch.sigmoid(pred)
@@ -74,6 +74,14 @@ class MFTrainer(Trainer):
         self.loss = loss
 
     def train_epoch(self, train_loader, epoch=None):
+        """
+        Method for the training of one single epoch.
+
+        :param train_loader: data loader for training data
+        :param epoch: index of epoch
+        :return: training loss value averaged across training batches and a dictionary containing useful information
+        to log, such as other metrics computed by this model
+        """
         train_loss = 0.0
         for batch_idx, (user, pos_items, neg_items) in enumerate(tqdm(train_loader)):
             self.optimizer.zero_grad()
@@ -88,45 +96,11 @@ class MFTrainer(Trainer):
         }
 
     def compute_validation_loss(self, pos_preds, neg_preds):
+        """
+        Method for computing the validation loss for the model.
+
+        :param pos_preds: predictions for positive interactions in the validation set
+        :param neg_preds: predictions for negative interactions in the validation set
+        :return: the validation loss for the model
+        """
         return self.loss(pos_preds, neg_preds)
-
-
-class MFTrainerClassifier(MFTrainer):
-    """
-    Trainer for training a Matrix Factorization model for the binary classification task.
-
-    This version of the trainer uses the focal loss as loss function. It implements a classification task, where the
-    objective is to minimize the focal loss. The ratings are binary, hence they can be interpreted as binary classes.
-    The objective is to discriminate between class 1 ("likes") and class 0 ("dislikes"). Note the focal loss is a
-    generalization of the binary cross-entropy to deal with imbalance data.
-    """
-
-    def __init__(self, mf_model, optimizer, loss, wandb_train=False, threshold=0.5):
-        """
-        Constructor of the trainer for the MF model for binary classification.
-
-        :param mf_model: Matrix Factorization model
-        :param optimizer: optimizer used for the training of the model
-        :param loss: loss function used to train the model
-        :param wandb_train: whether the data has to be logged to WandB or not
-        :param threshold: threshold used to determine whether an example is negative or positive (decision boundary)
-        """
-        super(MFTrainerClassifier, self).__init__(
-            mf_model, optimizer, loss, wandb_train
-        )
-        self.threshold = threshold
-
-    def predict(self, x, dim=1):
-        """
-        Method for performing a prediction of the model.
-
-        :param x: tensor containing the user-item pair for which the prediction has to be computed. The first position
-        is the user index, while the second position is the item index
-        :param dim: dimension across which the dot product of the MF has to be computed
-        :return: the prediction of the model for the given user-item pair
-        """
-        # apply sigmoid because during training the losses with logits are used for numerical stability
-        preds = super().predict(x, dim)
-        preds = torch.sigmoid(preds)
-        preds = preds >= self.threshold
-        return preds
