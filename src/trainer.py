@@ -64,7 +64,9 @@ class Trainer:
             # training step
             train_loss, log_dict = self.train_epoch(train_loader, epoch + 1)
             # validation step
-            val_score = self.validate(val_loader, val_metric)
+            val_score, val_loss_dict = self.validate(val_loader, val_metric, val_loss=True)
+            # merge log dictionaries
+            log_dict.update(val_loss_dict)
             # print epoch data
             if (epoch + 1) % verbose == 0:
                 log_record = "Epoch %d - Train loss %.3f - Val %s %.3f" % (
@@ -142,18 +144,34 @@ class Trainer:
             neg_preds.append(self.predict(users, neg_items).cpu().numpy())
         return np.concatenate(pos_preds), np.concatenate(neg_preds)
 
-    def validate(self, val_loader, val_metric):
+    def compute_validation_loss(self, pos_preds, neg_preds):
+        """
+        Method for computing the validation loss of the model.
+
+        :param pos_preds: predictions for positive interactions in the validation set
+        :param neg_preds: predictions for negative interactions in the validation set
+        :return: the validation loss of the model
+        """
+        raise NotImplementedError()
+
+    def validate(self, val_loader, val_metric, val_loss=False):
         """
         Method for validating the model.
 
         :param val_loader: data loader for validation data
         :param val_metric: validation metric name (it is F0.5-score for source domain and F1-score for target domain)
+        :param val_loss: whether to compute the validation loss or not
         :return: validation score based on the given metric averaged across all validation examples
         """
         # prepare predictions and targets for evaluation
         pos_preds, neg_preds = self.prepare_for_evaluation(val_loader)
-        # compute F-score
+        # compute validation metric
         val_score = compute_metric(val_metric, pos_preds, neg_preds)
+        # compute validation loss
+        validation_loss = None
+        if val_loss:
+            validation_loss = self.compute_validation_loss(torch.tensor(pos_preds).to(device),
+                                                           torch.tensor(neg_preds).to(device))
         # # compute precision and recall
         # p, r, f, _ = precision_recall_fscore_support(
         #     targets,
@@ -183,7 +201,7 @@ class Trainer:
         #         }
         #     )
 
-        return np.mean(val_score)
+        return np.mean(val_score), {"Val loss": validation_loss}
 
     def save_model(self, path):
         """

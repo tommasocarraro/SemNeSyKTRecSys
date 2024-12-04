@@ -87,6 +87,9 @@ class MFTrainer(Trainer):
             "train_loss": train_loss / len(train_loader)
         }
 
+    def compute_validation_loss(self, pos_preds, neg_preds):
+        return self.loss(pos_preds, neg_preds)
+
 
 class MFTrainerClassifier(MFTrainer):
     """
