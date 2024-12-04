@@ -1,6 +1,6 @@
 from src.loader import DataLoader
 from src.models.mf import MatrixFactorization, MFTrainer
-from torch.optim import Adam
+from torch.optim import AdamW
 import wandb
 from src.utils import set_seed
 from src.bpr_loss import BPRLoss
@@ -28,16 +28,19 @@ def mf_tuning(seed, tune_config, train_set, val_set, n_users, n_items, metric, e
     # define function to call for performing one run of the hyper-parameter search
 
     def tune():
-        with wandb.init():
+        with wandb.init(project=exp_name) as run:
             # get one random configuration
             k = wandb.config.k
             lr = wandb.config.lr
             wd = wandb.config.wd
             tr_batch_size = wandb.config.tr_batch_size
+            # set run name
+            run_name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}"
+            run.name = run_name
             # define loader, model, optimizer and trainer
             train_loader = DataLoader(train_set, n_items, tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
-            optimizer = Adam(mf.parameters(), lr=lr, weight_decay=wd)
+            optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
             trainer = MFTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)
             # perform training
             trainer.train(train_loader, val_loader, metric, n_epochs=1000, early=10, verbose=1)
