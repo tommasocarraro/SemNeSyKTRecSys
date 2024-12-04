@@ -82,6 +82,15 @@ def check_metrics(metrics: Union[str, list[str]]):
 
 
 def auc(pos_preds: NDArray, neg_preds: NDArray):
+    # TODO the average here is general, is it maybe better to do it at the user level and then average again?
+    """
+    Computes the AUC score between predicted and target ratings. The given scores are aligned, namely the first positive
+    score has to be compared with the first negative score. In other words, they correspond to the same user.
+
+    :param pos_preds: scores for positive interactions
+    :param neg_preds: scores for negative interactions
+    :return: average AUC score across all the validation set
+    """
     return np.mean((pos_preds - neg_preds) > 0)
 
 

@@ -146,11 +146,11 @@ class Trainer:
 
     def compute_validation_loss(self, pos_preds, neg_preds):
         """
-        Method for computing the validation loss of the model.
+        Method for computing the validation loss for the model.
 
         :param pos_preds: predictions for positive interactions in the validation set
         :param neg_preds: predictions for negative interactions in the validation set
-        :return: the validation loss of the model
+        :return: the validation loss for the model
         """
         raise NotImplementedError()
 
