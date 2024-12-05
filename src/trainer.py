@@ -90,8 +90,11 @@ class Trainer:
                     wandb.log({"smooth_%s" % (val_metric,): val_score})
                     # log training information
                     wandb.log(log_dict)
+            # stop the training if vanishing or exploding gradients are detected
+            if np.isnan(train_loss):
+                print("Training interrupted due to exploding or vanishing gradients")
+                break
             # save best model and update early stop counter, if necessary
-            # TODO stop even if there is NaN on the train loss
             if val_score > best_val_score:
                 best_val_score = val_score
                 if self.wandb_train:
