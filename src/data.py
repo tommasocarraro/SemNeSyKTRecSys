@@ -8,6 +8,7 @@ from scipy.sparse import csr_array
 from collections import defaultdict
 import py7zr
 from loguru import logger
+from scipy.sparse import coo_matrix
 
 
 def train_test_split(
@@ -192,6 +193,14 @@ def process_source_target(
     tgt_n_users = tgt_ratings["userId"].nunique()
     tgt_n_items = tgt_ratings["itemId"].nunique()
 
+    # creating sparse user-item matrices for source and target domains
+    pos_src_ratings = src_ratings[src_ratings["rating"] == 1]
+    pos_tgt_ratings = tgt_ratings[tgt_ratings["rating"] == 1]
+    sparse_src_matrix = coo_matrix((pos_src_ratings["rating"], (pos_src_ratings["userId"], pos_src_ratings["itemId"])),
+                                   shape=(src_n_users, src_n_items))
+    sparse_tgt_matrix = coo_matrix((pos_tgt_ratings["rating"], (pos_tgt_ratings["userId"], pos_tgt_ratings["itemId"])),
+                                   shape=(tgt_n_users, tgt_n_items))
+
     # create train and validation set for source domain dataset
     src_tr, src_val = train_test_split(
         seed,
@@ -239,6 +248,8 @@ def process_source_target(
         "src_n_items": src_n_items,
         "tgt_n_users": tgt_n_users,
         "tgt_n_items": tgt_n_items,
+        "src_ui_matrix": sparse_src_matrix,
+        "tgt_ui_matrix": sparse_tgt_matrix,
         "src_tr": src_tr,
         "src_val": src_val,
         "tgt_tr": tgt_tr,
