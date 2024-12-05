@@ -91,6 +91,7 @@ class Trainer:
                     # log training information
                     wandb.log(log_dict)
             # save best model and update early stop counter, if necessary
+            # TODO stop even if there is NaN on the train loss
             if val_score > best_val_score:
                 best_val_score = val_score
                 if self.wandb_train:
@@ -138,11 +139,12 @@ class Trainer:
         :param loader: loader containing evaluation data
         :return: predictions and targets
         """
-        pos_preds, neg_preds = [], []
+        users_, pos_preds, neg_preds = [], [], []
         for batch_idx, (users, pos_items, neg_items) in enumerate(loader):
+            users_.append(users.cpu().numpy())
             pos_preds.append(self.predict(users, pos_items).cpu().numpy())
             neg_preds.append(self.predict(users, neg_items).cpu().numpy())
-        return np.concatenate(pos_preds), np.concatenate(neg_preds)
+        return np.concatenate(users_), np.concatenate(pos_preds), np.concatenate(neg_preds)
 
     def compute_validation_loss(self, pos_preds, neg_preds):
         """
@@ -164,9 +166,9 @@ class Trainer:
         :return: validation score based on the given metric averaged across all validation examples
         """
         # prepare predictions and targets for evaluation
-        pos_preds, neg_preds = self.prepare_for_evaluation(val_loader)
+        users, pos_preds, neg_preds = self.prepare_for_evaluation(val_loader)
         # compute validation metric
-        val_score = compute_metric(val_metric, pos_preds, neg_preds)
+        val_score = compute_metric(val_metric, pos_preds, neg_preds, users)
         # compute validation loss
         validation_loss = None
         if val_loss:

@@ -81,26 +81,37 @@ def check_metrics(metrics: Union[str, list[str]]):
     ), err_msg
 
 
-def auc(pos_preds: NDArray, neg_preds: NDArray):
-    # TODO the average here is general, is it maybe better to do it at the user level and then average again?
+def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):
     """
     Computes the AUC score between predicted and target ratings. The given scores are aligned, namely the first positive
     score has to be compared with the first negative score. In other words, they correspond to the same user.
 
+    :param users: user indexes for user-level mean
     :param pos_preds: scores for positive interactions
     :param neg_preds: scores for negative interactions
     :return: average AUC score across all the validation set
     """
-    return np.mean((pos_preds - neg_preds) > 0)
+    single_values = (pos_preds - neg_preds) > 0
+    # get unique users and their indices
+    unique_users, inverse_indices = np.unique(users, return_inverse=True)
+    # group single_values by user
+    user_sums = np.bincount(inverse_indices, weights=single_values, minlength=unique_users.size)
+    user_counts = np.bincount(inverse_indices, minlength=unique_users.size)
+    # compute user-level means
+    user_means = user_sums / user_counts
+    # final mean across all users
+    final_mean_auc = user_means.mean()
+    return final_mean_auc
 
 
-def compute_metric(metric: str, pred_scores: NDArray, ground_truth: NDArray = None):
+def compute_metric(metric: str, pred_scores: NDArray, ground_truth: NDArray = None, users: NDArray = None):
     """
     Compute the given metric on the given predictions and ground truth.
 
     :param metric: name of the metric that has to be computed
     :param pred_scores: predicted scores for validation user-item pairs
     :param ground_truth: target ratings for validation user-item pairs
+    :param users: user indexes. Optional. At the moment, only used on AUC computation.
     :return: the value of the given metric for the given predictions and ground truth
     """
     if "-" in metric:
@@ -113,4 +124,4 @@ def compute_metric(metric: str, pred_scores: NDArray, ground_truth: NDArray = No
         elif metric == "acc":
             return acc(pred_scores, ground_truth)
         elif metric == "auc":
-            return auc(pred_scores, ground_truth)
+            return auc(users, pred_scores, ground_truth)
