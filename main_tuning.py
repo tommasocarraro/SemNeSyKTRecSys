@@ -10,5 +10,15 @@ dataset = process_source_target(
     save_path="./data/saved_data/",
 )
 
-mf_tuning(0, SWEEP_CONFIG_MF, dataset["src_tr"], dataset["src_val"], dataset["src_n_users"],
-          dataset["src_n_items"], "auc", exp_name="SemNeSyKTRecSys")
+
+mf_tuning(
+    0,
+    SWEEP_CONFIG_MF,
+    dataset["src_tr"],
+    dataset["src_val"],
+    dataset["src_n_users"],
+    dataset["src_n_items"],
+    "auc",
+    exp_name="SemNeSyKTRecSys",
+    entity_name="bmxitalia",
+)
