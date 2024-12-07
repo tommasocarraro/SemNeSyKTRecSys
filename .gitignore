@@ -171,3 +171,6 @@ chromedriver
 data/**/**.jsonl
 data/**/**.json
 **/extracted_metadata_*.json
+
+wandb/
+saved_data/
