@@ -1,10 +1,12 @@
-from typing import Union
+from typing import Literal, Union
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.metrics import accuracy_score, fbeta_score
 
 valid_metrics = ["mse", "rmse", "fbeta", "acc", "auc"]
+# because type hints and linters on Python are a joke
+Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
 
 
 def mse(pred_scores, ground_truth):

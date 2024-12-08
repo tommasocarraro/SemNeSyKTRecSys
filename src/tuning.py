@@ -1,13 +1,29 @@
-from src.loader import DataLoader
-from src.models.mf import MatrixFactorization, MFTrainer
-from torch.optim import AdamW
+from typing import Any, Optional
+
 import wandb
-from src.utils import set_seed
+from torch import Tensor
+from torch.optim import AdamW
+
 from src.bpr_loss import BPRLoss
+from src.loader import DataLoader
+from src.metrics import Valid_Metrics_Type
+from src.models.mf import MFTrainer, MatrixFactorization
+from src.utils import set_seed
 
 
 # TODO run should be named with hyper-parameter values like in previous repository
-def mf_tuning(seed, tune_config, train_set, val_set, n_users, n_items, metric, exp_name=None, sweep_id=None):
+def mf_tuning(
+    seed: int,
+    tune_config: dict[str, Any],
+    train_set: Tensor,
+    val_set: Tensor,
+    n_users: int,
+    n_items: int,
+    metric: Valid_Metrics_Type,
+    entity_name: Optional[str] = None,
+    exp_name: Optional[str] = None,
+    sweep_id: Optional[str] = None,
+):
     """
     It performs the hyper-parameter tuning of the MF model using the given hyper-parameter search configuration,
     training and validation set. It can be used for both the MF model trained on the source domain and the baseline MF.
@@ -19,6 +35,7 @@ def mf_tuning(seed, tune_config, train_set, val_set, n_users, n_items, metric, e
     :param n_users: number of users in the dataset
     :param n_items: number of items in the dataset
     :param metric: validation metric that has to be used
+    :param entity_name: name of entity which owns the wandb project
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
     """
@@ -28,7 +45,7 @@ def mf_tuning(seed, tune_config, train_set, val_set, n_users, n_items, metric, e
     # define function to call for performing one run of the hyper-parameter search
 
     def tune():
-        with wandb.init(project=exp_name) as run:
+        with wandb.init(project=exp_name, entity=entity_name) as run:
             # get one random configuration
             k = wandb.config.k
             lr = wandb.config.lr
@@ -43,10 +60,12 @@ def mf_tuning(seed, tune_config, train_set, val_set, n_users, n_items, metric, e
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
             trainer = MFTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)
             # perform training
-            trainer.train(train_loader, val_loader, metric, n_epochs=1000, early=10, verbose=1)
+            trainer.train(
+                train_loader, val_loader, metric, n_epochs=1000, early=10, verbose=1
+            )
 
     # launch the WandB sweep for 150 runs
     if sweep_id is None:
-        sweep_id = wandb.sweep(sweep=tune_config, project=exp_name)
+        sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
     set_seed(seed)
-    wandb.agent(sweep_id, function=tune, count=20, project=exp_name)
+    wandb.agent(sweep_id, entity=entity_name, function=tune, count=20, project=exp_name)
