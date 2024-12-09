@@ -96,12 +96,10 @@ def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):
     """
     single_values = (pos_preds - neg_preds) > 0
     # get unique users and their indices
-    unique_users, inverse_indices = np.unique(users, return_inverse=True)
+    _, inverse_indices = np.unique(users, return_inverse=True)
     # group single_values by user
-    user_sums = np.bincount(
-        inverse_indices, weights=single_values, minlength=unique_users.size
-    )
-    user_counts = np.bincount(inverse_indices, minlength=unique_users.size)
+    user_sums = np.bincount(inverse_indices, weights=single_values)
+    user_counts = np.bincount(inverse_indices)
     # compute user-level means
     user_means = user_sums / user_counts
     # final mean across all users
