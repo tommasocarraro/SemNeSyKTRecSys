@@ -19,6 +19,6 @@ mf_tuning(
     dataset["src_n_users"],
     dataset["src_n_items"],
     "auc",
-    exp_name="SemNeSyKTRecSys",
+    exp_name="amazon",
     entity_name="bmxitalia",
 )
