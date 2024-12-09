@@ -9,6 +9,7 @@ from src.loader import DataLoader
 from src.metrics import Valid_Metrics_Type
 from src.models.mf import MFTrainer, MatrixFactorization
 from src.utils import set_seed
+from scipy.sparse import csr_matrix
 
 
 # TODO run should be named with hyper-parameter values like in previous repository
@@ -19,6 +20,7 @@ def mf_tuning(
     val_set: Tensor,
     n_users: int,
     n_items: int,
+    ui_matrix: csr_matrix,
     metric: Valid_Metrics_Type,
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
@@ -34,13 +36,14 @@ def mf_tuning(
     :param val_set: validation set on which the tuning is evaluated
     :param n_users: number of users in the dataset
     :param n_items: number of items in the dataset
+    :param ui_matrix: sparse matrix of user interactions
     :param metric: validation metric that has to be used
     :param entity_name: name of entity which owns the wandb project
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
     """
     # create loader for validation
-    val_loader = DataLoader(val_set, n_items, 256)
+    val_loader = DataLoader(val_set, ui_matrix, 256)
 
     # define function to call for performing one run of the hyper-parameter search
 
@@ -55,7 +58,7 @@ def mf_tuning(
             run_name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}"
             run.name = run_name
             # define loader, model, optimizer and trainer
-            train_loader = DataLoader(train_set, n_items, tr_batch_size)
+            train_loader = DataLoader(train_set, ui_matrix, tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
             trainer = MFTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)

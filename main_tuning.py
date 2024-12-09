@@ -18,6 +18,7 @@ mf_tuning(
     dataset["src_val"],
     dataset["src_n_users"],
     dataset["src_n_items"],
+    dataset["src_ui_matrix"],
     "auc",
     exp_name="amazon",
     entity_name="bmxitalia",
