@@ -1,6 +1,11 @@
+from typing import Callable, Optional
+
 import torch
+from torch import Tensor
+from torch.optim import Optimizer
 from tqdm import tqdm
 
+from src.loader import DataLoader
 from src.trainer import Trainer
 
 
@@ -16,7 +21,9 @@ class MatrixFactorization(torch.nn.Module):
     of the items of the system.
     """
 
-    def __init__(self, n_users, n_items, n_factors, normalize=False):
+    def __init__(
+        self, n_users: int, n_items: int, n_factors: int, normalize: bool = False
+    ):
         """
         Constructor of the matrix factorization model.
 
@@ -38,7 +45,7 @@ class MatrixFactorization(torch.nn.Module):
         torch.nn.init.xavier_normal_(self.u_bias.weight)
         torch.nn.init.xavier_normal_(self.i_bias.weight)
 
-    def forward(self, u_idx, i_idx, dim=1):
+    def forward(self, u_idx: Tensor, i_idx: Tensor, dim: int = 1):
         """
         It computes the scores for the given user-item pairs using inner product (dot product).
 
@@ -61,7 +68,13 @@ class MFTrainer(Trainer):
     Basic trainer for training a Matrix Factorization model using gradient descent.
     """
 
-    def __init__(self, mf_model, optimizer, loss, wandb_train=False):
+    def __init__(
+        self,
+        mf_model: MatrixFactorization,
+        optimizer: Optimizer,
+        loss: Callable[[Tensor, Tensor], Tensor],
+        wandb_train: bool = False,
+    ):
         """
         Constructor of the trainer for the MF model.
 
@@ -73,7 +86,7 @@ class MFTrainer(Trainer):
         super(MFTrainer, self).__init__(mf_model, optimizer, wandb_train)
         self.loss = loss
 
-    def train_epoch(self, train_loader, epoch=None):
+    def train_epoch(self, train_loader: DataLoader, epoch: Optional[int] = None):
         """
         Method for the training of one single epoch.
 
@@ -95,7 +108,7 @@ class MFTrainer(Trainer):
             "train_loss": train_loss / len(train_loader)
         }
 
-    def compute_validation_loss(self, pos_preds, neg_preds):
+    def compute_validation_loss(self, pos_preds: Tensor, neg_preds: Tensor):
         """
         Method for computing the validation loss for the model.
 

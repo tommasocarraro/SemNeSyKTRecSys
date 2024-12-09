@@ -1,7 +1,7 @@
 from typing import Any, Optional
 
 import wandb
-from torch import Tensor
+from numpy.typing import NDArray
 from torch.optim import AdamW
 
 from src.bpr_loss import BPRLoss
@@ -11,12 +11,12 @@ from src.models.mf import MFTrainer, MatrixFactorization
 from src.utils import set_seed
 
 
-# TODO run should be named with hyper-parameter values like in previous repository
+# TODO run should be named with hyperparameter values like in previous repository
 def mf_tuning(
     seed: int,
     tune_config: dict[str, Any],
-    train_set: Tensor,
-    val_set: Tensor,
+    train_set: NDArray,
+    val_set: NDArray,
     n_users: int,
     n_items: int,
     metric: Valid_Metrics_Type,
@@ -25,11 +25,11 @@ def mf_tuning(
     sweep_id: Optional[str] = None,
 ):
     """
-    It performs the hyper-parameter tuning of the MF model using the given hyper-parameter search configuration,
+    It performs the hyperparameter tuning of the MF model using the given hyperparameter search configuration,
     training and validation set. It can be used for both the MF model trained on the source domain and the baseline MF.
 
     :param seed: seed for reproducibility
-    :param tune_config: configuration for the tuning of hyper-parameters
+    :param tune_config: configuration for the tuning of hyperparameters
     :param train_set: train set on which the tuning is performed
     :param val_set: validation set on which the tuning is evaluated
     :param n_users: number of users in the dataset
@@ -42,7 +42,7 @@ def mf_tuning(
     # create loader for validation
     val_loader = DataLoader(val_set, n_items, 256)
 
-    # define function to call for performing one run of the hyper-parameter search
+    # define function to call for performing one run of the hyperparameter search
 
     def tune():
         with wandb.init(project=exp_name, entity=entity_name) as run:

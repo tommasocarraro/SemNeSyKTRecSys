@@ -5,8 +5,9 @@ from torch import Tensor
 
 class BPRLoss(nn.Module):
     """
-    Module for computing the Bayesian Personalized Ranking critetion.
+    Module for computing the Bayesian Personalized Ranking criterion.
     """
+
     def __init__(self):
         super(BPRLoss, self).__init__()
 

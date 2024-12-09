@@ -1,5 +1,8 @@
 import numpy as np
 import torch
+from numpy.typing import NDArray
+from scipy.sparse import csr_array
+
 from src import device
 
 
@@ -10,7 +13,13 @@ class DataLoader:
     It prepares the batches of user-item pairs to learn the MF model or evaluate all the models based on MF.
     """
 
-    def __init__(self, data, ui_matrix, batch_size=1, shuffle=True):
+    def __init__(
+        self,
+        data: NDArray,
+        ui_matrix: csr_array,
+        batch_size: int = 1,
+        shuffle: bool = True,
+    ):
         """
         Constructor of the data loader.
 
@@ -19,7 +28,9 @@ class DataLoader:
         :param batch_size: batch size for the training/evaluation of the model
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        self.data = np.array(data)[data[:, -1] > 0]  # take only positive interaction for BPR loss
+        # take only positive interaction for BPR loss
+        self.data = data[data[:, -1] > 0]
+
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.ui_matrix = ui_matrix
