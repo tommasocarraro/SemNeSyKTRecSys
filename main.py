@@ -4,14 +4,11 @@ import torch
 from loguru import logger
 
 from src.bpr_loss import BPRLoss
-from src.data import process_source_target
-from src.loader import DataLoader, DataLoaderSamuel
 from src.configs import SWEEP_CONFIG_MF
 from src.data_preprocessing import SourceTargetDatasets, process_source_target
 from src.loader import DataLoader
 from src.models.mf import MFTrainer, MatrixFactorization
-
-# from src.tuning import mf_tuning
+from src.tuning import mf_tuning
 from src.utils import set_seed
 
 
@@ -35,10 +32,10 @@ def train(dataset: SourceTargetDatasets):
     logger.info("Training the model...")
     set_seed(0)
 
-    tr_loader = DataLoaderSamuel(
+    tr_loader = DataLoader(
         data=dataset["src_tr"], ui_matrix=dataset["src_ui_matrix"], batch_size=256
     )
-    val_loader = DataLoaderSamuel(
+    val_loader = DataLoader(
         data=dataset["src_val"], ui_matrix=dataset["src_ui_matrix"], batch_size=512
     )
 
@@ -64,17 +61,18 @@ def train(dataset: SourceTargetDatasets):
 
 
 def tune(dataset: SourceTargetDatasets):
-    # mf_tuning(
-    #     seed=0,
-    #     tune_config=SWEEP_CONFIG_MF,
-    #     train_set=dataset["src_tr"],
-    #     val_set=dataset["src_val"],
-    #     n_users=dataset["src_n_users"],
-    #     n_items=dataset["src_n_items"],
-    #     metric="auc",
-    #     entity_name="bmxitalia",
-    #     exp_name="SemNeSyKTRecSys",
-    # )
+    mf_tuning(
+        seed=0,
+        tune_config=SWEEP_CONFIG_MF,
+        train_set=dataset["src_tr"],
+        val_set=dataset["src_val"],
+        n_users=dataset["src_n_users"],
+        n_items=dataset["src_n_items"],
+        ui_matrix=dataset["src_ui_matrix"],
+        metric="auc",
+        entity_name="bmxitalia",
+        exp_name="amazon",
+    )
     pass
 
 
