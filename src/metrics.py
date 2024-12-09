@@ -1,4 +1,4 @@
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -9,7 +9,7 @@ valid_metrics = ["mse", "rmse", "fbeta", "acc", "auc"]
 Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
 
 
-def mse(pred_scores, ground_truth):
+def mse(pred_scores: NDArray, ground_truth: NDArray):
     """
     Computes the Squared Error between predicted and target ratings.
 
@@ -23,12 +23,13 @@ def mse(pred_scores, ground_truth):
     return np.square(pred_scores - ground_truth)
 
 
-def fbeta(pred_scores, ground_truth, beta):
+def fbeta(pred_scores: NDArray, ground_truth: NDArray, beta: float):
     """
     Computes the f-beta measure between predictions and targets with the given beta value.
 
     :param pred_scores: predicted scores for validation user-item pairs
     :param ground_truth: target ratings for validation user-item pairs
+    :param beta: ratio of recall importance to precision importance
     :return: f-beta measure
     """
     return fbeta_score(
@@ -36,7 +37,7 @@ def fbeta(pred_scores, ground_truth, beta):
     )
 
 
-def acc(pred_scores, ground_truth):
+def acc(pred_scores: NDArray, ground_truth: NDArray):
     """
     Computes the accuracy between predictions and targets.
 
@@ -47,7 +48,7 @@ def acc(pred_scores, ground_truth):
     return accuracy_score(ground_truth, pred_scores)
 
 
-def isfloat(num: str):
+def str_is_float(num: str):
     """
     Check if a string contains a float.
 
@@ -76,7 +77,7 @@ def check_metrics(metrics: Union[str, list[str]]):
     assert all([m in valid_metrics for m in metrics if "-" not in m]), err_msg
     assert all(
         [
-            m.split("-")[0] in valid_metrics and isfloat(m.split("-")[1])
+            m.split("-")[0] in valid_metrics and str_is_float(m.split("-")[1])
             for m in metrics
             if "-" in m
         ]
@@ -97,7 +98,9 @@ def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):
     # get unique users and their indices
     unique_users, inverse_indices = np.unique(users, return_inverse=True)
     # group single_values by user
-    user_sums = np.bincount(inverse_indices, weights=single_values, minlength=unique_users.size)
+    user_sums = np.bincount(
+        inverse_indices, weights=single_values, minlength=unique_users.size
+    )
     user_counts = np.bincount(inverse_indices, minlength=unique_users.size)
     # compute user-level means
     user_means = user_sums / user_counts
@@ -106,7 +109,12 @@ def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):
     return final_mean_auc
 
 
-def compute_metric(metric: str, pred_scores: NDArray, ground_truth: NDArray = None, users: NDArray = None):
+def compute_metric(
+    metric: Valid_Metrics_Type,
+    pred_scores: NDArray,
+    ground_truth: Optional[NDArray] = None,
+    users: Optional[NDArray] = None,
+):
     """
     Compute the given metric on the given predictions and ground truth.
 
