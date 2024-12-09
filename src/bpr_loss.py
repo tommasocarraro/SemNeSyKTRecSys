@@ -20,4 +20,5 @@ class BPRLoss(nn.Module):
         :return: averaged BPR loss
         """
         diff = pos_preds - neg_preds
-        return -torch.mean(torch.log(diff.sigmoid()))
+        # return -torch.mean(torch.log(diff.sigmoid()))
+        return torch.nn.Softplus()(-diff).mean()

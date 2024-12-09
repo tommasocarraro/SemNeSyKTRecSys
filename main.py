@@ -4,6 +4,8 @@ import torch
 from loguru import logger
 
 from src.bpr_loss import BPRLoss
+from src.data import process_source_target
+from src.loader import DataLoader, DataLoaderSamuel
 from src.configs import SWEEP_CONFIG_MF
 from src.data_preprocessing import SourceTargetDatasets, process_source_target
 from src.loader import DataLoader
@@ -33,15 +35,15 @@ def train(dataset: SourceTargetDatasets):
     logger.info("Training the model...")
     set_seed(0)
 
-    tr_loader = DataLoader(
-        data=dataset["src_tr"], ui_matrix=dataset["src_ui_matrix"], batch_size=512
+    tr_loader = DataLoaderSamuel(
+        data=dataset["src_tr"], ui_matrix=dataset["src_ui_matrix"], batch_size=256
     )
-    val_loader = DataLoader(
+    val_loader = DataLoaderSamuel(
         data=dataset["src_val"], ui_matrix=dataset["src_ui_matrix"], batch_size=512
     )
 
     mf = MatrixFactorization(
-        n_users=dataset["src_n_users"], n_items=dataset["src_n_items"], n_factors=5
+        n_users=dataset["src_n_users"], n_items=dataset["src_n_items"], n_factors=25
     )
 
     tr = MFTrainer(
