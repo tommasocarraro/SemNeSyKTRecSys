@@ -7,7 +7,7 @@ from src import device
 from scipy.sparse import csr_matrix
 
 
-class DataLoader:
+class DataLoaderOld:
     """
     Data loader for the training of the MF model and the evaluation of all the models based on MF.
 
@@ -69,7 +69,7 @@ class DataLoader:
             yield users.to(device), pos_items.to(device), neg_items.to(device)
 
 
-class DataLoaderSamuel:
+class DataLoader:
     """
     Data loader for the training of the MF model and the evaluation of all the models based on MF.
 
@@ -87,7 +87,9 @@ class DataLoaderSamuel:
         to do not sample positive items.
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        self.data = np.array(data)[data[:, -1] > 0]  # take only positive interaction for BPR loss
+        self.data = np.array(data)[
+            data[:, -1] > 0
+        ]  # take only positive interaction for BPR loss
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.ui_matrix = ui_matrix
@@ -110,20 +112,32 @@ class DataLoaderSamuel:
             pos_items = batch_data[:, 1]
             batch_ui_matrix = self.ui_matrix[users]
             # sample three negative items for each user in the batch
-            neg_items = np.random.randint(0, self.num_items, (batch_data.shape[0] * self.n_negs, ))
+            neg_items = np.random.randint(
+                0, self.num_items, (batch_data.shape[0] * self.n_negs,)
+            )
             # construct sparse matrix containing the negative items
-            batch_ui_neg_matrix = csr_matrix(([1] * neg_items.shape[0],
-                                              (np.repeat(np.arange(0, batch_data.shape[0]), self.n_negs), neg_items)),
-                                             batch_ui_matrix.shape)
+            batch_ui_neg_matrix = csr_matrix(
+                (
+                    [1] * neg_items.shape[0],
+                    (
+                        np.repeat(np.arange(0, batch_data.shape[0]), self.n_negs),
+                        neg_items,
+                    ),
+                ),
+                batch_ui_matrix.shape,
+            )
             # find the false negative items (items that are positive among the sampled negatives)
             false_neg_batch_ui_matrix = batch_ui_matrix.multiply(batch_ui_neg_matrix)
 
             # get mask for the sampled indices
-            mask = 1 - false_neg_batch_ui_matrix[np.repeat(np.arange(0, batch_data.shape[0]), self.n_negs),
-                                                 neg_items].reshape(-1, 3)
+            mask = 1 - false_neg_batch_ui_matrix[
+                np.repeat(np.arange(0, batch_data.shape[0]), self.n_negs), neg_items
+            ].reshape(-1, 3)
             # get final negative items
             neg_items = neg_items.reshape(-1, self.n_negs)
-            neg_items = neg_items[np.arange(batch_data.shape[0]).reshape(-1, 1), np.argmax(mask, axis=1)]
+            neg_items = neg_items[
+                np.arange(batch_data.shape[0]).reshape(-1, 1), np.argmax(mask, axis=1)
+            ]
 
             users = torch.tensor(users, dtype=torch.long)
             pos_items = torch.tensor(pos_items, dtype=torch.long)
