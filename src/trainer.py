@@ -13,7 +13,7 @@ from torch import Tensor
 
 from src import device
 from src.loader import DataLoader
-from src.metrics import Valid_Metrics_Type, check_metrics, compute_metric
+from src.metrics import Valid_Metrics_Type, compute_metric
 
 
 class Trainer:
@@ -65,7 +65,6 @@ class Trainer:
         :param verbose: number of epochs to wait for printing training details
         :param save_path: path where to save the best model, default to None
         """
-        check_metrics(val_metric)
         if early_loss_based:
             best_val_score = sys.maxsize
         else:
@@ -112,13 +111,19 @@ class Trainer:
                 print("Training interrupted due to exploding or vanishing gradients")
                 break
             # save best model and update early stop counter, if necessary
-            if ((val_score > best_val_score and not early_loss_based) or
-                    (val_loss_dict["Val loss"] < best_val_score and early_loss_based)):
-                best_val_score = val_score if not early_loss_based else val_loss_dict["Val loss"]
+            if (val_score > best_val_score and not early_loss_based) or (
+                val_loss_dict["Val loss"] < best_val_score and early_loss_based
+            ):
+                best_val_score = (
+                    val_score if not early_loss_based else val_loss_dict["Val loss"]
+                )
                 if self.wandb_train:
                     # the metric is logged only when a new best value is achieved for it
-                    wandb.log({"Best val %s" % (val_metric,): val_score}
-                              if not early_loss_based else {"Best val loss": val_loss_dict["Val loss"]})
+                    wandb.log(
+                        {"Best val %s" % (val_metric,): val_score}
+                        if not early_loss_based
+                        else {"Best val loss": val_loss_dict["Val loss"]}
+                    )
                 early_counter = 0
                 if save_path:
                     self.save_model(save_path)

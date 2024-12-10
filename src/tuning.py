@@ -42,6 +42,7 @@ def mf_tuning(
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
     """
+    set_seed(seed)
     # create loader for validation
     val_loader = DataLoader(val_set, ui_matrix, 256)
 
@@ -70,5 +71,4 @@ def mf_tuning(
     # launch the WandB sweep for 150 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    set_seed(seed)
     wandb.agent(sweep_id, entity=entity_name, function=tune, count=20, project=exp_name)

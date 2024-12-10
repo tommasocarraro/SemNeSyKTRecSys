@@ -15,3 +15,17 @@ def set_seed(seed: int):
     torch.cuda.manual_seed(seed)
     # Set a fixed value for the hash seed
     os.environ["PYTHONHASHSEED"] = str(seed)
+
+
+def str_is_float(num: str):
+    """
+    Check if a string contains a float.
+
+    :param num: string to be checked
+    :return: True if num is float, False otherwise
+    """
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False

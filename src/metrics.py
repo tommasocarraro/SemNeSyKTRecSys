@@ -1,12 +1,10 @@
-from typing import Literal, Optional, Union
+from typing import Optional
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.metrics import accuracy_score, fbeta_score
 
-valid_metrics = ["mse", "rmse", "fbeta", "acc", "auc"]
-# because type hints and linters on Python are a joke
-Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
+from src.ModelConfig import Valid_Metrics_Type
 
 
 def mse(pred_scores: NDArray, ground_truth: NDArray):
@@ -46,42 +44,6 @@ def acc(pred_scores: NDArray, ground_truth: NDArray):
     :return: accuracy
     """
     return accuracy_score(ground_truth, pred_scores)
-
-
-def str_is_float(num: str):
-    """
-    Check if a string contains a float.
-
-    :param num: string to be checked
-    :return: True if num is float, False otherwise
-    """
-    try:
-        float(num)
-        return True
-    except ValueError:
-        return False
-
-
-def check_metrics(metrics: Union[str, list[str]]):
-    """
-    Check if the given list of metrics' names is correct.
-
-    :param metrics: list of str containing the name of some metrics
-    """
-    err_msg = f"Some of the given metrics are not valid. The accepted metrics are {valid_metrics}"
-    if isinstance(metrics, str):
-        metrics = [metrics]
-    assert all(
-        [isinstance(m, str) for m in metrics]
-    ), "The metrics must be represented as strings"
-    assert all([m in valid_metrics for m in metrics if "-" not in m]), err_msg
-    assert all(
-        [
-            m.split("-")[0] in valid_metrics and str_is_float(m.split("-")[1])
-            for m in metrics
-            if "-" in m
-        ]
-    ), err_msg
 
 
 def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):

@@ -1,10 +1,12 @@
+import sys
 from pathlib import Path
 
+import orjson
 import torch
 from loguru import logger
 
+from src.ModelConfig import ModelConfig
 from src.bpr_loss import BPRLoss
-from src.configs import SWEEP_CONFIG_MF
 from src.data_preprocessing import SourceTargetDatasets, process_source_target
 from src.loader import DataLoader
 from src.models.mf import MFTrainer, MatrixFactorization
@@ -13,64 +15,76 @@ from src.utils import set_seed
 
 
 def main():
+    config_file_path = sys.argv[1]
+    with open(config_file_path, "rb") as config_file:
+        config_json = orjson.loads(config_file.read())
+        config = ModelConfig(config_json)
+
     dataset = process_source_target(
-        seed=0,
-        source_dataset_path=Path("./data/ratings/reviews_CDs_and_Vinyl_5.csv.7z"),
-        target_dataset_path=Path("./data/ratings/reviews_Movies_and_TV_5.csv.7z"),
-        paths_file_path=Path("./data/kg_paths/music(pop:200)->movies(cs:5).json.7z"),
+        seed=config.seed,
+        source_dataset_path=config.src_ratings_path,
+        target_dataset_path=config.tgt_ratings_path,
+        paths_file_path=config.paths_file_path,
         save_path=Path("./data/saved_data/"),
     )
 
-    should_tune = False
-    if should_tune:
-        tune(dataset)
+    if config.mode == "train":
+        train_source(dataset, config)
     else:
-        train(dataset)
+        tune_source(dataset, config)
 
 
-def train(dataset: SourceTargetDatasets):
+def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
     logger.info("Training the model...")
-    set_seed(0)
+    set_seed(config.seed)
 
     tr_loader = DataLoader(
-        data=dataset["src_tr"], ui_matrix=dataset["src_ui_matrix"], batch_size=256
+        data=dataset["src_tr"],
+        ui_matrix=dataset["src_ui_matrix"],
+        batch_size=config.batch_size,
     )
     val_loader = DataLoader(
-        data=dataset["src_val"], ui_matrix=dataset["src_ui_matrix"], batch_size=256
+        data=dataset["src_val"],
+        ui_matrix=dataset["src_ui_matrix"],
+        batch_size=config.batch_size,
     )
 
     mf = MatrixFactorization(
-        n_users=dataset["src_n_users"], n_items=dataset["src_n_items"], n_factors=15
+        n_users=dataset["src_n_users"],
+        n_items=dataset["src_n_items"],
+        n_factors=config.n_factors,
     )
 
     tr = MFTrainer(
         mf_model=mf,
-        optimizer=torch.optim.AdamW(mf.parameters(), lr=0.01, weight_decay=0.00001),
+        optimizer=torch.optim.AdamW(
+            mf.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
+        ),
         loss=BPRLoss(),
     )
 
     tr.train(
         train_loader=tr_loader,
         val_loader=val_loader,
-        val_metric="auc",
-        early=2,
+        val_metric=config.val_metric,
+        early=config.early_stopping_patience,
         verbose=1,
-        early_loss_based=True
+        early_loss_based=config.early_stopping_loss,
     )
 
 
-def tune(dataset: SourceTargetDatasets):
+def tune_source(dataset: SourceTargetDatasets, config: ModelConfig):
     mf_tuning(
-        seed=0,
-        tune_config=SWEEP_CONFIG_MF,
+        seed=config.seed,
+        tune_config=config.sweep_config,
         train_set=dataset["src_tr"],
         val_set=dataset["src_val"],
         n_users=dataset["src_n_users"],
         n_items=dataset["src_n_items"],
         ui_matrix=dataset["src_ui_matrix"],
-        metric="auc",
-        entity_name="bmxitalia",
-        exp_name="amazon",
+        metric=config.val_metric,
+        entity_name=config.entity_name,
+        exp_name=config.exp_name,
     )
 
 
