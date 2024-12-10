@@ -1,3 +1,4 @@
+import sys
 from typing import Optional
 
 import numpy as np
@@ -48,6 +49,7 @@ class Trainer:
         val_metric: Valid_Metrics_Type,
         n_epochs: int = 500,
         early: Optional[int] = None,
+        early_loss_based: bool = False,
         verbose: int = 10,
         save_path: Optional[str] = None,
     ):
@@ -59,11 +61,15 @@ class Trainer:
         :param val_metric: validation metric name
         :param n_epochs: number of epochs of training, default to 500
         :param early: patience for early stopping, default to None
+        :param early_loss_based: whether to use the loss function as early stopping criterion, default to False
         :param verbose: number of epochs to wait for printing training details
         :param save_path: path where to save the best model, default to None
         """
         check_metrics(val_metric)
-        best_val_score = 0.0
+        if early_loss_based:
+            best_val_score = sys.maxsize
+        else:
+            best_val_score = 0.0
         early_counter = 0
         if self.wandb_train:
             # log gradients and parameters with Weights and Biases
@@ -98,7 +104,7 @@ class Trainer:
                 print(log_record)
                 if self.wandb_train:
                     # log validation metric value
-                    wandb.log({"smooth_%s" % (val_metric,): val_score})
+                    wandb.log({"Val %s" % (val_metric,): val_score})
                     # log training information
                     wandb.log(log_dict)
             # stop the training if vanishing or exploding gradients are detected
@@ -106,11 +112,13 @@ class Trainer:
                 print("Training interrupted due to exploding or vanishing gradients")
                 break
             # save best model and update early stop counter, if necessary
-            if val_score > best_val_score:
-                best_val_score = val_score
+            if ((val_score > best_val_score and not early_loss_based) or
+                    (val_loss_dict["Val loss"] < best_val_score and early_loss_based)):
+                best_val_score = val_score if not early_loss_based else val_loss_dict["Val loss"]
                 if self.wandb_train:
                     # the metric is logged only when a new best value is achieved for it
-                    wandb.log({"%s" % (val_metric,): val_score})
+                    wandb.log({"Best val %s" % (val_metric,): val_score}
+                              if not early_loss_based else {"Best val loss": val_loss_dict["Val loss"]})
                 early_counter = 0
                 if save_path:
                     self.save_model(save_path)

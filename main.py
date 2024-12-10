@@ -40,12 +40,12 @@ def train(dataset: SourceTargetDatasets):
     )
 
     mf = MatrixFactorization(
-        n_users=dataset["src_n_users"], n_items=dataset["src_n_items"], n_factors=25
+        n_users=dataset["src_n_users"], n_items=dataset["src_n_items"], n_factors=15
     )
 
     tr = MFTrainer(
         mf_model=mf,
-        optimizer=torch.optim.AdamW(mf.parameters(), lr=0.001, weight_decay=0.001),
+        optimizer=torch.optim.AdamW(mf.parameters(), lr=0.01, weight_decay=0.00001),
         loss=BPRLoss(),
     )
 
@@ -53,11 +53,10 @@ def train(dataset: SourceTargetDatasets):
         train_loader=tr_loader,
         val_loader=val_loader,
         val_metric="auc",
-        early=10,
+        early=2,
         verbose=1,
+        early_loss_based=True
     )
-
-    # TODO exact sampling of negative without the risk of sampling positives
 
 
 def tune(dataset: SourceTargetDatasets):
