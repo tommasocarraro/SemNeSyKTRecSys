@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, Literal, Union
+import math
 
 from loguru import logger
 
@@ -48,10 +49,14 @@ class ModelConfig:
                         "values": tune_config["parameters"]["n_factors_range"]
                     },
                     "learning_rate": {
-                        "values": tune_config["parameters"]["learning_rate_range"]
+                        "min": math.log(tune_config["parameters"]["learning_rate"]["min"]),
+                        "max": math.log(tune_config["parameters"]["learning_rate"]["max"]),
+                        "distribution": tune_config["parameters"]["learning_rate"]["distribution"]
                     },
                     "weight_decay": {
-                        "values": tune_config["parameters"]["weight_decay_range"]
+                        "min": math.log(tune_config["parameters"]["weight_decay"]["min"]),
+                        "max": math.log(tune_config["parameters"]["weight_decay"]["max"]),
+                        "distribution": tune_config["parameters"]["weight_decay"]["distribution"]
                     },
                     "batch_size": {
                         "values": tune_config["parameters"]["batch_size_range"]
