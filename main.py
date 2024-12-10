@@ -42,7 +42,7 @@ def main():
 
 
 def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
-    logger.info("Training the model...")
+    logger.info(f"Training the model with configuration: {config.get_train_config()}")
     set_seed(config.seed)
 
     tr_loader = DataLoader(

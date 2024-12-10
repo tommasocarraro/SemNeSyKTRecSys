@@ -64,6 +64,9 @@ class ModelConfig:
             logger.error(e)
             exit(1)
 
+    def get_train_config(self):
+        return f"n_factors: {self.n_factors}, learning_rate: {self.learning_rate}, weight_decay: {self.weight_decay}, batch_size: {self.batch_size}"
+
 
 def check_metrics(metrics: Union[str, list[str]]):
     """
