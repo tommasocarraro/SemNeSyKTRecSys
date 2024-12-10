@@ -1,9 +1,8 @@
 {
-  "mode": "tune",
   "datasets_config": {
-    "src_ratings_path": "./data/ratings/reviews_CDs_and_Vinyl_5.csv.7z",
-    "tgt_ratings_path": "./data/ratings/reviews_Movies_and_TV_5.csv.7z",
-    "paths_file_path": "./data/kg_paths/music(pop:200)->movies(cs:5).json.7z"
+    "src_ratings_path": "./data/ratings/reviews_Movies_and_TV_5.csv.7z",
+    "tgt_ratings_path": "./data/ratings/reviews_Books_5.csv.7z",
+    "paths_file_path": "./data/kg_paths/movies(pop:300)->books(cs:5).json.7z"
   },
   "shared_config": {
     "epochs": 1000,

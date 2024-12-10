@@ -13,11 +13,6 @@ Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
 class ModelConfig:
     def __init__(self, config_json: dict[str, Any]):
         try:
-            if config_json["mode"] == "train" or config_json["mode"] == "tune":
-                self.mode = config_json["mode"]
-            else:
-                raise ValueError("Invalid mode")
-
             # dataset config
             datasets_config = config_json["datasets_config"]
             self.src_ratings_path = Path(datasets_config["src_ratings_path"])

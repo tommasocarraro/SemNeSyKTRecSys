@@ -1,4 +1,4 @@
-import sys
+import argparse
 from pathlib import Path
 
 import orjson
@@ -13,9 +13,16 @@ from src.models.mf import MFTrainer, MatrixFactorization
 from src.tuning import mf_tuning
 from src.utils import set_seed
 
+parser = argparse.ArgumentParser(description="PyTorch BPR Training")
+parser.add_argument("--config", help="path to config file", required=True)
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument("--train", action="store_true")
+group.add_argument("--tune", action="store_true")
+
 
 def main():
-    config_file_path = sys.argv[1]
+    args = parser.parse_args()
+    config_file_path = args.config
     with open(config_file_path, "rb") as config_file:
         config_json = orjson.loads(config_file.read())
         config = ModelConfig(config_json)
@@ -28,9 +35,9 @@ def main():
         save_path=Path("./data/saved_data/"),
     )
 
-    if config.mode == "train":
+    if args.train:
         train_source(dataset, config)
-    else:
+    elif args.tune:
         tune_source(dataset, config)
 
 
