@@ -1,0 +1,16 @@
+name: amazon
+dependencies:
+  - python=3.9
+  - tqdm
+  - orjson
+  - loguru
+  - numpy
+  - scipy
+  - scikit-learn
+  - pandas
+  - py7zr
+  - python-dotenv
+  - pip
+  - pip:
+      - wandb
+      - torch
