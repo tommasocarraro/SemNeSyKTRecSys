@@ -44,9 +44,9 @@ class ModelConfig:
             tune_config = config_json["tune_config"]
             self.sweep_config = {
                 "method": tune_config["method"],
-                "metrics": {
-                    "goal": tune_config["metrics"]["goal"],
-                    "name": tune_config["metrics"]["name"],
+                "metric": {
+                    "goal": tune_config["metric"]["goal"],
+                    "name": tune_config["metric"]["name"],
                 },
                 "parameters": {
                     "n_factors": {

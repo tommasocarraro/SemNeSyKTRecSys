@@ -51,10 +51,10 @@ def mf_tuning(
     def tune():
         with wandb.init(project=exp_name, entity=entity_name) as run:
             # get one random configuration
-            k = wandb.config.k
-            lr = wandb.config.lr
-            wd = wandb.config.wd
-            tr_batch_size = wandb.config.tr_batch_size
+            k = wandb.config.n_factors
+            lr = wandb.config.learning_rate
+            wd = wandb.config.weight_decay
+            tr_batch_size = wandb.config.batch_size
             # set run name
             run_name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}"
             run.name = run_name
