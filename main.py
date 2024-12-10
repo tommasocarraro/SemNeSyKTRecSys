@@ -3,6 +3,7 @@ from pathlib import Path
 
 import orjson
 import torch
+import wandb
 from loguru import logger
 
 from src.ModelConfig import ModelConfig
@@ -12,6 +13,8 @@ from src.loader import DataLoader
 from src.models.mf import MFTrainer, MatrixFactorization
 from src.tuning import mf_tuning
 from src.utils import set_seed
+import dotenv
+import os
 
 parser = argparse.ArgumentParser(description="PyTorch BPR Training")
 parser.add_argument("--config", help="path to config file", required=True)
@@ -81,6 +84,16 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
 
 
 def tune_source(dataset: SourceTargetDatasets, config: ModelConfig):
+    # wandb login
+    if not dotenv.load_dotenv():
+        logger.error("No environment variables found")
+        exit(1)
+    api_key = os.getenv("WANDB_API_KEY")
+    if api_key is None:
+        logger.error("Missing Wandb API key in the environment file")
+        exit(1)
+    wandb.login(key=api_key)
+
     mf_tuning(
         seed=config.seed,
         tune_config=config.sweep_config,
