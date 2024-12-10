@@ -1,10 +1,9 @@
 import numpy as np
 import torch
 from numpy.typing import NDArray
-from scipy.sparse import csr_array
+from scipy.sparse import csr_matrix
 
 from src import device
-from scipy.sparse import csr_matrix
 
 
 class DataLoaderOld:
@@ -17,7 +16,7 @@ class DataLoaderOld:
     def __init__(
         self,
         data: NDArray,
-        ui_matrix: csr_array,
+        ui_matrix: csr_matrix,
         batch_size: int = 1,
         shuffle: bool = True,
     ):
@@ -87,9 +86,9 @@ class DataLoader:
         to do not sample positive items.
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        self.data = np.array(data)[
-            data[:, -1] > 0
-        ]  # take only positive interaction for BPR loss
+        # take only positive interaction for BPR loss
+        self.data = np.array(data)[data[:, -1] > 0]
+
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.ui_matrix = ui_matrix

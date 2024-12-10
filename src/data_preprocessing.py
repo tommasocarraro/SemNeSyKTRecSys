@@ -9,7 +9,7 @@ import pandas as pd
 import py7zr
 from loguru import logger
 from numpy.typing import NDArray
-from scipy.sparse import csr_array
+from scipy.sparse import csr_matrix
 from sklearn.model_selection import train_test_split as train_test_split_sklearn
 
 
@@ -132,15 +132,15 @@ class SourceTargetDatasets(TypedDict):
     src_n_items: int
     tgt_n_users: int
     tgt_n_items: int
-    src_ui_matrix: csr_array
-    tgt_ui_matrix: csr_array
+    src_ui_matrix: csr_matrix
+    tgt_ui_matrix: csr_matrix
     src_tr: NDArray
     src_val: NDArray
     tgt_tr: NDArray
     tgt_tr_small: NDArray
     tgt_val: NDArray
     tgt_te: NDArray
-    sim_matrix: csr_array
+    sim_matrix: csr_matrix
 
 
 def process_source_target(
@@ -245,14 +245,14 @@ def process_source_target(
     # creating sparse user-item matrices for source and target domains
     pos_src_ratings = src_ratings[src_ratings["rating"] == 1]
     pos_tgt_ratings = tgt_ratings[tgt_ratings["rating"] == 1]
-    sparse_src_matrix = csr_array(
+    sparse_src_matrix = csr_matrix(
         (
             pos_src_ratings["rating"],
             (pos_src_ratings["userId"], pos_src_ratings["itemId"]),
         ),
         shape=(src_n_users, src_n_items),
     )
-    sparse_tgt_matrix = csr_array(
+    sparse_tgt_matrix = csr_matrix(
         (
             pos_tgt_ratings["rating"],
             (pos_tgt_ratings["userId"], pos_tgt_ratings["itemId"]),
@@ -294,7 +294,7 @@ def process_source_target(
     )
 
     # create sparse sim matrix
-    sim_matrix = csr_array(
+    sim_matrix = csr_matrix(
         (
             np.ones(available_path_pairs.shape[0]),
             (available_path_pairs[:, 0], available_path_pairs[:, 1]),

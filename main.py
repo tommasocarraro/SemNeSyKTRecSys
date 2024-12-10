@@ -36,7 +36,7 @@ def train(dataset: SourceTargetDatasets):
         data=dataset["src_tr"], ui_matrix=dataset["src_ui_matrix"], batch_size=256
     )
     val_loader = DataLoader(
-        data=dataset["src_val"], ui_matrix=dataset["src_ui_matrix"], batch_size=512
+        data=dataset["src_val"], ui_matrix=dataset["src_ui_matrix"], batch_size=256
     )
 
     mf = MatrixFactorization(
@@ -45,7 +45,7 @@ def train(dataset: SourceTargetDatasets):
 
     tr = MFTrainer(
         mf_model=mf,
-        optimizer=torch.optim.AdamW(mf.parameters(), lr=0.1, weight_decay=0.00001),
+        optimizer=torch.optim.AdamW(mf.parameters(), lr=0.001, weight_decay=0.001),
         loss=BPRLoss(),
     )
 
@@ -73,7 +73,6 @@ def tune(dataset: SourceTargetDatasets):
         entity_name="bmxitalia",
         exp_name="amazon",
     )
-    pass
 
 
 if __name__ == "__main__":

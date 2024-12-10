@@ -2,6 +2,7 @@ from typing import Any, Optional
 
 import wandb
 from numpy.typing import NDArray
+from scipy.sparse import csr_matrix
 from torch.optim import AdamW
 
 from src.bpr_loss import BPRLoss
@@ -9,7 +10,6 @@ from src.loader import DataLoader
 from src.metrics import Valid_Metrics_Type
 from src.models.mf import MFTrainer, MatrixFactorization
 from src.utils import set_seed
-from scipy.sparse import csr_array
 
 
 # TODO run should be named with hyperparameter values like in previous repository
@@ -20,7 +20,7 @@ def mf_tuning(
     val_set: NDArray,
     n_users: int,
     n_items: int,
-    ui_matrix: csr_array,
+    ui_matrix: csr_matrix,
     metric: Valid_Metrics_Type,
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
