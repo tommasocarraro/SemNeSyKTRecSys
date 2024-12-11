@@ -18,12 +18,17 @@ def mf_tuning(
     tune_config: dict[str, Any],
     train_set: NDArray,
     val_set: NDArray,
+    val_batch_size: int,
     n_users: int,
     n_items: int,
     ui_matrix: csr_matrix,
     metric: Valid_Metrics_Type,
+    n_epochs: Optional[int] = 1000,
+    early: Optional[int] = 5,
+    early_loss_based: Optional[bool] = True,
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
+    bayesian_run_count: Optional[int] = 10,
     sweep_id: Optional[str] = None,
 ):
     """
@@ -34,17 +39,22 @@ def mf_tuning(
     :param tune_config: configuration for the tuning of hyperparameters
     :param train_set: train set on which the tuning is performed
     :param val_set: validation set on which the tuning is evaluated
+    :param val_batch_size: batch size for validation
     :param n_users: number of users in the dataset
     :param n_items: number of items in the dataset
     :param ui_matrix: sparse matrix of user interactions
     :param metric: validation metric that has to be used
+    :param n_epochs: number of epochs for hyperparameter tuning
+    :param early: number of epochs for early stopping
+    :param early_loss_based: whether to use loss function instead of validation metric for early stopping
     :param entity_name: name of entity which owns the wandb project
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
+    :param bayesian_run_count: number of runs of Bayesian optimization
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
     """
     set_seed(seed)
     # create loader for validation
-    val_loader = DataLoader(val_set, ui_matrix, 256)
+    val_loader = DataLoader(val_set, ui_matrix, val_batch_size)
 
     # define function to call for performing one run of the hyperparameter search
 
@@ -65,10 +75,11 @@ def mf_tuning(
             trainer = MFTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)
             # perform training
             trainer.train(
-                train_loader, val_loader, metric, n_epochs=1000, early=10, verbose=1
+                train_loader, val_loader, metric, n_epochs=n_epochs, early=early, verbose=1,
+                early_loss_based=early_loss_based
             )
 
     # launch the WandB sweep for 150 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, entity=entity_name, function=tune, count=20, project=exp_name)
+    wandb.agent(sweep_id, entity=entity_name, function=tune, count=bayesian_run_count, project=exp_name)

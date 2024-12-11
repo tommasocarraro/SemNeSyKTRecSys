@@ -65,6 +65,8 @@ class ModelConfig:
             }
             self.entity_name = tune_config["entity_name"]
             self.exp_name = tune_config["exp_name"]
+            self.bayesian_run_count = tune_config["bayesian_run_count"]
+            self.sweep_id = tune_config["sweep_id"]
         except (KeyError, ValueError) as e:
             logger.error(e)
             exit(1)

@@ -99,12 +99,18 @@ def tune_source(dataset: SourceTargetDatasets, config: ModelConfig):
         tune_config=config.sweep_config,
         train_set=dataset["src_tr"],
         val_set=dataset["src_val"],
+        val_batch_size=config.batch_size,
         n_users=dataset["src_n_users"],
         n_items=dataset["src_n_items"],
         ui_matrix=dataset["src_ui_matrix"],
         metric=config.val_metric,
+        n_epochs=config.epochs,
+        early=config.early_stopping_patience,
+        early_loss_based=config.early_stopping_loss,
         entity_name=config.entity_name,
         exp_name=config.exp_name,
+        bayesian_run_count=config.bayesian_run_count,
+        sweep_id=config.sweep_id
     )
 
 
