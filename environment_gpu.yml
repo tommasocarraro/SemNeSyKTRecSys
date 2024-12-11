@@ -1,4 +1,7 @@
-name: amazon
+# manually add pytorch and cuda installation as per your hardware requirements
+name: amazon_gpu
+channels:
+  - defaults
 dependencies:
   - python=3.9
   - tqdm
@@ -13,4 +16,3 @@ dependencies:
   - pip
   - pip:
       - wandb
-      - torch
