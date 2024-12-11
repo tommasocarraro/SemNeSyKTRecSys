@@ -4,11 +4,7 @@ from typing import Optional
 import numpy as np
 import torch
 import wandb
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    precision_recall_fscore_support,
-)
+from loguru import logger
 from torch import Tensor
 
 from src import device
@@ -65,6 +61,7 @@ class Trainer:
         :param verbose: number of epochs to wait for printing training details
         :param save_path: path where to save the best model, default to None
         """
+        logger.debug(f"Starting training on {device}")
         if early_loss_based:
             best_val_score = sys.maxsize
         else:

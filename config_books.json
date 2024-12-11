@@ -25,8 +25,16 @@
     },
     "parameters": {
       "n_factors_range": [1, 5, 10, 25, 50, 100],
-      "learning_rate_range": [0.1, 0.01, 0.001, 0.0001, 0.00001],
-      "weight_decay_range": [0.1, 0.01, 0.001, 0.0001, 0.00001],
+      "learning_rate": {
+        "min": 1e-5,
+        "max": 1e-1,
+        "distribution": "log_uniform"
+      },
+      "weight_decay": {
+        "min": 1e-6,
+        "max": 1e-1,
+        "distribution": "log_uniform"
+      },
       "batch_size_range": [64, 128, 256, 512]
     },
     "entity_name": "bmxitalia",

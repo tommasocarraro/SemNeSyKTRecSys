@@ -1,5 +1,4 @@
 {
-  "mode": "train",
   "datasets_config": {
     "src_ratings_path": "./data/ratings/reviews_CDs_and_Vinyl_5.csv.7z",
     "tgt_ratings_path": "./data/ratings/reviews_Movies_and_TV_5.csv.7z",
