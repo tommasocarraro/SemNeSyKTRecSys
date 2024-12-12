@@ -1,4 +1,4 @@
-name: temp_conda
+name: data_processing
 channels:
   - defaults
   - conda-forge
@@ -106,4 +106,3 @@ dependencies:
       - requests==2.32.3
       - typing-extensions==4.12.2
       - wayback==0.4.5
-prefix: /home/owsky/miniconda3/envs/temp_conda
