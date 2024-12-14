@@ -1,14 +1,14 @@
 from pathlib import Path
-from typing import Any, Literal, Union
+from typing import Any, Literal, Union, get_args
 import math
 
 from loguru import logger
 
 from src.utils import str_is_float
 
-valid_metrics = ["mse", "rmse", "fbeta", "acc", "auc"]
-# because type hints and linters on Python are a joke
 Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
+# because type hints and linters on Python are a joke
+valid_metrics = list(get_args(Valid_Metrics_Type))
 
 
 class ModelConfig:
