@@ -34,6 +34,8 @@ class MatrixFactorization(torch.nn.Module):
         model.
         """
         super(MatrixFactorization, self).__init__()
+        self.n_users = n_users
+        self.n_items = n_items
         self.u_emb = torch.nn.Embedding(n_users, n_factors)
         self.i_emb = torch.nn.Embedding(n_items, n_factors)
         self.u_bias = torch.nn.Embedding(n_users, 1)
