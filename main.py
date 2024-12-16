@@ -21,6 +21,7 @@ parser.add_argument("--config", help="path to config file", required=True)
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument("--train", action="store_true")
 group.add_argument("--tune", action="store_true")
+parser.add_argument("--clear", description="clear saved data", action="store_true")
 
 
 def main():
@@ -36,6 +37,7 @@ def main():
         target_dataset_path=config.tgt_ratings_path,
         paths_file_path=config.paths_file_path,
         save_path=Path("./data/saved_data/"),
+        clear_saved_dataset=args.clear
     )
 
     if args.train:

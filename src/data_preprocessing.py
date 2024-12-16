@@ -1,8 +1,9 @@
 import json
+import os
 from collections import defaultdict
 from os import makedirs
 from pathlib import Path
-from typing import Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -158,6 +159,7 @@ def process_source_target(
     target_test_size: float = 0.2,
     target_user_level_split: bool = True,
     save_path: Optional[Path] = None,
+    clear_saved_dataset: bool = False,
 ) -> SourceTargetDatasets:
     """
     This function processes the cross-domain dataset and prepares it for the experiment. In particular, it executes
@@ -179,6 +181,7 @@ def process_source_target(
     :param target_test_size: size of test set for target domain dataset
     :param target_user_level_split: whether the split for the target dataset has to be done at the user level or not
     :param save_path: path where to save the dataset. None if the dataset has no to be saved on disk.
+    :param clear_saved_dataset: whether to clear the saved dataset if it exists
     """
     logger.info("Reading datasets from file system")
     # decompress source and target rating files, if needed
@@ -192,8 +195,12 @@ def process_source_target(
     )
     # if the dataset has already been processed before, simply load it with numpy
     if actual_save_path.is_file():
-        logger.debug("Found precomputed dataset pair, reading it from file system")
-        return np.load(actual_save_path, allow_pickle=True).item()
+        if clear_saved_dataset:
+            logger.debug("Clearing out previously computed dataset")
+            os.remove(actual_save_path)
+        else:
+            logger.debug("Found precomputed dataset pair, reading it from file system")
+            return np.load(actual_save_path, allow_pickle=True).item()
     # get source and target ratings
     logger.debug("Reading the datasets' csv files with pandas")
     src_ratings = pd.read_csv(
@@ -330,12 +337,19 @@ def process_source_target(
         "sim_matrix": sim_matrix,
     }
 
+    check_initialized(dataset)
+
     if save_path is not None:
         makedirs(actual_save_path.parent, exist_ok=True)
         logger.info(f"Saving the datasets pair to file system")
         np.save(actual_save_path, dataset)
 
     return dataset
+
+def check_initialized(d: dict[str, Any]) -> None:
+    for k, v in d.items():
+        if v is None:
+            raise RuntimeError(f"Key {k} is None")
 
 
 def make_saved_dataset_path(
