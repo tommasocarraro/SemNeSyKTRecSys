@@ -3,11 +3,9 @@ import random
 
 import numpy as np
 import torch
-
-import src
-import torch
-from src import device
 from tqdm import tqdm
+
+from src import device
 
 
 def set_seed(seed: int):
@@ -36,8 +34,9 @@ def str_is_float(num: str):
         return False
 
 
-def generate_pre_trained_src_matrix(mf_model, best_weights, pos_threshold,
-                                    batch_size) -> torch.Tensor:
+def generate_pre_trained_src_matrix(
+    mf_model, best_weights, pos_threshold, batch_size
+) -> torch.Tensor:
     """
     Generates the dense source domain user-item matrix filled with predictions from a model pre-trained on the source
     domain. This will be the implementation of the LikesSource predicate in the LTN model.
@@ -54,23 +53,24 @@ def generate_pre_trained_src_matrix(mf_model, best_weights, pos_threshold,
     :param batch_size: number of predictions to be computed in parallel at each prediction step.
     """
     # load the best weights on the model
-    mf_model.load_state_dict(torch.load(best_weights, map_location=device)["model_state_dict"])
-    preds = []
+    mf_model.load_state_dict(
+        torch.load(best_weights, map_location=device)["model_state_dict"]
+    )
+    preds = torch.zeros((mf_model.n_users, mf_model.n_items), device=device)
     for u in tqdm(range(mf_model.n_users)):
-        preds_u = []
         for start_idx in range(0, mf_model.n_items, batch_size):
             end_idx = min(start_idx + batch_size, mf_model.n_items)
-            users = torch.tensor([u] * (end_idx - start_idx), dtype=torch.long).to(device)
-            items = torch.tensor(range(start_idx, end_idx), dtype=torch.long).to(device)
+            users = torch.full(
+                (end_idx - start_idx,), u, dtype=torch.long, device=device
+            )
+            items = torch.arange(start_idx, end_idx, dtype=torch.long, device=device)
             with torch.no_grad():
-                preds_u.extend(mf_model(users, items).cpu().numpy())
-        preds.append(preds_u)
+                preds[u, start_idx:end_idx] = mf_model(users, items)
 
-    preds = torch.tensor(preds, dtype=torch.long)
     pos_idx = torch.argsort(preds, dim=1, descending=True)[:, :pos_threshold]
 
-    zeros_ui_matrix = torch.zeros((mf_model.n_users, mf_model.n_items))
-    user_idx = torch.range(0, mf_model.n_users).repeat(pos_threshold)
-    zeros_ui_matrix[user_idx, pos_idx.flatten()] = 1
+    final_ui_matrix = torch.zeros((mf_model.n_users, mf_model.n_items))
+    user_idx = torch.arange(0, mf_model.n_users).repeat_interleave(pos_threshold).long()
+    final_ui_matrix[user_idx, pos_idx.flatten()] = 1
 
-    return zeros_ui_matrix.to(device)
+    return final_ui_matrix.to(device)
