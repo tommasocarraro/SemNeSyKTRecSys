@@ -5,8 +5,6 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from src import device
-
 
 def set_seed(seed: int):
     """
@@ -52,6 +50,7 @@ def generate_pre_trained_src_matrix(
     final matrix.
     :param batch_size: number of predictions to be computed in parallel at each prediction step.
     """
+    device = torch.device("cpu")
     # load the best weights on the model
     mf_model.load_state_dict(
         torch.load(best_weights, map_location=device)["model_state_dict"]
