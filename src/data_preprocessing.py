@@ -32,6 +32,8 @@ def train_test_split(
     distribution of the classes
     :return: train and test set dataframes
     """
+    if frac == 0.0:
+        return ratings, None
     if user_level:
         # Create a dictionary where each key is a user and the value is a list of indices for positive and negative
         # ratings
@@ -150,6 +152,7 @@ def process_source_target(
     paths_file_path: Path,
     implicit: bool = True,
     source_val_size: float = 0.2,
+    source_te_size: float = 0.0,
     source_user_level_split: bool = True,
     target_val_size: float = 0.1,
     target_test_size: float = 0.2,
@@ -170,6 +173,7 @@ def process_source_target(
     :param paths_file_path: paths between entities in the two different domain
     :param implicit: whether to convert explicit ratings to implicit feedback
     :param source_val_size: size of validation set for source domain dataset
+    :param source_te_size: size of test set for source domain dataset
     :param source_user_level_split: whether the split for the source dataset has to be done at the user level or not
     :param target_val_size: size of validation set for target domain dataset
     :param target_test_size: size of test set for target domain dataset
@@ -260,10 +264,18 @@ def process_source_target(
         shape=(tgt_n_users, tgt_n_items),
     )
 
-    # create train and validation set for source domain dataset
-    src_tr, src_val = train_test_split(
+    # create train and test set for source domain dataset
+    src_tr, src_te = train_test_split(
         seed,
         src_ratings.to_numpy(),
+        frac=source_te_size,
+        user_level=source_user_level_split,
+    )
+
+    # create train and validation set for source domain dataset
+    src_tr_small, src_val = train_test_split(
+        seed,
+        src_tr,
         frac=source_val_size,
         user_level=source_user_level_split,
     )
@@ -309,10 +321,10 @@ def process_source_target(
         "tgt_n_items": tgt_n_items,
         "src_ui_matrix": sparse_src_matrix,
         "tgt_ui_matrix": sparse_tgt_matrix,
-        "src_tr": src_tr,
+        "src_tr": src_tr_small,
         "src_val": src_val,
-        "tgt_tr": tgt_tr,
-        "tgt_tr_small": tgt_tr_small,
+        "src_te": src_te,
+        "tgt_tr": tgt_tr_small,
         "tgt_val": tgt_val,
         "tgt_te": tgt_te,
         "sim_matrix": sim_matrix,
