@@ -21,7 +21,7 @@ parser.add_argument("--config", help="path to config file", required=True)
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument("--train", action="store_true")
 group.add_argument("--tune", action="store_true")
-parser.add_argument("--clear", description="clear saved data", action="store_true")
+parser.add_argument("--clear", help="clear saved data", action="store_true")
 
 
 def main():
