@@ -35,6 +35,7 @@ class ModelConfig:
             self.learning_rate = float(train_config["learning_rate"])
             self.weight_decay = float(train_config["weight_decay"])
             self.batch_size = int(train_config["batch_size"])
+            self.save_path = config_json["save_path"]
 
             # tune config
             tune_config = config_json["tune_config"]

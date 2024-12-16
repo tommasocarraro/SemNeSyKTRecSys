@@ -53,10 +53,17 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
         ui_matrix=dataset["src_ui_matrix"],
         batch_size=config.batch_size,
     )
+
     val_loader = DataLoader(
         data=dataset["src_val"],
         ui_matrix=dataset["src_ui_matrix"],
         batch_size=config.batch_size,
+    )
+
+    te_loader = DataLoader(
+        data=dataset["src_te"],
+        ui_matrix=dataset["src_ui_matrix"],
+        batch_size=config.batch_size
     )
 
     mf = MatrixFactorization(
@@ -80,7 +87,12 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
         early=config.early_stopping_patience,
         verbose=1,
         early_loss_based=config.early_stopping_loss,
+        save_path=config.save_path
     )
+
+    te_metric, _ = tr.validate(te_loader, val_metric=config.val_metric)
+
+    print("Test %s: %.4f" % (config.val_metric, te_metric))
 
 
 def tune_source(dataset: SourceTargetDatasets, config: ModelConfig):
