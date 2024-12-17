@@ -34,7 +34,7 @@ def generate_pre_trained_src_matrix(
         torch.load(best_weights, map_location=device)["model_state_dict"]
     )
     # initialize predictions tensor
-    preds = torch.zeros((n_shared_users, mf_model.n_items), device=device)
+    preds = torch.zeros((n_shared_users, mf_model.n_items))
     # compute predictions for all shared users and items pairs and put them in the preds tensor
     for u in tqdm(range(n_shared_users)):
         for start_idx in range(0, mf_model.n_items, batch_size):
@@ -51,8 +51,16 @@ def generate_pre_trained_src_matrix(
 
     # create dense matrix with predictions where we put 1 if the item is in the first pos_threshold positions,
     # 0 otherwise
-    final_ui_matrix = torch.tensor(src_ui_matrix[:n_shared_users].todense(), dtype=torch.long)
-    user_idx = torch.arange(0, n_shared_users).repeat_interleave(pos_threshold).long()
-    final_ui_matrix[user_idx, pos_idx.flatten()] = 1
+    # Convert to PyTorch sparse CSR tensor
+    sh_users_src_ui_matrix = src_ui_matrix[:n_shared_users]
+    crow_indices = torch.tensor(sh_users_src_ui_matrix.indptr, dtype=torch.int64)
+    col_indices = torch.tensor(sh_users_src_ui_matrix.indices, dtype=torch.int64)
+    values = torch.tensor(sh_users_src_ui_matrix.data, dtype=torch.float32)
 
-    return final_ui_matrix.to(device)
+    sh_users_src_ui_matrix = torch.sparse_csr_tensor(crow_indices, col_indices, values,
+                                                     size=sh_users_src_ui_matrix.shape)
+
+    user_idx = torch.arange(0, n_shared_users).repeat_interleave(pos_threshold).long()
+    sh_users_src_ui_matrix[user_idx, pos_idx.flatten()] = 1
+
+    return sh_users_src_ui_matrix.to(device)
