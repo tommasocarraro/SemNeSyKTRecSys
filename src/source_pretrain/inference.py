@@ -1,6 +1,7 @@
 import torch
 from tqdm import tqdm
 from src import device
+from scipy.sparse import csr_matrix
 
 
 def generate_pre_trained_src_matrix(
@@ -53,14 +54,19 @@ def generate_pre_trained_src_matrix(
     # 0 otherwise
     # Convert to PyTorch sparse CSR tensor
     sh_users_src_ui_matrix = src_ui_matrix[:n_shared_users]
-    crow_indices = torch.tensor(sh_users_src_ui_matrix.indptr, dtype=torch.int64)
-    col_indices = torch.tensor(sh_users_src_ui_matrix.indices, dtype=torch.int64)
-    values = torch.tensor(sh_users_src_ui_matrix.data, dtype=torch.float32)
-
-    sh_users_src_ui_matrix = torch.sparse_csr_tensor(crow_indices, col_indices, values,
-                                                     size=sh_users_src_ui_matrix.shape)
+    rows, cols = sh_users_src_ui_matrix.nonzero()
+    ui_matrix_coords = set(zip(rows, cols))
+    # crow_indices = torch.tensor(sh_users_src_ui_matrix.indptr, dtype=torch.int64)
+    # col_indices = torch.tensor(sh_users_src_ui_matrix.indices, dtype=torch.int64)
+    # values = torch.tensor(sh_users_src_ui_matrix.data, dtype=torch.float32)
+    #
+    # sh_users_src_ui_matrix = torch.sparse_csr_tensor(crow_indices, col_indices, values,
+    #                                                  size=sh_users_src_ui_matrix.shape)
 
     user_idx = torch.arange(0, n_shared_users).repeat_interleave(pos_threshold).long()
-    sh_users_src_ui_matrix[user_idx, pos_idx.flatten()] = 1
+    new_coords = set(zip(user_idx.numpy(), pos_idx.flatten().numpy()))
+    final_coords = new_coords | ui_matrix_coords
+    rows, cols = zip(*final_coords)
+    final_matrix = csr_matrix(([1] * len(final_coords), (rows, cols)), sh_users_src_ui_matrix.shape)
 
-    return sh_users_src_ui_matrix.to(device)
+    return final_matrix
