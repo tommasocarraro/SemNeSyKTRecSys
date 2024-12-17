@@ -137,6 +137,7 @@ class SourceTargetDatasets:
     src_n_items: int
     tgt_n_users: int
     tgt_n_items: int
+    n_sh_users: int
     src_ui_matrix: csr_matrix
     tgt_ui_matrix: csr_matrix
     src_tr: NDArray
@@ -247,7 +248,6 @@ def process_source(
     )
 
 
-# TODO return the number of shared users too
 def process_source_target(
     seed: int,
     source_dataset_path: Path,
@@ -428,6 +428,7 @@ def process_source_target(
         src_n_items=src_n_items,
         tgt_n_users=tgt_n_users,
         tgt_n_items=tgt_n_items,
+        n_sh_users=len(sh_users),
         src_ui_matrix=sparse_src_matrix,
         tgt_ui_matrix=sparse_tgt_matrix,
         src_tr=src_tr_small,
