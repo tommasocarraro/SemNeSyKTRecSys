@@ -1,10 +1,10 @@
-from typing import Optional
+from typing import Literal, Optional
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.metrics import accuracy_score, fbeta_score
 
-from src.ModelConfig import Valid_Metrics_Type
+Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
 
 
 def mse(pred_scores: NDArray, ground_truth: NDArray):

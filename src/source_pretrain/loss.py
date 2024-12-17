@@ -1,9 +1,7 @@
 import torch
-import torch.nn as nn
-from torch import Tensor
 
 
-class BPRLoss(nn.Module):
+class BPRLoss(torch.nn.Module):
     """
     Module for computing the Bayesian Personalized Ranking criterion.
     """
@@ -11,7 +9,8 @@ class BPRLoss(nn.Module):
     def __init__(self):
         super(BPRLoss, self).__init__()
 
-    def forward(self, pos_preds: Tensor, neg_preds: Tensor):
+    # noinspection PyMethodMayBeStatic
+    def forward(self, pos_preds: torch.Tensor, neg_preds: torch.Tensor):
         """
         It computes the BPR criterion for the given positive and negative predictions.
 
@@ -20,5 +19,4 @@ class BPRLoss(nn.Module):
         :return: averaged BPR loss
         """
         diff = pos_preds - neg_preds
-        # return -torch.mean(torch.log(diff.sigmoid()))
         return torch.nn.Softplus()(-diff).mean()

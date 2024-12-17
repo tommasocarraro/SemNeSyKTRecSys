@@ -1,9 +1,10 @@
 import json
 import os
 from collections import defaultdict
+from dataclasses import dataclass
 from os import makedirs
 from pathlib import Path
-from typing import Any, Optional, TypedDict
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -126,7 +127,8 @@ def decompress_7z(compressed_file_path: Path):
         exit(1)
 
 
-class SourceTargetDatasets(TypedDict):
+@dataclass
+class SourceTargetDatasets:
     """
     Class which defines the structure of the object returned by process_source_target
     """
@@ -146,6 +148,106 @@ class SourceTargetDatasets(TypedDict):
     sim_matrix: csr_matrix
 
 
+@dataclass
+class Dataset:
+    n_users: int
+    n_items: int
+    ui_matrix: csr_matrix
+    tr: NDArray
+    val: NDArray
+    te: NDArray
+
+
+def process_source(
+    seed: int,
+    dataset_path: Path,
+    save_path: Optional[Path] = None,
+    clear_saved_dataset: bool = False,
+    implicit: bool = True,
+    source_val_size: float = 0.2,
+    source_te_size: float = 0.2,
+    source_user_level_split: bool = True,
+) -> Dataset:
+    logger.info("Reading datasets from file system")
+    dataset_path = decompress_7z(dataset_path)
+    # computing the path where to store the processed datasets at
+    actual_save_path = make_saved_dataset_path(
+        save_path=save_path,
+        source_dataset_path=dataset_path,
+        target_dataset_path=None,
+    )
+    # if the dataset has already been processed before, simply load it with numpy
+    if actual_save_path.is_file():
+        if clear_saved_dataset:
+            logger.debug("Clearing out previously computed dataset")
+            os.remove(actual_save_path)
+        else:
+            logger.debug("Found precomputed dataset, reading it from file system")
+            return np.load(actual_save_path, allow_pickle=True).item()
+
+    # get source and target ratings
+    logger.debug("Reading the dataset's csv file with pandas")
+    ratings = pd.read_csv(dataset_path, usecols=["userId", "itemId", "rating"])
+
+    # get ids of non-shared users in source and target domains
+    users = ratings["userId"].unique()
+    u_ids = list(range(len(users)))
+    u_string_to_id = dict(zip(users, u_ids))
+
+    # get ids of items in source and target domain
+    i_ids = ratings["itemId"].unique()
+    int_i_ids = list(range(len(i_ids)))
+    i_string_to_id = dict(zip(i_ids, int_i_ids))
+
+    # apply the new indexing
+    ratings["userId"] = ratings["userId"].map(u_string_to_id)
+    ratings["itemId"] = ratings["itemId"].map(i_string_to_id)
+
+    if implicit:
+        # convert ratings to implicit feedback
+        ratings["rating"] = (ratings["rating"] >= 4).astype(int)
+
+    # get number of users and items in source and target domains
+    n_users = ratings["userId"].nunique()
+    n_items = ratings["itemId"].nunique()
+
+    # creating sparse user-item matrices for source and target domains
+    pos_ratings = ratings[ratings["rating"] == 1]
+    sparse_matrix = csr_matrix(
+        (
+            pos_ratings["rating"],
+            (pos_ratings["userId"], pos_ratings["itemId"]),
+        ),
+        shape=(n_users, n_items),
+    )
+
+    # create train and test set for source domain dataset
+    tr, te = train_test_split(
+        seed,
+        ratings.to_numpy(),
+        frac=source_te_size,
+        user_level=source_user_level_split,
+    )
+
+    # create train and validation set for source domain dataset
+    tr_small, val = train_test_split(
+        seed,
+        tr,
+        frac=source_val_size,
+        user_level=source_user_level_split,
+    )
+
+    return Dataset(
+        n_users=n_users,
+        n_items=n_items,
+        ui_matrix=sparse_matrix,
+        tr=tr_small,
+        val=val,
+        te=te,
+    )
+
+
+# TODO return the number of shared users too
 def process_source_target(
     seed: int,
     source_dataset_path: Path,
@@ -321,39 +423,32 @@ def process_source_target(
         shape=(src_n_items, tgt_n_items),
     )
 
-    dataset = {
-        "src_n_users": src_n_users,
-        "src_n_items": src_n_items,
-        "tgt_n_users": tgt_n_users,
-        "tgt_n_items": tgt_n_items,
-        "src_ui_matrix": sparse_src_matrix,
-        "tgt_ui_matrix": sparse_tgt_matrix,
-        "src_tr": src_tr_small,
-        "src_val": src_val,
-        "src_te": src_te,
-        "tgt_tr": tgt_tr_small,
-        "tgt_val": tgt_val,
-        "tgt_te": tgt_te,
-        "sim_matrix": sim_matrix,
-    }
-
-    check_initialized(dataset)
+    dataset = SourceTargetDatasets(
+        src_n_users=src_n_users,
+        src_n_items=src_n_items,
+        tgt_n_users=tgt_n_users,
+        tgt_n_items=tgt_n_items,
+        src_ui_matrix=sparse_src_matrix,
+        tgt_ui_matrix=sparse_tgt_matrix,
+        src_tr=src_tr_small,
+        src_val=src_val,
+        src_te=src_te,
+        tgt_tr=tgt_tr_small,
+        tgt_val=tgt_val,
+        tgt_te=tgt_te,
+        sim_matrix=sim_matrix,
+    )
 
     if save_path is not None:
         makedirs(actual_save_path.parent, exist_ok=True)
         logger.info(f"Saving the datasets pair to file system")
-        np.save(actual_save_path, dataset)
+        np.save(actual_save_path, dataset)  # type: ignore
 
     return dataset
 
-def check_initialized(d: dict[str, Any]) -> None:
-    for k, v in d.items():
-        if v is None:
-            raise RuntimeError(f"Key {k} is None")
-
 
 def make_saved_dataset_path(
-    save_path: Path, source_dataset_path: Path, target_dataset_path: Path
+    save_path: Path, source_dataset_path: Path, target_dataset_path: Optional[Path]
 ) -> Path:
     """
     Constructs the path where the dataset should be stored on file system by numpy
@@ -363,11 +458,13 @@ def make_saved_dataset_path(
     :param target_dataset_path: path to the target dataset
     :return: Location of the processed dataset
     """
-
     if save_path.suffix != "":
         logger.error("save_path should be a directory")
         exit(1)
     makedirs(save_path, exist_ok=True)
+
+    if target_dataset_path is None:
+        target_dataset_path = Path()
 
     source_file_name = f"{source_dataset_path.stem}_{target_dataset_path.stem}.npy"
     return save_path / source_file_name

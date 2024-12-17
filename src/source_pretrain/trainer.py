@@ -1,42 +1,44 @@
 import sys
-from typing import Optional
+from typing import Callable, Optional, Literal
 
 import numpy as np
 import torch
 import wandb
 from loguru import logger
 from torch import Tensor
+from tqdm import tqdm
 
 from src import device
-from src.loader import DataLoader
-from src.metrics import Valid_Metrics_Type, compute_metric
+from .data_loader import DataLoader
+from .metrics import Valid_Metrics_Type, compute_metric
+from .model import MatrixFactorization
+from pathlib import Path
 
 
-class Trainer:
+class MfTrainer:
     """
-    Abstract base class that manages the training of the model.
-
-    Each model implementation must inherit from this class and implement the train_epoch() method. It is also possible
-    to use overloading to redefine the behavior of some methods.
+    Basic trainer for training a Matrix Factorization model using gradient descent.
     """
 
     def __init__(
         self,
-        model: torch.nn.Module,
+        model: MatrixFactorization,
         optimizer: torch.optim.Optimizer,
+        loss: Callable[[Tensor, Tensor], Tensor],
         wandb_train: bool = False,
     ):
         """
-        Constructor of the trainer.
+        Constructor of the trainer for the MF model.
 
-        :param model: neural model for which the training has to be performed
-        :param optimizer: optimizer that has to be used for the training of the model
-        :param wandb_train: whether to log data on Weights and Biases servers. This is used when using hyperparameter
-        optimization
+        :param model: Matrix Factorization model
+        :param optimizer: optimizer used for the training of the model
+        :param wandb_train: whether the data has to be logged to WandB or not
+        :param loss: loss that is used for training the Matrix Factorization model. It could be MSE or Focal Loss
         """
         self.model = model.to(device)
         self.optimizer = optimizer
         self.wandb_train = wandb_train
+        self.loss = loss
 
     def train(
         self,
@@ -45,9 +47,9 @@ class Trainer:
         val_metric: Valid_Metrics_Type,
         n_epochs: int = 500,
         early: Optional[int] = None,
-        early_loss_based: bool = False,
+        early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
         verbose: int = 10,
-        save_path: Optional[str] = None,
+        save_path: Optional[Path] = None,
     ):
         """
         Method for the train of the model.
@@ -57,11 +59,12 @@ class Trainer:
         :param val_metric: validation metric name
         :param n_epochs: number of epochs of training, default to 500
         :param early: patience for early stopping, default to None
-        :param early_loss_based: whether to use the loss function as early stopping criterion, default to False
+        :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
         :param verbose: number of epochs to wait for printing training details
         :param save_path: path where to save the best model, default to None
         """
         logger.debug(f"Starting training on {device}")
+        early_loss_based = True if early_stopping_criterion == "val_loss" else False
         if early_loss_based:
             best_val_score = sys.maxsize
         else:
@@ -73,7 +76,7 @@ class Trainer:
 
         for epoch in range(n_epochs):
             # training step
-            train_loss, log_dict = self.train_epoch(train_loader, epoch + 1)
+            train_loss, log_dict = self.train_epoch(train_loader)
             # validation step
             val_score, val_loss_dict = self.validate(
                 val_loader, val_metric, use_val_loss=True
@@ -132,16 +135,26 @@ class Trainer:
                         self.load_model(save_path)
                     break
 
-    def train_epoch(self, train_loader: DataLoader, epoch: Optional[int] = None):
+    def train_epoch(self, train_loader: DataLoader):
         """
         Method for the training of one single epoch.
 
         :param train_loader: data loader for training data
-        :param epoch: index of epoch
         :return: training loss value averaged across training batches and a dictionary containing useful information
         to log, such as other metrics computed by this model
         """
-        raise NotImplementedError()
+        train_loss = 0.0
+        for batch_idx, (user, pos_items, neg_items) in enumerate(tqdm(train_loader)):
+            self.optimizer.zero_grad()
+            pos_preds = self.model(user, pos_items)
+            neg_preds = self.model(user, neg_items)
+            loss = self.loss(pos_preds, neg_preds)
+            train_loss += loss.item()
+            loss.backward()
+            self.optimizer.step()
+        return train_loss / len(train_loader), {
+            "train_loss": train_loss / len(train_loader)
+        }
 
     def predict(self, users: Tensor, items: Tensor, dim: int = 1):
         """
@@ -182,7 +195,7 @@ class Trainer:
         :param neg_preds: predictions for negative interactions in the validation set
         :return: the validation loss for the model
         """
-        raise NotImplementedError()
+        return self.loss(pos_preds, neg_preds)
 
     def validate(
         self,
@@ -239,7 +252,7 @@ class Trainer:
 
         return np.mean(val_score), {"Val loss": validation_loss}
 
-    def save_model(self, path: str):
+    def save_model(self, path: Path):
         """
         Method for saving the model.
 
@@ -253,7 +266,7 @@ class Trainer:
             path,
         )
 
-    def load_model(self, path: str):
+    def load_model(self, path: Path):
         """
         Method for loading the model.
 

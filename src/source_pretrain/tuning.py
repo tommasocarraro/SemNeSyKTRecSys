@@ -1,18 +1,18 @@
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import wandb
 from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from torch.optim import AdamW
 
-from src.bpr_loss import BPRLoss
-from src.loader import DataLoader
-from src.metrics import Valid_Metrics_Type
-from src.models.mf import MFTrainer, MatrixFactorization
+from .data_loader import DataLoader
+from .loss import BPRLoss
+from .metrics import Valid_Metrics_Type
+from .model import MatrixFactorization
+from .trainer import MfTrainer
 from src.utils import set_seed
 
 
-# TODO run should be named with hyperparameter values like in previous repository
 def mf_tuning(
     seed: int,
     tune_config: dict[str, Any],
@@ -25,7 +25,7 @@ def mf_tuning(
     metric: Valid_Metrics_Type,
     n_epochs: Optional[int] = 1000,
     early: Optional[int] = 5,
-    early_loss_based: Optional[bool] = True,
+    early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
     bayesian_run_count: Optional[int] = 10,
@@ -46,7 +46,7 @@ def mf_tuning(
     :param metric: validation metric that has to be used
     :param n_epochs: number of epochs for hyperparameter tuning
     :param early: number of epochs for early stopping
-    :param early_loss_based: whether to use loss function instead of validation metric for early stopping
+    :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
     :param entity_name: name of entity which owns the wandb project
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param bayesian_run_count: number of runs of Bayesian optimization
@@ -72,14 +72,25 @@ def mf_tuning(
             train_loader = DataLoader(train_set, ui_matrix, tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
-            trainer = MFTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)
+            trainer = MfTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)
             # perform training
             trainer.train(
-                train_loader, val_loader, metric, n_epochs=n_epochs, early=early, verbose=1,
-                early_loss_based=early_loss_based
+                train_loader,
+                val_loader,
+                metric,
+                n_epochs=n_epochs,
+                early=early,
+                verbose=1,
+                early_stopping_criterion=early_stopping_criterion,
             )
 
     # launch the WandB sweep for 150 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, entity=entity_name, function=tune, count=bayesian_run_count, project=exp_name)
+    wandb.agent(
+        sweep_id,
+        entity=entity_name,
+        function=tune,
+        count=bayesian_run_count,
+        project=exp_name,
+    )
