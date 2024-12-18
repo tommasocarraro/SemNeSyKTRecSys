@@ -120,6 +120,7 @@ class MfTrainer:
                     )
                 early_counter = 0
                 if save_paths:
+                    logger.info(f"Saving checkpoint")
                     self.save_model(save_paths[0], is_checkpoint=True)
             else:
                 early_counter += 1

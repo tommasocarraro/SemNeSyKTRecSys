@@ -11,7 +11,9 @@ from .ModelConfig import (
 )
 
 train_books_config = ModelConfig(
-    dataset_path=Path("./data/ratings/reviews_Books_5.csv.7z"),
+    src_dataset_path=Path("./data/ratings/reviews_Books_5.csv.7z"),
+    tgt_dataset_path=Path("./data/ratings/reviews_Movies_and_TV_5.csv.7z"),
+    paths_file_path=Path("./data/kg_paths/books(pop:300)->movies(cs:5).json.7z"),
     epochs=1000,
     early_stopping_patience=5,
     early_stopping_criterion="val_loss",

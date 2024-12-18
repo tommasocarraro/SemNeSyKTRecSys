@@ -46,7 +46,9 @@ class TuneConfig:
 
 @dataclass(frozen=True)
 class ModelConfig:
-    dataset_path: Path
+    src_dataset_path: Path
+    tgt_dataset_path: Path
+    paths_file_path: Path
     epochs: int
     early_stopping_patience: int
     early_stopping_criterion: Literal["val_loss", "val_metric"]

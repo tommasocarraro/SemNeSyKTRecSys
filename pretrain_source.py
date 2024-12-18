@@ -8,7 +8,7 @@ import torch
 import wandb
 from loguru import logger
 
-from src.data_preprocessing import Dataset, process_source
+from src.data_preprocessing import SourceTargetDatasets, process_source_target
 from src.source_pretrain.data_loader import DataLoader
 from src.source_pretrain.loss import BPRLoss
 from src.source_pretrain.model import MatrixFactorization
@@ -39,9 +39,11 @@ def main_source():
 
     config = get_config(dataset_name=dataset_name, kind=kind)
 
-    dataset = process_source(
+    dataset = process_source_target(
         seed=config.seed,
-        dataset_path=config.dataset_path,
+        source_dataset_path=config.src_dataset_path,
+        target_dataset_path=config.tgt_dataset_path,
+        paths_file_path=config.paths_file_path,
         save_path=Path("../data/saved_data/"),
         clear_saved_dataset=args.clear,
     )
@@ -52,25 +54,25 @@ def main_source():
         tune_source(dataset, config)
 
 
-def train_source(dataset: Dataset, config: ModelConfig):
+def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
     logger.info(f"Training the model with configuration: {config.get_train_config()}")
     set_seed(config.seed)
 
     tr_loader = DataLoader(
-        data=dataset.tr,
-        ui_matrix=dataset.ui_matrix,
+        data=dataset.src_tr,
+        ui_matrix=dataset.src_ui_matrix,
         batch_size=config.train_config.batch_size,
     )
 
     val_loader = DataLoader(
-        data=dataset.val,
-        ui_matrix=dataset.ui_matrix,
+        data=dataset.src_val,
+        ui_matrix=dataset.src_ui_matrix,
         batch_size=config.train_config.batch_size,
     )
 
     mf = MatrixFactorization(
-        n_users=dataset.n_users,
-        n_items=dataset.n_items,
+        n_users=dataset.src_n_users,
+        n_items=dataset.src_n_items,
         n_factors=config.train_config.n_factors,
     )
 
@@ -94,17 +96,17 @@ def train_source(dataset: Dataset, config: ModelConfig):
         save_paths=config.train_config.model_save_paths,
     )
 
-    if dataset.te is not None:
+    if dataset.src_te is not None:
         te_loader = DataLoader(
-            data=dataset.te,
-            ui_matrix=dataset.ui_matrix,
+            data=dataset.src_te,
+            ui_matrix=dataset.src_ui_matrix,
             batch_size=config.train_config.batch_size,
         )
         te_metric, _ = tr.validate(te_loader, val_metric=config.val_metric)
         logger.info(f"Test {config.val_metric}: {te_metric:.4f}")
 
 
-def tune_source(dataset: Dataset, config: ModelConfig):
+def tune_source(dataset: SourceTargetDatasets, config: ModelConfig):
     if config.tune_config is None:
         raise ValueError()
 
@@ -121,12 +123,12 @@ def tune_source(dataset: Dataset, config: ModelConfig):
     mf_tuning(
         seed=config.seed,
         tune_config=config.get_wandb_dict(),
-        train_set=dataset.tr,
-        val_set=dataset.val,
+        train_set=dataset.src_tr,
+        val_set=dataset.src_val,
         val_batch_size=config.train_config.batch_size,
-        n_users=dataset.n_users,
-        n_items=dataset.n_items,
-        ui_matrix=dataset.ui_matrix,
+        n_users=dataset.src_n_users,
+        n_items=dataset.src_n_items,
+        ui_matrix=dataset.src_ui_matrix,
         metric=config.val_metric,
         n_epochs=config.epochs,
         early=config.early_stopping_patience,
