@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from src import device
+from src.device import device
 from scipy.sparse import csr_matrix
 
 
