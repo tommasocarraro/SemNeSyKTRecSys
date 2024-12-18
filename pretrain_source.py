@@ -8,14 +8,14 @@ import torch
 import wandb
 from loguru import logger
 
-from data_preprocessing import Dataset, process_source
-from source_pretrain.data_loader import DataLoader
-from source_pretrain.loss import BPRLoss
-from source_pretrain.model import MatrixFactorization
-from source_pretrain.model_configs import ModelConfig, get_config
-from source_pretrain.trainer import MfTrainer
-from source_pretrain.tuning import mf_tuning
-from utils import set_seed
+from src.data_preprocessing import Dataset, process_source
+from src.source_pretrain.data_loader import DataLoader
+from src.source_pretrain.loss import BPRLoss
+from src.source_pretrain.model import MatrixFactorization
+from src.source_pretrain.model_configs import ModelConfig, get_config
+from src.source_pretrain.trainer import MfTrainer
+from src.source_pretrain.tuning import mf_tuning
+from src.utils import set_seed
 
 parser = argparse.ArgumentParser(description="PyTorch BPR Training")
 group = parser.add_mutually_exclusive_group(required=True)
