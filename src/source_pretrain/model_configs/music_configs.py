@@ -8,6 +8,7 @@ from .ModelConfig import (
     TrainConfig,
     TuneConfig,
 )
+from math import log
 
 train_music_config = ModelConfig(
     dataset_path=Path("./data/ratings/reviews_CDs_and_Vinyl_5.csv.7z"),
@@ -37,10 +38,10 @@ tune_music_config = ModelConfig(
         parameters=ParametersConfig(
             n_factors_range=[1, 5, 10, 25, 50, 100],
             learning_rate=ParameterDistribution(
-                min=1e-5, max=1e-1, distribution="log_uniform"
+                min=log(1e-5), max=log(1e-1), distribution="log_uniform"
             ),
             weight_decay=ParameterDistribution(
-                min=1e-6, max=1e-1, distribution="log_uniform"
+                min=log(1e-6), max=log(1e-1), distribution="log_uniform"
             ),
             batch_size_range=[64, 128, 256, 512],
         ),

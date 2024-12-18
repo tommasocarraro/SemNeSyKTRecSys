@@ -1,3 +1,4 @@
+from math import log
 from pathlib import Path
 
 from .ModelConfig import (
@@ -37,10 +38,10 @@ tune_books_config = ModelConfig(
         parameters=ParametersConfig(
             n_factors_range=[100],
             learning_rate=ParameterDistribution(
-                min=1e-5, max=1e-1, distribution="log_uniform"
+                min=log(1e-5), max=log(1e-1), distribution="log_uniform"
             ),
             weight_decay=ParameterDistribution(
-                min=1e-6, max=1e-1, distribution="log_uniform"
+                min=log(1e-6), max=log(1e-1), distribution="log_uniform"
             ),
             batch_size_range=[512],
         ),
