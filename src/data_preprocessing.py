@@ -255,7 +255,7 @@ def process_source_target(
     paths_file_path: Path,
     implicit: bool = True,
     source_val_size: float = 0.2,
-    source_te_size: float = 0.2,
+    source_te_size: float = 0.0,
     source_user_level_split: bool = True,
     target_val_size: float = 0.1,
     target_test_size: float = 0.2,
