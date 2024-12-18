@@ -86,19 +86,20 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
         loss=BPRLoss(),
     )
 
-    # tr.train(
-    #     train_loader=tr_loader,
-    #     val_loader=val_loader,
-    #     val_metric=config.val_metric,
-    #     early=config.early_stopping_patience,
-    #     verbose=1,
-    #     early_stopping_criterion=config.early_stopping_criterion,
-    #     save_paths=config.train_config.model_save_paths,
-    # )
+    tr.train(
+        train_loader=tr_loader,
+        val_loader=val_loader,
+        val_metric=config.val_metric,
+        early=config.early_stopping_patience,
+        verbose=1,
+        early_stopping_criterion=config.early_stopping_criterion,
+        save_paths=config.train_config.model_save_paths,
+    )
 
     logger.info("Training complete.")
-    logger.info(f"Final val loss: {tr.validate(val_loader, 'auc', True)}")
-    logger.info(f"Final val auc: {tr.validate(val_loader, 'auc', False)}")
+    logger.info(
+        f"Final validation AUC and loss: {tr.validate(val_loader, 'auc', True)}"
+    )
 
     debug = True
     if debug:
@@ -107,7 +108,7 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
             n_items=dataset.src_n_items,
             n_factors=config.train_config.n_factors,
         )
-        sd = torch.load("./source_models/best_src_music.pth", map_location="cpu")
+        sd = torch.load(config.train_config.model_save_paths[1], map_location="cpu")
         mf2.load_state_dict(sd)
         tr2 = MfTrainer(
             model=mf2,
@@ -118,7 +119,9 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
             ),
             loss=BPRLoss(),
         )
-        logger.info(f"Reloaded model val loss: {tr2.validate(val_loader, 'auc', True)}")
+        logger.info(
+            f"Reloaded model validation AUC and loss: {tr2.validate(val_loader, 'auc', True)}"
+        )
 
     if dataset.src_te is not None:
         te_loader = DataLoader(
