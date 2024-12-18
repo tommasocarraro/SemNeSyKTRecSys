@@ -21,7 +21,10 @@ train_music_config = ModelConfig(
         learning_rate=0.0001,
         weight_decay=0.0001,
         batch_size=512,
-        model_save_path=Path("./source_models/best_src_music.pth"),
+        model_save_paths=(
+            Path("./source_models/checkpoint_src_music.pth"),
+            Path("./source_models/best_src_music.pth"),
+        ),
     ),
     tune_config=None,
 )

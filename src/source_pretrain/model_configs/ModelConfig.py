@@ -9,7 +9,7 @@ class TrainConfig:
     learning_rate: float
     weight_decay: float
     batch_size: int
-    model_save_path: Path
+    model_save_paths: tuple[Path, Path]
 
 
 @dataclass(frozen=True)

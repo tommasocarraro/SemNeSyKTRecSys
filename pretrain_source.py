@@ -91,7 +91,7 @@ def train_source(dataset: Dataset, config: ModelConfig):
         early=config.early_stopping_patience,
         verbose=1,
         early_stopping_criterion=config.early_stopping_criterion,
-        save_path=config.train_config.model_save_path,
+        save_paths=config.train_config.model_save_paths,
     )
 
     if dataset.te is not None:

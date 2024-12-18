@@ -21,7 +21,10 @@ train_books_config = ModelConfig(
         learning_rate=0.001,
         weight_decay=0.001,
         batch_size=256,
-        model_save_path=Path("./source_models/best_src_movies.pth"),
+        model_save_paths=(
+            Path("./source_models/checkpoint_src_movies.pth"),
+            Path("./source_models/best_src_movies.pth"),
+        ),
     ),
     tune_config=None,
 )
