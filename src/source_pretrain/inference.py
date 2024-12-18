@@ -1,9 +1,11 @@
 import torch
 from tqdm import tqdm
-from src import device
+from src.device import device
 from scipy.sparse import csr_matrix
 
 
+# TODO train model without test splitting
+# TODO check why positive items are not predicted as positives
 def generate_pre_trained_src_matrix(
     mf_model, best_weights, n_shared_users, src_ui_matrix, pos_threshold, batch_size
 ) -> torch.Tensor:
@@ -67,6 +69,8 @@ def generate_pre_trained_src_matrix(
     new_coords = set(zip(user_idx.numpy(), pos_idx.flatten().numpy()))
     final_coords = new_coords | ui_matrix_coords
     rows, cols = zip(*final_coords)
-    final_matrix = csr_matrix(([1] * len(final_coords), (rows, cols)), sh_users_src_ui_matrix.shape)
+    final_matrix = csr_matrix(
+        ([1] * len(final_coords), (rows, cols)), sh_users_src_ui_matrix.shape
+    )
 
     return final_matrix

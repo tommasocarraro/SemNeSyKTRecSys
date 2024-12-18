@@ -8,7 +8,7 @@ from loguru import logger
 from torch import Tensor
 from tqdm import tqdm
 
-from src import device
+from src.device import device
 from .data_loader import DataLoader
 from .metrics import Valid_Metrics_Type, compute_metric
 from .model import MatrixFactorization

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from scipy.sparse import csr_matrix
 
-from src import device
+from src.device import device
 
 
 class DataLoader:
