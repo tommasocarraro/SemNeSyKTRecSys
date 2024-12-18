@@ -32,7 +32,7 @@ tune_books_config = ModelConfig(
         method="bayes",
         metric=MetricConfig(goal="minimize", name="Best val loss"),
         parameters=ParametersConfig(
-            n_factors_range=[1, 5, 10, 25, 50, 100],
+            n_factors_range=[100],
             learning_rate=ParameterDistribution(
                 min=1e-5, max=1e-1, distribution="log_uniform"
             ),
@@ -44,6 +44,6 @@ tune_books_config = ModelConfig(
         entity_name="bmxitalia",
         exp_name="amazon",
         bayesian_run_count=50,
-        sweep_id="kv2zsr73",
+        sweep_id=None,
     )
 )

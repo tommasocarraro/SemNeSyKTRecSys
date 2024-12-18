@@ -166,7 +166,7 @@ def process_source(
     clear_saved_dataset: bool = False,
     implicit: bool = True,
     source_val_size: float = 0.2,
-    source_te_size: float = 0.2,
+    source_te_size: float = 0.0,
     source_user_level_split: bool = True,
 ) -> Dataset:
     logger.info("Reading datasets from file system")
