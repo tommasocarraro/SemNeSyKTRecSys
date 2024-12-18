@@ -1,3 +1,4 @@
+import os
 import sys
 from typing import Callable, Optional, Literal
 
@@ -132,6 +133,7 @@ class MfTrainer:
                 if early is not None and early_counter > early:
                     print("Training interrupted due to early stopping")
                     if save_path:
+                        os.makedirs(save_path, exist_ok=True)
                         self.load_model(save_path)
                     break
 
