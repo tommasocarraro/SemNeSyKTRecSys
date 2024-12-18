@@ -17,9 +17,9 @@ train_music_config = ModelConfig(
     val_metric="auc",
     seed=0,
     train_config=TrainConfig(
-        n_factors=50,
+        n_factors=100,
         learning_rate=0.0001,
-        weight_decay=0.0009,
+        weight_decay=0.0001,
         batch_size=512,
         model_save_path=Path("./source_models/best_src_music.pth"),
     ),

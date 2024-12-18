@@ -39,11 +39,11 @@ tune_books_config = ModelConfig(
             weight_decay=ParameterDistribution(
                 min=1e-6, max=1e-1, distribution="log_uniform"
             ),
-            batch_size_range=[64, 128, 256, 512],
+            batch_size_range=[512],
         ),
         entity_name="bmxitalia",
         exp_name="amazon",
         bayesian_run_count=50,
-        sweep_id=None,
+        sweep_id="kv2zsr73",
     )
 )
