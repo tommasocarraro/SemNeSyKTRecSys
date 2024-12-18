@@ -1,3 +1,4 @@
+import os
 import sys
 from typing import Callable, Optional, Literal
 
@@ -49,7 +50,7 @@ class MfTrainer:
         early: Optional[int] = None,
         early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
         verbose: int = 10,
-        save_path: Optional[Path] = None,
+        save_paths: Optional[tuple[Path, Path]] = None,
     ):
         """
         Method for the train of the model.
@@ -61,7 +62,7 @@ class MfTrainer:
         :param early: patience for early stopping, default to None
         :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
         :param verbose: number of epochs to wait for printing training details
-        :param save_path: path where to save the best model, default to None
+        :param save_paths: tuple of paths where to save the checkpoint (first path) and the best model (second path)
         """
         logger.debug(f"Starting training on {device}")
         early_loss_based = True if early_stopping_criterion == "val_loss" else False
@@ -85,22 +86,13 @@ class MfTrainer:
             log_dict.update(val_loss_dict)
             # print epoch data
             if (epoch + 1) % verbose == 0:
-                log_record = "Epoch %d - Train loss %.3f - Val %s %.3f" % (
-                    epoch + 1,
-                    train_loss,
-                    val_metric,
-                    val_score,
-                )
+                log_record = f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric} {val_score:.3f}"
                 # add log_dict to log_record
                 log_record += " - " + " - ".join(
-                    [
-                        "%s %.3f" % (k, v)
-                        for k, v in log_dict.items()
-                        if k != "train_loss"
-                    ]
+                    [f"{k} {v:.3f}" for k, v in log_dict.items() if k != "train_loss"]
                 )
                 # print epoch report
-                print(log_record)
+                logger.info(log_record)
                 if self.wandb_train:
                     # log validation metric value
                     wandb.log({"Val %s" % (val_metric,): val_score})
@@ -108,7 +100,9 @@ class MfTrainer:
                     wandb.log(log_dict)
             # stop the training if vanishing or exploding gradients are detected
             if np.isnan(train_loss):
-                print("Training interrupted due to exploding or vanishing gradients")
+                logger.info(
+                    "Training interrupted due to exploding or vanishing gradients"
+                )
                 break
             # save best model and update early stop counter, if necessary
             if (val_score > best_val_score and not early_loss_based) or (
@@ -125,14 +119,17 @@ class MfTrainer:
                         else {"Best val loss": val_loss_dict["Val loss"]}
                     )
                 early_counter = 0
-                if save_path:
-                    self.save_model(save_path)
+                if save_paths:
+                    logger.info(f"Saving checkpoint")
+                    self.save_model(save_paths[0], is_checkpoint=True)
             else:
                 early_counter += 1
                 if early is not None and early_counter > early:
-                    print("Training interrupted due to early stopping")
-                    if save_path:
-                        self.load_model(save_path)
+                    logger.info("Training interrupted due to early stopping")
+                    if save_paths:
+                        self.load_model(save_paths[0])
+                        self.save_model(save_paths[1], is_checkpoint=False)
+                        os.remove(save_paths[0])
                     break
 
     def train_epoch(self, train_loader: DataLoader):
@@ -221,50 +218,27 @@ class MfTrainer:
             validation_loss = self.compute_validation_loss(
                 torch.tensor(pos_preds).to(device), torch.tensor(neg_preds).to(device)
             )
-        # # compute precision and recall
-        # p, r, f, _ = precision_recall_fscore_support(
-        #     targets,
-        #     preds,
-        #     beta=float(val_metric.split("-")[1]) if "fbeta" in val_metric else 1.0,
-        #     average=None,
-        # )
-        # # compute other useful metrics used in classification tasks
-        # tn, fp, fn, tp = tuple(confusion_matrix(targets, preds).ravel())
-        # sensitivity, specificity = tp / (tp + fn), tn / (tn + fp)
-        # log metrics to WandB servers
-        # if self.wandb_train:
-        #     wandb.log(
-        #         {
-        #             "neg_prec": p[0],
-        #             "pos_prec": p[1],
-        #             "neg_rec": r[0],
-        #             "pos_rec": r[1],
-        #             "neg_f": f[0],
-        #             "pos_f": f[1],
-        #             "tn": tn,
-        #             "fp": fp,
-        #             "fn": fn,
-        #             "tp": tp,
-        #             "sensitivity": sensitivity,
-        #             "specificity": specificity,
-        #         }
-        #     )
 
         return np.mean(val_score), {"Val loss": validation_loss}
 
-    def save_model(self, path: Path):
+    def save_model(self, path: Path, is_checkpoint=True):
         """
         Method for saving the model.
 
         :param path: path where to save the model
+        :param is_checkpoint: whether the model to be saved is a checkpoint or the final one
         """
-        torch.save(
-            {
-                "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-            },
-            path,
-        )
+        os.makedirs(path.parent, exist_ok=True)
+        if is_checkpoint:
+            torch.save(
+                {
+                    "model_state_dict": self.model.state_dict(),
+                    "optimizer_state_dict": self.optimizer.state_dict(),
+                },
+                path,
+            )
+        else:
+            torch.save(self.model.state_dict(), path)
 
     def load_model(self, path: Path):
         """
@@ -275,37 +249,3 @@ class MfTrainer:
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
-    # def test(self, test_loader: DataLoader):
-    #     """
-    #     Method for performing the test of the model based on the given test loader.
-    #
-    #     The method computes precision, recall, F1-score, and other useful classification metrics.
-    #
-    #     :param test_loader: data loader for test data
-    #     :return: a dictionary containing the value of each metric average across the test examples
-    #     """
-    #     # create dictionary where the results have to be stored
-    #     results = {}
-    #     # prepare predictions and targets for evaluation
-    #     # TODO prepare_for_evaluation was changed to return three values instead of two, rest of the function requires fixing
-    #     users, pos_preds, neg_preds = self.prepare_for_evaluation(test_loader)
-    #     # compute metrics
-    #     results["fbeta-1.0"] = compute_metric("fbeta-1.0", preds, targets)
-    #     p, r, f, _ = precision_recall_fscore_support(
-    #         targets, preds, beta=1.0, average=None
-    #     )
-    #     results["neg_prec"] = p[0]
-    #     results["pos_prec"] = p[1]
-    #     results["neg_rec"] = r[0]
-    #     results["pos_rec"] = r[1]
-    #     results["neg_f"] = f[0]
-    #     results["pos_f"] = f[1]
-    #     results["tn"], results["fp"], results["fn"], results["tp"] = (
-    #         int(i) for i in tuple(confusion_matrix(targets, preds).ravel())
-    #     )
-    #     results["sensitivity"] = results["tp"] / (results["tp"] + results["fn"])
-    #     results["specificity"] = results["tn"] / (results["tn"] + results["fp"])
-    #     results["acc"] = accuracy_score(targets, preds)
-    #
-    #     return results

@@ -9,7 +9,7 @@ class TrainConfig:
     learning_rate: float
     weight_decay: float
     batch_size: int
-    model_save_path: Path
+    model_save_paths: tuple[Path, Path]
 
 
 @dataclass(frozen=True)
@@ -46,7 +46,9 @@ class TuneConfig:
 
 @dataclass(frozen=True)
 class ModelConfig:
-    dataset_path: Path
+    src_dataset_path: Path
+    tgt_dataset_path: Path
+    paths_file_path: Path
     epochs: int
     early_stopping_patience: int
     early_stopping_criterion: Literal["val_loss", "val_metric"]
