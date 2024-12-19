@@ -5,9 +5,9 @@ from typing import Literal
 
 import dotenv
 import torch
-import wandb
 from loguru import logger
 
+import wandb
 from src.data_preprocessing import SourceTargetDatasets, process_source_target
 from src.source_pretrain.data_loader import DataLoader
 from src.source_pretrain.loss import BPRLoss
@@ -38,13 +38,14 @@ def main_source():
     kind: Literal["train", "tune"] = "train" if args.train else "tune"
 
     config = get_config(dataset_name=dataset_name, kind=kind)
+    set_seed(config.seed)
 
     dataset = process_source_target(
         seed=config.seed,
         source_dataset_path=config.src_dataset_path,
         target_dataset_path=config.tgt_dataset_path,
         paths_file_path=config.paths_file_path,
-        save_path=Path("../data/saved_data/"),
+        save_path=Path("data/saved_data/"),
         clear_saved_dataset=args.clear,
     )
 
@@ -56,7 +57,6 @@ def main_source():
 
 def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
     logger.info(f"Training the model with configuration: {config.get_train_config()}")
-    set_seed(config.seed)
 
     tr_loader = DataLoader(
         data=dataset.src_tr,
@@ -96,32 +96,9 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
         save_paths=config.train_config.model_save_paths,
     )
 
-    logger.info("Training complete.")
     logger.info(
-        f"Final validation AUC and loss: {tr.validate(val_loader, 'auc', True)}"
+        f"Training complete. Final validation AUC and loss: {tr.validate(val_loader, 'auc', True)}"
     )
-
-    debug = True
-    if debug:
-        mf2 = MatrixFactorization(
-            n_users=dataset.src_n_users,
-            n_items=dataset.src_n_items,
-            n_factors=config.train_config.n_factors,
-        )
-        sd = torch.load(config.train_config.model_save_paths[1], map_location="cpu")
-        mf2.load_state_dict(sd)
-        tr2 = MfTrainer(
-            model=mf2,
-            optimizer=torch.optim.AdamW(
-                mf2.parameters(),
-                lr=config.train_config.learning_rate,
-                weight_decay=config.train_config.weight_decay,
-            ),
-            loss=BPRLoss(),
-        )
-        logger.info(
-            f"Reloaded model validation AUC and loss: {tr2.validate(val_loader, 'auc', True)}"
-        )
 
     if dataset.src_te is not None:
         te_loader = DataLoader(

@@ -141,9 +141,7 @@ class MfTrainer:
         to log, such as other metrics computed by this model
         """
         train_loss = 0.0
-        for batch_idx, (user, pos_items, neg_items) in enumerate(
-            tqdm(train_loader, disable=True)
-        ):
+        for batch_idx, (user, pos_items, neg_items) in enumerate(tqdm(train_loader)):
             self.optimizer.zero_grad()
             pos_preds = self.model(user, pos_items)
             neg_preds = self.model(user, neg_items)
@@ -230,7 +228,6 @@ class MfTrainer:
         :param path: path where to save the model
         :param is_checkpoint: whether the model to be saved is a checkpoint or the final one
         """
-        print(self.model.state_dict()["u_emb.weight"])
         os.makedirs(path.parent, exist_ok=True)
         if is_checkpoint:
             torch.save(
