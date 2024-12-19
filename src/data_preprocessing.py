@@ -222,16 +222,16 @@ def process_source_target(
 
     # get ids of shared users
     sh_u_ids = list(range(len(sh_users)))
-    sh_users_string_to_id = dict(zip(sh_users, sh_u_ids))
+    sh_users_string_to_id = dict(zip(sorted(sh_users), sh_u_ids))
 
     # get ids of non-shared users in source and target domains
     src_users = set(src_ratings["userId"]) - sh_users
     src_u_ids = [(i + len(sh_u_ids)) for i in range(len(src_users))]
-    src_u_string_to_id = dict(zip(src_users, src_u_ids))
+    src_u_string_to_id = dict(zip(sorted(src_users), src_u_ids))
     src_u_string_to_id.update(sh_users_string_to_id)
     tgt_users = set(tgt_ratings["userId"]) - sh_users
     tgt_u_ids = [(i + len(sh_u_ids)) for i in range(len(tgt_users))]
-    tgt_u_string_to_id = dict(zip(tgt_users, tgt_u_ids))
+    tgt_u_string_to_id = dict(zip(sorted(tgt_users), tgt_u_ids))
     tgt_u_string_to_id.update(sh_users_string_to_id)
 
     # get ids of items in source and target domain

@@ -34,7 +34,7 @@ def generate_pre_trained_src_matrix(
     """
     # load the best weights on the model
     mf_model.load_state_dict(
-        torch.load(best_weights, map_location=device)["model_state_dict"]
+        torch.load(best_weights, map_location=device)
     )
     # initialize predictions tensor
     preds = torch.zeros((n_shared_users, mf_model.n_items))
@@ -50,6 +50,7 @@ def generate_pre_trained_src_matrix(
                 preds[u, start_idx:end_idx] = mf_model(users, items)
 
     # create the rankings for each user and take the indexes of the items in the first pos_threshold positions
+    # these will be the items that have to have a 1 in the LikesSource matrix
     pos_idx = torch.argsort(preds, dim=1, descending=True)[:, :pos_threshold]
 
     # create dense matrix with predictions where we put 1 if the item is in the first pos_threshold positions,
