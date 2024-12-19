@@ -37,6 +37,8 @@ def train_test_split(
     if frac == 0.0:
         return ratings, None
     if user_level:
+        # set numpy seed for reproducibility
+        np.random.seed(seed)
         # Create a dictionary where each key is a user and the value is a list of indices for positive and negative
         # ratings
         user_indices_pos = defaultdict(list)
@@ -190,20 +192,21 @@ def process_source_target(
     # decompress source and target rating files, if needed
     source_dataset_path = decompress_7z(source_dataset_path)
     target_dataset_path = decompress_7z(target_dataset_path)
-    # computing the path where to store the processed datasets at
-    actual_save_path = make_saved_dataset_path(
-        save_path=save_path,
-        source_dataset_path=source_dataset_path,
-        target_dataset_path=target_dataset_path,
-    )
-    # if the dataset has already been processed before, simply load it with numpy
-    if actual_save_path.is_file():
-        if clear_saved_dataset:
-            logger.debug("Clearing out previously computed dataset")
-            os.remove(actual_save_path)
-        else:
-            logger.debug("Found precomputed dataset pair, reading it from file system")
-            return np.load(actual_save_path, allow_pickle=True).item()
+    if save_path is not None:
+        # computing the path where to store the processed datasets at
+        actual_save_path = make_saved_dataset_path(
+            save_path=save_path,
+            source_dataset_path=source_dataset_path,
+            target_dataset_path=target_dataset_path,
+        )
+        # if the dataset has already been processed before, simply load it with numpy
+        if actual_save_path.is_file():
+            if clear_saved_dataset:
+                logger.debug("Clearing out previously computed dataset")
+                os.remove(actual_save_path)
+            else:
+                logger.debug("Found precomputed dataset pair, reading it from file system")
+                return np.load(actual_save_path, allow_pickle=True).item()
     # get source and target ratings
     logger.debug("Reading the datasets' csv files with pandas")
     src_ratings = pd.read_csv(
