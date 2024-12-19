@@ -8,7 +8,9 @@ from joblib import Parallel
 from loguru import logger
 
 
-def get_rating_stats(rating_file: str, entity: Literal["item", "user"], implicit=True) -> dict:
+def get_rating_stats(
+    rating_file: str, entity: Literal["item", "user"], implicit=True
+) -> dict:
     """
     This function takes as input a rating file and counts the number of ratings for each user or item.
     The stats are returned in a dict.
@@ -27,7 +29,7 @@ def get_rating_stats(rating_file: str, entity: Literal["item", "user"], implicit
     df = pd.read_csv(rating_file)
     if implicit:
         df["rating"] = (df["rating"] >= 4).astype(int)
-        df = df[df['rating'] == 1]
+        df = df[df["rating"] == 1]
     ratings_count = df.groupby(df_col).size().to_dict()
     # sort dictionary by the rating count
     return dict(sorted(ratings_count.items(), key=lambda entity_: entity_[1]))
