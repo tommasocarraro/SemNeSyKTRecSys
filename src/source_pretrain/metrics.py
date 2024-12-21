@@ -69,6 +69,30 @@ def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):
     return final_mean_auc
 
 
+def ndcg_at_k(pred_scores, ground_truth, k=10):
+    """
+    Computes the NDCG (at k) given the predicted scores and relevance of the items.
+
+    :param pred_scores: score vector in output from the recommender (unsorted ranking)
+    :param ground_truth: binary vector with relevance data (1 relevant, 0 not relevant)
+    :param k: length of the ranking on which the metric has to be computed
+    :return: NDCG at k position
+    """
+    k = min(pred_scores.shape[1], k)
+    # compute DCG
+    # generate ranking
+    rank = np.argsort(-pred_scores, axis=1)
+    # get relevance of first k items in the ranking
+    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
+    log_term = 1. / np.log2(np.arange(2, k + 2))
+    # compute metric
+    dcg = (rank_relevance * log_term).sum(axis=1)
+    # compute IDCG
+    # idcg is the ideal ranking, so all the relevant items must be at the top, namely all 1 have to be at the top
+    idcg = np.array([(log_term[:min(int(n_pos), k)]).sum() for n_pos in ground_truth.sum(axis=1)])
+    return dcg / idcg
+
+
 def compute_metric(
     metric: Valid_Metrics_Type,
     pred_scores: NDArray,
@@ -95,3 +119,5 @@ def compute_metric(
             return acc(pred_scores, ground_truth)
         elif metric == "auc":
             return auc(users, pred_scores, ground_truth)
+        elif metric.startswith("ndcg"):
+            return ndcg_at_k(pred_scores, ground_truth, metric.split("@")[1])

@@ -10,7 +10,7 @@ from torch import Tensor
 from tqdm import tqdm
 
 from src.device import device
-from .data_loader import DataLoader
+from .data_loader import DataLoader, ValDataLoader
 from .metrics import Valid_Metrics_Type, compute_metric
 from .model import MatrixFactorization
 from pathlib import Path
@@ -22,11 +22,11 @@ class MfTrainer:
     """
 
     def __init__(
-        self,
-        model: MatrixFactorization,
-        optimizer: torch.optim.Optimizer,
-        loss: Callable[[Tensor, Tensor], Tensor],
-        wandb_train: bool = False,
+            self,
+            model: MatrixFactorization,
+            optimizer: torch.optim.Optimizer,
+            loss: Callable[[Tensor, Tensor], Tensor],
+            wandb_train: bool = False,
     ):
         """
         Constructor of the trainer for the MF model.
@@ -42,15 +42,15 @@ class MfTrainer:
         self.loss = loss
 
     def train(
-        self,
-        train_loader: DataLoader,
-        val_loader: DataLoader,
-        val_metric: Valid_Metrics_Type,
-        n_epochs: int = 500,
-        early: Optional[int] = None,
-        early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
-        verbose: int = 10,
-        save_paths: Optional[tuple[Path, Path]] = None,
+            self,
+            train_loader: DataLoader,
+            val_loader: DataLoader,
+            val_metric: Valid_Metrics_Type,
+            n_epochs: int = 500,
+            early: Optional[int] = None,
+            early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
+            verbose: int = 10,
+            save_paths: Optional[tuple[Path, Path]] = None,
     ):
         """
         Method for the train of the model.
@@ -106,7 +106,7 @@ class MfTrainer:
                 break
             # save best model and update early stop counter, if necessary
             if (val_score > best_val_score and not early_loss_based) or (
-                val_loss_dict["Val loss"] < best_val_score and early_loss_based
+                    val_loss_dict["Val loss"] < best_val_score and early_loss_based
             ):
                 best_val_score = (
                     val_score if not early_loss_based else val_loss_dict["Val loss"]
@@ -184,6 +184,32 @@ class MfTrainer:
             np.concatenate(neg_preds),
         )
 
+    def prepare_for_evaluation_ranking(self, loader: ValDataLoader):
+        """
+        It prepares an array of predictions and targets for computing classification metrics.
+        This is the function for the preparation for computation of ranking metrics.
+
+        :param loader: loader containing evaluation data
+        :return: predictions and targets
+        """
+        preds, ground_truth = [], []
+        for batch_idx, (users, pos_items, neg_items, gt) in enumerate(loader):
+            pos_preds = self.predict(users, pos_items).cpu().numpy()
+            neg_preds_ = []
+            for user, neg_items_ in tqdm(zip(users, neg_items)):
+                neg_preds_.append(self.predict(user.repeat_interleave(neg_items.shape[1]),
+                                               neg_items_).cpu().numpy())
+            neg_preds = np.stack(neg_preds_)
+            preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
+            ground_truth.append(gt)
+
+            # neg_preds = self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten()).reshape(
+            #     users.shape[0], -1).numpy()
+            # preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
+            # ground_truth.append(gt)
+
+        return np.concatenate(preds), np.concatenate(ground_truth)
+
     def compute_validation_loss(self, pos_preds: Tensor, neg_preds: Tensor):
         """
         Method for computing the validation loss for the model.
@@ -195,10 +221,10 @@ class MfTrainer:
         return self.loss(pos_preds, neg_preds)
 
     def validate(
-        self,
-        val_loader: DataLoader,
-        val_metric: Valid_Metrics_Type,
-        use_val_loss: bool = False,
+            self,
+            val_loader: DataLoader,
+            val_metric: Valid_Metrics_Type,
+            use_val_loss: bool = False,
     ):
         """
         Method for validating the model.
@@ -220,6 +246,25 @@ class MfTrainer:
             )
 
         return np.mean(val_score), {"Val loss": validation_loss}
+
+    def validate_ranking(
+            self,
+            val_loader: ValDataLoader,
+            val_metric: Valid_Metrics_Type,
+    ):
+        """
+        Method for validating the model.
+
+        :param val_loader: data loader for validation data
+        :param val_metric: validation metric name (it is F0.5-score for source domain and F1-score for target domain)
+        :return: validation score based on the given metric averaged across all validation examples
+        """
+        # prepare predictions and targets for evaluation
+        preds, ground_truth = self.prepare_for_evaluation_ranking(val_loader)
+        # compute validation metric
+        val_score = compute_metric(val_metric, preds, ground_truth)
+
+        return np.mean(val_score)
 
     def save_model(self, path: Path, is_checkpoint=True):
         """
