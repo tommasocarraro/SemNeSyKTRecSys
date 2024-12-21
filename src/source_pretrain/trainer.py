@@ -193,20 +193,21 @@ class MfTrainer:
         :return: predictions and targets
         """
         preds, ground_truth = [], []
-        for batch_idx, (users, pos_items, neg_items, gt) in enumerate(loader):
+        gen = enumerate(loader)
+        for batch_idx, (users, pos_items, neg_items, gt) in tqdm(gen, total=len(loader)):
             pos_preds = self.predict(users, pos_items).cpu().numpy()
-            neg_preds_ = []
-            for user, neg_items_ in tqdm(zip(users, neg_items)):
-                neg_preds_.append(self.predict(user.repeat_interleave(neg_items.shape[1]),
-                                               neg_items_).cpu().numpy())
-            neg_preds = np.stack(neg_preds_)
-            preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
-            ground_truth.append(gt)
-
-            # neg_preds = self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten()).reshape(
-            #     users.shape[0], -1).numpy()
+            # neg_preds_ = []
+            # for user, neg_items_ in tqdm(zip(users, neg_items)):
+            #     neg_preds_.append(self.predict(user.repeat_interleave(neg_items.shape[1]),
+            #                                    neg_items_).cpu().numpy())
+            # neg_preds = np.stack(neg_preds_)
             # preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
             # ground_truth.append(gt)
+
+            neg_preds = self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten()).reshape(
+                users.shape[0], -1).numpy()
+            preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
+            ground_truth.append(gt)
 
         return np.concatenate(preds), np.concatenate(ground_truth)
 

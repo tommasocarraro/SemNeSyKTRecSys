@@ -120,4 +120,4 @@ def compute_metric(
         elif metric == "auc":
             return auc(users, pred_scores, ground_truth)
         elif metric.startswith("ndcg"):
-            return ndcg_at_k(pred_scores, ground_truth, metric.split("@")[1])
+            return ndcg_at_k(pred_scores, ground_truth, int(metric.split("@")[1]))
