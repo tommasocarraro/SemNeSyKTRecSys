@@ -93,6 +93,25 @@ def ndcg_at_k(pred_scores, ground_truth, k=10):
     return dcg / idcg
 
 
+def hit_at_k(pred_scores, ground_truth, k=10):
+    """
+    Computes the hit ratio (at k) given the predicted scores and relevance of the items.
+
+    :param pred_scores: score vector in output from the recommender (unsorted ranking)
+    :param ground_truth: binary vector with relevance data (1 relevant, 0 not relevant)
+    :param k: length of the ranking on which the metric has to be computed
+    :return: hit ratio at k position
+    """
+    k = min(pred_scores.shape[1], k)
+    # generate ranking
+    rank = np.argsort(-pred_scores, axis=1)
+    # get relevance of first k items in the ranking
+    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
+    # sum along axis 1 to count number of relevant items on first k-th positions
+    # it is enough to have one relevant item in the first k-th for having a hit ratio of 1
+    return rank_relevance.sum(axis=1) > 0
+
+
 def compute_metric(
     metric: Valid_Metrics_Type,
     pred_scores: NDArray,
@@ -121,3 +140,5 @@ def compute_metric(
             return auc(users, pred_scores, ground_truth)
         elif metric.startswith("ndcg"):
             return ndcg_at_k(pred_scores, ground_truth, int(metric.split("@")[1]))
+        elif metric.startswith("hit"):
+            return hit_at_k(pred_scores, ground_truth, int(metric.split("@")[1]))

@@ -149,6 +149,7 @@ class ValDataLoader:
             mask = 1 - false_neg_batch_ui_matrix[
                 np.repeat(np.arange(0, batch_data.shape[0]), self.sampled_n_negs), neg_items
             ].reshape(-1, self.sampled_n_negs)
+
             # get final negative items
             neg_items = neg_items.reshape(-1, self.sampled_n_negs)
             # use the argsort on the mask to get the indexes of the items that can be used as real negatives, namely
