@@ -127,7 +127,7 @@ class ValDataLoader:
             users = batch_data[:, 0]
             pos_items = batch_data[:, 1]
             batch_ui_matrix = self.ui_matrix[users]
-            # sample three negative items for each user in the batch
+            # sample sampled_n_negs negative items for each user in the batch
             neg_items = np.random.randint(
                 0, self.num_items, (batch_data.shape[0] * self.sampled_n_negs,)
             )
@@ -151,14 +151,20 @@ class ValDataLoader:
             ].reshape(-1, self.sampled_n_negs)
             # get final negative items
             neg_items = neg_items.reshape(-1, self.sampled_n_negs)
+            # use the argsort on the mask to get the indexes of the items that can be used as real negatives, namely
+            # that are not false negatives
             neg_items = neg_items[
                 np.arange(batch_data.shape[0]).repeat(self.n_negs).reshape(-1, self.n_negs),
                 np.argsort(mask, axis=1)[:, :self.n_negs]
             ]
-
+            # create tensors
             users = torch.tensor(users, dtype=torch.long)
             pos_items = torch.tensor(pos_items, dtype=torch.long)
             neg_items = torch.tensor(neg_items, dtype=torch.long)
+            # construct ground truth matrix for ranking metrics computation
+            # this matrix simply indicates where the positive item and the negative items are positioned in the tensor
+            # containing the predictions. By default, the score of the positive item is always in the first position
+            # in the tensor containing the predictions
             gt = np.zeros((batch_data.shape[0], self.n_negs + 1), dtype=np.longlong)
             gt[:, 0] = 1
 
