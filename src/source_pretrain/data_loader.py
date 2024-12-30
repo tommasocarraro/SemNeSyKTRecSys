@@ -41,7 +41,7 @@ class DataLoader:
         if self.shuffle:
             np.random.shuffle(idxlist)
 
-        for _, start_idx in enumerate(range(0, n, self.batch_size)):
+        for start_idx in range(0, n, self.batch_size):
             end_idx = min(start_idx + self.batch_size, n)
             batch_data = self.data[idxlist[start_idx:end_idx]]
             users = batch_data[:, 0]
@@ -75,9 +75,9 @@ class DataLoader:
                 np.arange(batch_data.shape[0]).reshape(-1, 1), np.argmax(mask, axis=1)
             ]
 
-            users = torch.tensor(users, dtype=torch.long)
-            pos_items = torch.tensor(pos_items, dtype=torch.long)
-            neg_items = torch.tensor(neg_items, dtype=torch.long).squeeze(1)
+            users = torch.tensor(users, dtype=torch.int32)
+            pos_items = torch.tensor(pos_items, dtype=torch.int32)
+            neg_items = torch.tensor(neg_items, dtype=torch.int32).squeeze(1)
 
             yield users.to(device), pos_items.to(device), neg_items.to(device)
 
@@ -89,7 +89,15 @@ class ValDataLoader:
     It prepares the batches of user-item pairs to learn the MF model or evaluate all the models based on MF.
     """
 
-    def __init__(self, data, ui_matrix, batch_size=1, sampled_n_negs=3000, n_negs=100, shuffle=True):
+    def __init__(
+        self,
+        data,
+        ui_matrix,
+        batch_size=1,
+        sampled_n_negs=3000,
+        n_negs=100,
+        shuffle=True,
+    ):
         """
         Constructor of the data loader.
 
@@ -121,7 +129,7 @@ class ValDataLoader:
         if self.shuffle:
             np.random.shuffle(idxlist)
 
-        for _, start_idx in enumerate(range(0, n, self.batch_size)):
+        for start_idx in range(0, n, self.batch_size):
             end_idx = min(start_idx + self.batch_size, n)
             batch_data = self.data[idxlist[start_idx:end_idx]]
             users = batch_data[:, 0]
@@ -136,7 +144,9 @@ class ValDataLoader:
                 (
                     [1] * neg_items.shape[0],
                     (
-                        np.repeat(np.arange(0, batch_data.shape[0]), self.sampled_n_negs),
+                        np.repeat(
+                            np.arange(0, batch_data.shape[0]), self.sampled_n_negs
+                        ),
                         neg_items,
                     ),
                 ),
@@ -147,7 +157,8 @@ class ValDataLoader:
 
             # get mask for the sampled indices
             mask = 1 - false_neg_batch_ui_matrix[
-                np.repeat(np.arange(0, batch_data.shape[0]), self.sampled_n_negs), neg_items
+                np.repeat(np.arange(0, batch_data.shape[0]), self.sampled_n_negs),
+                neg_items,
             ].reshape(-1, self.sampled_n_negs)
 
             # get final negative items
@@ -155,18 +166,20 @@ class ValDataLoader:
             # use the argsort on the mask to get the indexes of the items that can be used as real negatives, namely
             # that are not false negatives
             neg_items = neg_items[
-                np.arange(batch_data.shape[0]).repeat(self.n_negs).reshape(-1, self.n_negs),
-                np.argsort(mask, axis=1)[:, :self.n_negs]
+                np.arange(batch_data.shape[0])
+                .repeat(self.n_negs)
+                .reshape(-1, self.n_negs),
+                np.argsort(mask, axis=1)[:, : self.n_negs],
             ]
             # create tensors
-            users = torch.tensor(users, dtype=torch.long)
-            pos_items = torch.tensor(pos_items, dtype=torch.long)
-            neg_items = torch.tensor(neg_items, dtype=torch.long)
+            users = torch.tensor(users, dtype=torch.int32)
+            pos_items = torch.tensor(pos_items, dtype=torch.int32)
+            neg_items = torch.tensor(neg_items, dtype=torch.int32)
             # construct ground truth matrix for ranking metrics computation
             # this matrix simply indicates where the positive item and the negative items are positioned in the tensor
             # containing the predictions. By default, the score of the positive item is always in the first position
             # in the tensor containing the predictions
-            gt = np.zeros((batch_data.shape[0], self.n_negs + 1), dtype=np.longlong)
+            gt = np.zeros((batch_data.shape[0], self.n_negs + 1), dtype=np.int8)
             gt[:, 0] = 1
 
             yield users.to(device), pos_items.to(device), neg_items.to(device), gt
