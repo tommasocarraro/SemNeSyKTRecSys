@@ -1,52 +1,12 @@
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
-from sklearn.metrics import accuracy_score, fbeta_score
 
-Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
-
-
-def mse(pred_scores: NDArray, ground_truth: NDArray):
-    """
-    Computes the Squared Error between predicted and target ratings.
-
-    :param pred_scores: predicted scores for validation user-item pairs
-    :param ground_truth: target ratings for validation user-item pairs
-    :return: Squared error for each user
-    """
-    assert (
-        pred_scores.shape == ground_truth.shape
-    ), "predictions and targets must match in shape."
-    return np.square(pred_scores - ground_truth)
+Valid_Metrics_Type = Literal["AUC", "NDCG", "NDCG@10", "HR", "HR@10"]
 
 
-def fbeta(pred_scores: NDArray, ground_truth: NDArray, beta: float):
-    """
-    Computes the f-beta measure between predictions and targets with the given beta value.
-
-    :param pred_scores: predicted scores for validation user-item pairs
-    :param ground_truth: target ratings for validation user-item pairs
-    :param beta: ratio of recall importance to precision importance
-    :return: f-beta measure
-    """
-    return fbeta_score(
-        ground_truth, pred_scores, beta=beta, pos_label=0, average="binary"
-    )
-
-
-def acc(pred_scores: NDArray, ground_truth: NDArray):
-    """
-    Computes the accuracy between predictions and targets.
-
-    :param pred_scores: predicted scores for validation user-item pairs
-    :param ground_truth: target ratings for validation user-item pairs
-    :return: accuracy
-    """
-    return accuracy_score(ground_truth, pred_scores)
-
-
-def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):
+def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray) -> float:
     """
     Computes the AUC score between predicted and target ratings. The given scores are aligned, namely the first positive
     score has to be compared with the first negative score. In other words, they correspond to the same user.
@@ -69,7 +29,7 @@ def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray):
     return final_mean_auc
 
 
-def ndcg_at_k(pred_scores, ground_truth, k=10):
+def ndcg_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> float:
     """
     Computes the NDCG (at k) given the predicted scores and relevance of the items.
 
@@ -83,17 +43,21 @@ def ndcg_at_k(pred_scores, ground_truth, k=10):
     # generate ranking
     rank = np.argsort(-pred_scores, axis=1)
     # get relevance of first k items in the ranking
-    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
-    log_term = 1. / np.log2(np.arange(2, k + 2))
+    rank_relevance = ground_truth[
+        np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]
+    ]
+    log_term = 1.0 / np.log2(np.arange(2, k + 2))
     # compute metric
     dcg = (rank_relevance * log_term).sum(axis=1)
     # compute IDCG
     # idcg is the ideal ranking, so all the relevant items must be at the top, namely all 1 have to be at the top
-    idcg = np.array([(log_term[:min(int(n_pos), k)]).sum() for n_pos in ground_truth.sum(axis=1)])
+    idcg = np.array(
+        [(log_term[: min(int(n_pos), k)]).sum() for n_pos in ground_truth.sum(axis=1)]
+    )
     return dcg / idcg
 
 
-def hit_at_k(pred_scores, ground_truth, k=10):
+def hit_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> bool:
     """
     Computes the hit ratio (at k) given the predicted scores and relevance of the items.
 
@@ -106,7 +70,9 @@ def hit_at_k(pred_scores, ground_truth, k=10):
     # generate ranking
     rank = np.argsort(-pred_scores, axis=1)
     # get relevance of first k items in the ranking
-    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
+    rank_relevance = ground_truth[
+        np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]
+    ]
     # sum along axis 1 to count number of relevant items on first k-th positions
     # it is enough to have one relevant item in the first k-th for having a hit ratio of 1
     return rank_relevance.sum(axis=1) > 0
@@ -114,31 +80,28 @@ def hit_at_k(pred_scores, ground_truth, k=10):
 
 def compute_metric(
     metric: Valid_Metrics_Type,
-    pred_scores: NDArray,
+    preds: Union[NDArray, tuple[NDArray, NDArray]],
     ground_truth: Optional[NDArray] = None,
     users: Optional[NDArray] = None,
-):
+) -> Union[float, bool]:
     """
     Compute the given metric on the given predictions and ground truth.
 
     :param metric: name of the metric that has to be computed
-    :param pred_scores: predicted scores for validation user-item pairs
+    :param preds: either the predicted scores or the positive&negative predictions
     :param ground_truth: target ratings for validation user-item pairs
     :param users: user indexes. Optional. At the moment, only used on AUC computation.
     :return: the value of the given metric for the given predictions and ground truth
     """
-    if "-" in metric:
-        m, beta = metric.split("-")
-        beta = float(beta)
-        return fbeta(pred_scores, ground_truth, beta)
+    if isinstance(preds, tuple):
+        pos_preds, neg_preds = preds
+        if metric.startswith("AUC"):
+            return auc(users=users, pos_preds=pos_preds, neg_preds=neg_preds)
     else:
-        if metric == "mse" or metric == "rmse":
-            return mse(pred_scores, ground_truth)
-        elif metric == "acc":
-            return acc(pred_scores, ground_truth)
-        elif metric == "auc":
-            return auc(users, pred_scores, ground_truth)
-        elif metric.startswith("ndcg"):
-            return ndcg_at_k(pred_scores, ground_truth, int(metric.split("@")[1]))
-        elif metric.startswith("hit"):
-            return hit_at_k(pred_scores, ground_truth, int(metric.split("@")[1]))
+        kws = {"k": int(metric.split("@")[1])} if "@" in metric else {}
+        if metric.startswith("NDCG"):
+            return ndcg_at_k(pred_scores=preds, ground_truth=ground_truth, **kws)
+        elif metric.startswith("HR"):
+            return hit_at_k(pred_scores=preds, ground_truth=ground_truth, **kws)
+
+    raise ValueError("Invalid parameters combination")
