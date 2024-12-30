@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
+from src.source_pretrain.metrics import Valid_Metrics_Type
+
 
 @dataclass(frozen=True)
 class TrainConfig:
@@ -52,7 +54,7 @@ class ModelConfig:
     epochs: int
     early_stopping_patience: int
     early_stopping_criterion: Literal["val_loss", "val_metric"]
-    val_metric: Literal["auc"]
+    val_metric: Valid_Metrics_Type
     seed: int
     train_config: TrainConfig
     tune_config: Optional[TuneConfig] = None
