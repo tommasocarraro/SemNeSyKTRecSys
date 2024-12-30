@@ -14,6 +14,7 @@ from .data_loader import DataLoader, ValDataLoader
 from .metrics import Valid_Metrics_Type, compute_metric
 from .model import MatrixFactorization
 from pathlib import Path
+from .metrics import ranking_metrics
 
 
 class MfTrainer:
@@ -79,9 +80,14 @@ class MfTrainer:
             # training step
             train_loss, log_dict = self.train_epoch(train_loader)
             # validation step
-            val_score, val_loss_dict = self.validate(
-                val_loader, val_metric, use_val_loss=True
-            )
+            if val_metric.split("@")[0] in ranking_metrics:
+                val_score, val_loss_dict = self.validate_ranking(
+                    val_loader, val_metric
+                )
+            else:
+                val_score, val_loss_dict = self.validate(
+                    val_loader, val_metric, use_val_loss=True
+                )
             # merge log dictionaries
             log_dict.update(val_loss_dict)
             # print epoch data
@@ -106,7 +112,7 @@ class MfTrainer:
                 break
             # save best model and update early stop counter, if necessary
             if (val_score > best_val_score and not early_loss_based) or (
-                    val_loss_dict["Val loss"] < best_val_score and early_loss_based
+                    early_loss_based and val_loss_dict["Val loss"] < best_val_score
             ):
                 best_val_score = (
                     val_score if not early_loss_based else val_loss_dict["Val loss"]
@@ -193,8 +199,7 @@ class MfTrainer:
         :return: predictions and targets
         """
         preds, ground_truth = [], []
-        gen = enumerate(loader)
-        for batch_idx, (users, pos_items, neg_items, gt) in tqdm(gen, total=len(loader)):
+        for batch_idx, (users, pos_items, neg_items, gt) in enumerate(loader):
             pos_preds = self.predict(users, pos_items).cpu().numpy()
             neg_preds = self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten()).reshape(
                 users.shape[0], -1).numpy()
@@ -257,7 +262,7 @@ class MfTrainer:
         # compute validation metric
         val_score = compute_metric(val_metric, preds, ground_truth)
 
-        return np.mean(val_score)
+        return np.mean(val_score), {}
 
     def save_model(self, path: Path, is_checkpoint=True):
         """

@@ -5,6 +5,7 @@ from numpy.typing import NDArray
 from sklearn.metrics import accuracy_score, fbeta_score
 
 Valid_Metrics_Type = Literal["mse", "rmse", "fbeta", "acc", "auc"]
+ranking_metrics = ["ndcg", "hit"]
 
 
 def mse(pred_scores: NDArray, ground_truth: NDArray):
