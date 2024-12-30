@@ -32,6 +32,7 @@ class MatrixFactorization(torch.nn.Module):
         self.i_emb = torch.nn.Embedding(n_items, n_factors)
         self.u_bias = torch.nn.Embedding(n_users, 1)
         self.i_bias = torch.nn.Embedding(n_items, 1)
+        self.global_bias = torch.nn.Parameter(torch.rand(1))
         self.normalize = normalize
         # initialization with Glorot
         torch.nn.init.xavier_normal_(self.u_emb.weight)
@@ -50,7 +51,7 @@ class MatrixFactorization(torch.nn.Module):
         """
         pred = torch.sum(self.u_emb(u_idx) * self.i_emb(i_idx), dim=dim, keepdim=True)
         # add user and item biases to the prediction
-        pred = pred + self.u_bias(u_idx) + self.i_bias(i_idx)
+        pred = pred + self.u_bias(u_idx) + self.i_bias(i_idx) + self.global_bias
         pred = pred.squeeze()
         if self.normalize:
             pred = torch.sigmoid(pred)

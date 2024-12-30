@@ -20,6 +20,8 @@ def train_test_split(
     ratings: NDArray,
     frac: Optional[float] = None,
     user_level: bool = False,
+    loo_eval: bool = True,
+    temporal_split: bool = True
 ):
     """
     It splits the dataset into training and test sets.
@@ -32,20 +34,27 @@ def train_test_split(
     be sampled randomly independently of the user. Defaults to False, meaning that the split is not done at the
     user level. In case the split is not done at the user level, a stratified split is performed to maintain the
     distribution of the classes
+    :param loo_eval: whether to use Leave-One-Out Evaluation where only one positive interaction is taken for each user
+    and put in the validation/test set
+    :param temporal_split: used in case of Leave-One-Out evaluation. If True, the last positive interaction of each user
+    is held out for validation/test.
     :return: train and test set dataframes
     """
     if frac == 0.0:
         return ratings, None
-    if user_level:
+    if user_level or loo_eval:
         # set numpy seed for reproducibility
         np.random.seed(seed)
+        # order ratings by timestamp, if necessary
+        if temporal_split:
+            ratings = ratings[ratings[:, -1].argsort()]
         # Create a dictionary where each key is a user and the value is a list of indices for positive and negative
         # ratings
         user_indices_pos = defaultdict(list)
         user_indices_neg = defaultdict(list)
 
         for idx, user_id in enumerate(ratings[:, 0]):
-            if ratings[idx, -1] == 1:
+            if ratings[idx, 2] == 1:
                 user_indices_pos[user_id].append(idx)
             else:
                 user_indices_neg[user_id].append(idx)
@@ -57,7 +66,7 @@ def train_test_split(
             neg_indices = user_indices_neg[user_id]
 
             # Calculate sample size based on the number of positive ratings for this user
-            if frac is not None:
+            if frac is not None and not loo_eval:
                 sample_size_pos = max(1, int(len(pos_indices) * frac))
                 sample_size_neg = max(1, int(len(neg_indices) * frac))
             else:
@@ -68,13 +77,17 @@ def train_test_split(
 
             # sample is done if at least one positive interaction can remain in the training set
             if len(pos_indices) > 1:
-                sampled_pos = np.random.choice(
-                    pos_indices, size=sample_size_pos, replace=False
-                )
-                test_indices.extend(sampled_pos)
+                if temporal_split:
+                    sampled_pos = pos_indices[-1]
+                    test_indices.append(sampled_pos)
+                else:
+                    sampled_pos = np.random.choice(
+                        pos_indices, size=sample_size_pos, replace=False
+                    )
+                    test_indices.extend(sampled_pos)
             # sample is done if at least one negative interaction can remain in the training set
             # if frac is None, it does LOO sampling, so the negatives are not sampled
-            if len(neg_indices) > 1 and frac is not None:
+            if len(neg_indices) > 1 and frac is not None and not loo_eval:
                 sampled_neg = np.random.choice(
                     neg_indices, size=sample_size_neg, replace=False
                 )
@@ -90,7 +103,7 @@ def train_test_split(
         ), "`frac` cannot be None if the split is not on the user level."
         # We use scikit-learn train-test split for the entire dataset
         return train_test_split_sklearn(
-            ratings, random_state=seed, stratify=ratings[:, -1], test_size=frac
+            ratings, random_state=seed, stratify=ratings[:, 2], test_size=frac
         )
 
 
@@ -158,11 +171,13 @@ def process_source_target(
     paths_file_path: Path,
     implicit: bool = True,
     source_val_size: float = 0.2,
-    source_te_size: float = 0.0,
+    source_te_size: float = 0.2,
     source_user_level_split: bool = True,
-    target_val_size: float = 0.1,
+    target_val_size: float = 0.2,
     target_test_size: float = 0.2,
     target_user_level_split: bool = True,
+    loo_eval: bool = True,
+    temporal_split: bool = True,
     save_path: Optional[Path] = None,
     clear_saved_dataset: bool = False,
 ) -> SourceTargetDatasets:
@@ -185,6 +200,10 @@ def process_source_target(
     :param target_val_size: size of validation set for target domain dataset
     :param target_test_size: size of test set for target domain dataset
     :param target_user_level_split: whether the split for the target dataset has to be done at the user level or not
+    :param loo_eval: whether to use Leave-One-Out Evaluation where only one positive interaction is taken for each user
+    and put in the validation/test set
+    :param temporal_split: used in case of Leave-One-Out evaluation. If True, the last positive interaction of each user
+    is held out for validation/test.
     :param save_path: path where to save the dataset. None if the dataset has no to be saved on disk.
     :param clear_saved_dataset: whether to clear the saved dataset if it exists
     """
@@ -210,10 +229,10 @@ def process_source_target(
     # get source and target ratings
     logger.debug("Reading the datasets' csv files with pandas")
     src_ratings = pd.read_csv(
-        source_dataset_path, usecols=["userId", "itemId", "rating"]
+        source_dataset_path, usecols=["userId", "itemId", "rating", "timestamp"]
     )
     tgt_ratings = pd.read_csv(
-        target_dataset_path, usecols=["userId", "itemId", "rating"]
+        target_dataset_path, usecols=["userId", "itemId", "rating", "timestamp"]
     )
 
     logger.debug("Applying transformations to the datasets")
@@ -283,6 +302,8 @@ def process_source_target(
         src_ratings.to_numpy(),
         frac=source_te_size,
         user_level=source_user_level_split,
+        loo_eval=loo_eval,
+        temporal_split=temporal_split
     )
 
     # create train and validation set for source domain dataset
@@ -291,6 +312,8 @@ def process_source_target(
         src_tr,
         frac=source_val_size,
         user_level=source_user_level_split,
+        loo_eval=loo_eval,
+        temporal_split=temporal_split
     )
 
     # create train, validation and test set for target domain dataset
@@ -299,9 +322,15 @@ def process_source_target(
         tgt_ratings.to_numpy(),
         frac=target_test_size,
         user_level=target_user_level_split,
+        loo_eval=loo_eval,
+        temporal_split=temporal_split
     )
     tgt_tr_small, tgt_val = train_test_split(
-        seed, tgt_tr, frac=target_val_size, user_level=target_user_level_split
+        seed, tgt_tr,
+        frac=target_val_size,
+        user_level=target_user_level_split,
+        loo_eval=loo_eval,
+        temporal_split=temporal_split
     )
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
