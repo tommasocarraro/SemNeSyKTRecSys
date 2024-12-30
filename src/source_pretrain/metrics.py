@@ -2,10 +2,10 @@ from typing import Literal, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
-from sklearn.metrics import accuracy_score, fbeta_score
 
-ranking_metrics = ["ndcg", "hit"]
-Valid_Metrics_Type = Literal["AUC", "NDCG", "NDCG@10", "HR", "HR@10"]
+Ranking_Metrics_Type = Literal["NDCG", "NDCG@10", "HR", "HR@10"]
+Prediction_Metrics_type = Literal["AUC"]
+Valid_Metrics_Type = Literal[Ranking_Metrics_Type, Prediction_Metrics_type]
 
 
 def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray) -> float:
@@ -45,13 +45,17 @@ def ndcg_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> float:
     # generate ranking
     rank = np.argsort(-pred_scores, axis=1)
     # get relevance of first k items in the ranking
-    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
-    log_term = 1. / np.log2(np.arange(2, k + 2))
+    rank_relevance = ground_truth[
+        np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]
+    ]
+    log_term = 1.0 / np.log2(np.arange(2, k + 2))
     # compute metric
     dcg = (rank_relevance * log_term).sum(axis=1)
     # compute IDCG
     # idcg is the ideal ranking, so all the relevant items must be at the top, namely all 1 have to be at the top
-    idcg = np.array([(log_term[:min(int(n_pos), k)]).sum() for n_pos in ground_truth.sum(axis=1)])
+    idcg = np.array(
+        [(log_term[: min(int(n_pos), k)]).sum() for n_pos in ground_truth.sum(axis=1)]
+    )
     return dcg / idcg
 
 
@@ -68,7 +72,9 @@ def hit_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> bool:
     # generate ranking
     rank = np.argsort(-pred_scores, axis=1)
     # get relevance of first k items in the ranking
-    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
+    rank_relevance = ground_truth[
+        np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]
+    ]
     # sum along axis 1 to count number of relevant items on first k-th positions
     # it is enough to have one relevant item in the first k-th for having a hit ratio of 1
     return rank_relevance.sum(axis=1) > 0
