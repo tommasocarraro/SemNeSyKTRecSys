@@ -1,9 +1,10 @@
-import torch
-from tqdm import tqdm
-from src.device import device
-from scipy.sparse import csr_matrix
 import numpy as np
+import torch
+from scipy.sparse import csr_matrix
 from torch.nn.functional import softmax
+from tqdm import tqdm
+
+from src.device import device
 
 
 def generate_pre_trained_src_matrix(
@@ -35,9 +36,7 @@ def generate_pre_trained_src_matrix(
     """
     # TODO mettere cold start user tutto a zero sulla matrice LikesSource, cosi non trasferisce nulla
     # load the best weights on the model
-    mf_model.load_state_dict(
-        torch.load(best_weights, map_location=device)
-    )
+    mf_model.load_state_dict(torch.load(best_weights, map_location=device))
     # initialize predictions tensor
     preds = torch.zeros((1, mf_model.n_items))
     # compute predictions for all shared users and items pairs and put them in the preds tensor
@@ -45,9 +44,7 @@ def generate_pre_trained_src_matrix(
     for u in tqdm(range(n_shared_users)):
         for start_idx in range(0, mf_model.n_items, batch_size):
             end_idx = min(start_idx + batch_size, mf_model.n_items)
-            users = torch.full(
-                (end_idx - start_idx,), u, dtype=torch.long, device=device
-            )
+            users = torch.full((end_idx - start_idx,), u, dtype=torch.long, device=device)
             items = torch.arange(start_idx, end_idx, dtype=torch.long, device=device)
             with torch.no_grad():
                 preds[u, start_idx:end_idx] = mf_model(users, items)
@@ -73,9 +70,7 @@ def generate_pre_trained_src_matrix(
     # the ui pair to be in a high rank or if there was a 1 originally in the dataset
     final_coords = new_coords | ui_matrix_coords
     rows, cols = zip(*final_coords)
-    final_matrix = csr_matrix(
-        ([1] * len(final_coords), (rows, cols)), sh_users_src_ui_matrix.shape
-    )
+    final_matrix = csr_matrix(([1] * len(final_coords), (rows, cols)), sh_users_src_ui_matrix.shape)
 
     return final_matrix
 
@@ -108,9 +103,7 @@ def generate_pre_trained_src_matrix_2(
     """
     # TODO mettere cold start user tutto a zero sulla matrice LikesSource, cosi non trasferisce nulla
     # load the best weights on the model
-    mf_model.load_state_dict(
-        torch.load(best_weights, map_location=device)
-    )
+    mf_model.load_state_dict(torch.load(best_weights, map_location=device))
     mf_model.n_items = 800
     # initialize predictions tensor
     preds = torch.zeros((n_shared_users, mf_model.n_items))
@@ -119,9 +112,7 @@ def generate_pre_trained_src_matrix_2(
     for u in tqdm(range(n_shared_users)):
         for start_idx in range(0, mf_model.n_items, batch_size):
             end_idx = min(start_idx + batch_size, mf_model.n_items)
-            users = torch.full(
-                (end_idx - start_idx,), u, dtype=torch.long, device=device
-            )
+            users = torch.full((end_idx - start_idx,), u, dtype=torch.long, device=device)
             items = torch.arange(start_idx, end_idx, dtype=torch.long, device=device)
             with torch.no_grad():
                 preds[u, start_idx:end_idx] = mf_model(users, items)

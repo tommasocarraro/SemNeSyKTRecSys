@@ -13,9 +13,7 @@ class MatrixFactorization(torch.nn.Module):
     of the items of the system.
     """
 
-    def __init__(
-        self, n_users: int, n_items: int, n_factors: int, normalize: bool = False
-    ):
+    def __init__(self, n_users: int, n_items: int, n_factors: int, normalize: bool = False):
         """
         Constructor of the matrix factorization model.
 

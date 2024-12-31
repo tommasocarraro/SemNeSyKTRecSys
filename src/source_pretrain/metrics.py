@@ -1,11 +1,22 @@
-from typing import Literal, Optional, Union
+from enum import Enum
+from typing import Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
-Ranking_Metrics_Type = Literal["NDCG", "NDCG@10", "HR", "HR@10"]
-Prediction_Metrics_type = Literal["AUC"]
-Valid_Metrics_Type = Literal[Ranking_Metrics_Type, Prediction_Metrics_type]
+
+class PredictionMetricsType(Enum):
+    AUC = "AUC"
+
+
+class RankingMetricsType(Enum):
+    NDCG = "NDCG"
+    NDCG10 = "NDCG@10"
+    HR = "HR"
+    HR10 = "HR@10"
+
+
+Valid_Metrics_Type = Union[PredictionMetricsType, RankingMetricsType]
 
 
 def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray) -> float:
@@ -45,17 +56,13 @@ def ndcg_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> float:
     # generate ranking
     rank = np.argsort(-pred_scores, axis=1)
     # get relevance of first k items in the ranking
-    rank_relevance = ground_truth[
-        np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]
-    ]
+    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
     log_term = 1.0 / np.log2(np.arange(2, k + 2))
     # compute metric
     dcg = (rank_relevance * log_term).sum(axis=1)
     # compute IDCG
     # idcg is the ideal ranking, so all the relevant items must be at the top, namely all 1 have to be at the top
-    idcg = np.array(
-        [(log_term[: min(int(n_pos), k)]).sum() for n_pos in ground_truth.sum(axis=1)]
-    )
+    idcg = np.array([(log_term[: min(int(n_pos), k)]).sum() for n_pos in ground_truth.sum(axis=1)])
     return dcg / idcg
 
 
@@ -72,9 +79,7 @@ def hit_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> bool:
     # generate ranking
     rank = np.argsort(-pred_scores, axis=1)
     # get relevance of first k items in the ranking
-    rank_relevance = ground_truth[
-        np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]
-    ]
+    rank_relevance = ground_truth[np.arange(pred_scores.shape[0])[:, np.newaxis], rank[:, :k]]
     # sum along axis 1 to count number of relevant items on first k-th positions
     # it is enough to have one relevant item in the first k-th for having a hit ratio of 1
     return rank_relevance.sum(axis=1) > 0
@@ -97,13 +102,13 @@ def compute_metric(
     """
     if isinstance(preds, tuple):
         pos_preds, neg_preds = preds
-        if metric.startswith("AUC"):
+        if metric.value.startswith("AUC"):
             return auc(users=users, pos_preds=pos_preds, neg_preds=neg_preds)
     else:
-        kws = {"k": int(metric.split("@")[1])} if "@" in metric else {}
-        if metric.startswith("NDCG"):
+        kws = {"k": int(metric.value.split("@")[1])} if "@" in metric.value else {}
+        if metric.value.startswith("NDCG"):
             return ndcg_at_k(pred_scores=preds, ground_truth=ground_truth, **kws)
-        elif metric.startswith("HR"):
+        elif metric.value.startswith("HR"):
             return hit_at_k(pred_scores=preds, ground_truth=ground_truth, **kws)
 
     raise ValueError("Invalid parameters combination")

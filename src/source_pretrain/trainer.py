@@ -1,6 +1,7 @@
 import os
 import sys
-from typing import Callable, Optional, Literal, Union
+from pathlib import Path
+from typing import Callable, Literal, Optional, Union
 
 import numpy as np
 import torch
@@ -11,10 +12,8 @@ from tqdm import tqdm
 
 from src.device import device
 from .data_loader import DataLoader, ValDataLoader
-from .metrics import Valid_Metrics_Type, compute_metric, Ranking_Metrics_Type
+from .metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type, compute_metric
 from .model import MatrixFactorization
-from pathlib import Path
-from typing import get_args
 
 
 class MfTrainer:
@@ -80,21 +79,17 @@ class MfTrainer:
             # training step
             train_loss, log_dict = self.train_epoch(train_loader)
             # validation step
-            if val_metric.split("@")[0] in get_args(Ranking_Metrics_Type):
-                val_score, val_loss_dict = self.validate_ranking(val_loader, val_metric)
+            if isinstance(val_metric, RankingMetricsType):
+                val_score, val_loss_dict = self._validate_ranking(val_loader, val_metric)
             else:
-                val_score, val_loss_dict = self.validate(
-                    val_loader, val_metric, use_val_loss=True
-                )
+                val_score, val_loss_dict = self.validate(val_loader, val_metric, use_val_loss=True)
             # merge log dictionaries
             log_dict.update(val_loss_dict)
             # print epoch data
             if (epoch + 1) % verbose == 0:
                 log_record = f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric} {val_score:.3f}"
                 # add log_dict to log_record
-                log_record += " - " + " - ".join(
-                    [f"{k} {v:.3f}" for k, v in log_dict.items() if k != "train_loss"]
-                )
+                log_record += " - " + " - ".join([f"{k} {v:.3f}" for k, v in log_dict.items() if k != "train_loss"])
                 # print epoch report
                 logger.info(log_record)
                 if self.wandb_train:
@@ -104,17 +99,13 @@ class MfTrainer:
                     wandb.log(log_dict)
             # stop the training if vanishing or exploding gradients are detected
             if np.isnan(train_loss):
-                logger.info(
-                    "Training interrupted due to exploding or vanishing gradients"
-                )
+                logger.info("Training interrupted due to exploding or vanishing gradients")
                 break
             # save best model and update early stop counter, if necessary
             if (val_score > best_val_score and not early_loss_based) or (
                 early_loss_based and val_loss_dict["Val loss"] < best_val_score
             ):
-                best_val_score = (
-                    val_score if not early_loss_based else val_loss_dict["Val loss"]
-                )
+                best_val_score = val_score if not early_loss_based else val_loss_dict["Val loss"]
                 if self.wandb_train:
                     # the metric is logged only when a new best value is achieved for it
                     wandb.log(
@@ -153,9 +144,7 @@ class MfTrainer:
             train_loss += loss.item()
             loss.backward()
             self.optimizer.step()
-        return train_loss / len(train_loader), {
-            "train_loss": train_loss / len(train_loader)
-        }
+        return train_loss / len(train_loader), {"train_loss": train_loss / len(train_loader)}
 
     def predict(self, users: Tensor, items: Tensor, dim: int = 1):
         """
@@ -182,11 +171,7 @@ class MfTrainer:
             users_.append(users.cpu().numpy())
             pos_preds.append(self.predict(users, pos_items).cpu().numpy())
             neg_preds.append(self.predict(users, neg_items).cpu().numpy())
-        return (
-            np.concatenate(users_),
-            np.concatenate(pos_preds),
-            np.concatenate(neg_preds),
-        )
+        return np.concatenate(users_), np.concatenate(pos_preds), np.concatenate(neg_preds)
 
     def prepare_for_evaluation_ranking(self, loader: ValDataLoader):
         """
@@ -200,9 +185,7 @@ class MfTrainer:
         for batch_idx, (users, pos_items, neg_items, gt) in enumerate(loader):
             pos_preds = self.predict(users, pos_items).cpu().numpy()
             neg_preds = (
-                self.predict(
-                    users.repeat_interleave(neg_items.shape[1]), neg_items.flatten()
-                )
+                self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten())
                 .reshape(users.shape[0], -1)
                 .numpy()
             )
@@ -223,7 +206,7 @@ class MfTrainer:
 
     def validate(
         self,
-        val_loader: DataLoader,
+        val_loader: Union[DataLoader, ValDataLoader],
         val_metric: Valid_Metrics_Type,
         use_val_loss: bool = False,
     ):
@@ -235,6 +218,13 @@ class MfTrainer:
         :param use_val_loss: whether to compute the validation loss or not
         :return: validation score based on the given metric averaged across all validation examples
         """
+        if isinstance(val_metric, RankingMetricsType):
+            return self._validate_ranking(val_loader, val_metric)
+        elif isinstance(val_metric, PredictionMetricsType):
+            return self._validate_preds(val_loader, val_metric, use_val_loss)
+        raise ValueError("Unknown validation metric")
+
+    def _validate_preds(self, val_loader: DataLoader, val_metric: PredictionMetricsType, use_val_loss: bool = False):
         # prepare predictions and targets for evaluation
         users, pos_preds, neg_preds = self.prepare_for_evaluation(val_loader)
         # compute validation metric
@@ -248,11 +238,7 @@ class MfTrainer:
 
         return np.mean(val_score), {"Val loss": validation_loss}
 
-    def validate_ranking(
-        self,
-        val_loader: ValDataLoader,
-        val_metric: Valid_Metrics_Type,
-    ):
+    def _validate_ranking(self, val_loader: ValDataLoader, val_metric: RankingMetricsType):
         """
         Method for validating the model.
 
@@ -277,12 +263,10 @@ class MfTrainer:
         os.makedirs(path.parent, exist_ok=True)
         if is_checkpoint:
             torch.save(
-                {
-                    "model_state_dict": self.model.state_dict(),
-                    "optimizer_state_dict": self.optimizer.state_dict(),
-                },
+                {"model_state_dict": self.model.state_dict(), "optimizer_state_dict": self.optimizer.state_dict()},
                 path,
             )
+
         else:
             torch.save(self.model.state_dict(), path)
 

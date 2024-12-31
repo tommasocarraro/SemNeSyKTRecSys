@@ -8,9 +8,12 @@ import torch
 from loguru import logger
 
 import wandb
-from src.data_preprocessing import SourceTargetDatasets, process_source_target
-from src.source_pretrain.data_loader import DataLoader
+from src.data_preprocessing.Dataset import Dataset
+from src.data_preprocessing.Preprocess_Strategy import LeaveLastOut, LeaveOneOut, PercentSplit, SplitStrategy
+from src.data_preprocessing.process_source_target import process_source_target
+from src.source_pretrain.data_loader import DataLoader, ValDataLoader
 from src.source_pretrain.loss import BPRLoss
+from src.source_pretrain.metrics import RankingMetricsType
 from src.source_pretrain.model import MatrixFactorization
 from src.source_pretrain.model_configs import ModelConfig, get_config
 from src.source_pretrain.trainer import MfTrainer
@@ -41,11 +44,14 @@ def main_source():
     set_seed(config.seed)
 
     dataset = process_source_target(
-        seed=config.seed,
-        source_dataset_path=config.src_dataset_path,
-        target_dataset_path=config.tgt_dataset_path,
+        split_strategy=SplitStrategy(
+            src_split_strategy=LeaveOneOut(seed=config.seed),
+            tgt_split_strategy=PercentSplit(seed=config.seed, val_size=0.3, test_size=0.2, user_level=False),
+        ),
+        src_dataset_path=config.src_dataset_path,
+        tgt_dataset_path=config.tgt_dataset_path,
         paths_file_path=config.paths_file_path,
-        save_path=Path("data/saved_data/"),
+        save_dir_path=Path("data/saved_data/"),
         clear_saved_dataset=args.clear,
     )
 
@@ -55,33 +61,25 @@ def main_source():
         tune_source(dataset, config)
 
 
-def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
+def train_source(dataset: Dataset, config: ModelConfig):
     logger.info(f"Training the model with configuration: {config.get_train_config()}")
 
     tr_loader = DataLoader(
-        data=dataset.src_tr,
-        ui_matrix=dataset.src_ui_matrix,
-        batch_size=config.train_config.batch_size,
+        data=dataset.src_tr, ui_matrix=dataset.src_ui_matrix, batch_size=config.train_config.batch_size
     )
 
-    val_loader = DataLoader(
-        data=dataset.src_val,
-        ui_matrix=dataset.src_ui_matrix,
-        batch_size=config.train_config.batch_size,
+    val_loader = ValDataLoader(
+        data=dataset.src_val, ui_matrix=dataset.src_ui_matrix, batch_size=config.train_config.batch_size
     )
 
     mf = MatrixFactorization(
-        n_users=dataset.src_n_users,
-        n_items=dataset.src_n_items,
-        n_factors=config.train_config.n_factors,
+        n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.train_config.n_factors
     )
 
     tr = MfTrainer(
         model=mf,
         optimizer=torch.optim.AdamW(
-            mf.parameters(),
-            lr=config.train_config.learning_rate,
-            weight_decay=config.train_config.weight_decay,
+            mf.parameters(), lr=config.train_config.learning_rate, weight_decay=config.train_config.weight_decay
         ),
         loss=BPRLoss(),
     )
@@ -97,20 +95,18 @@ def train_source(dataset: SourceTargetDatasets, config: ModelConfig):
     )
 
     logger.info(
-        f"Training complete. Final validation AUC and loss: {tr.validate(val_loader, 'auc', True)}"
+        f"Training complete. Final validation AUC and loss: {tr.validate(val_loader, RankingMetricsType.NDCG, True)}"
     )
 
     if dataset.src_te is not None:
         te_loader = DataLoader(
-            data=dataset.src_te,
-            ui_matrix=dataset.src_ui_matrix,
-            batch_size=config.train_config.batch_size,
+            data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=config.train_config.batch_size
         )
         te_metric, _ = tr.validate(te_loader, val_metric=config.val_metric)
         logger.info(f"Test {config.val_metric}: {te_metric:.4f}")
 
 
-def tune_source(dataset: SourceTargetDatasets, config: ModelConfig):
+def tune_source(dataset: Dataset, config: ModelConfig):
     if config.tune_config is None:
         raise ValueError()
 

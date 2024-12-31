@@ -1,14 +1,8 @@
+from math import log
 from pathlib import Path
 
-from .ModelConfig import (
-    MetricConfig,
-    ModelConfig,
-    ParameterDistribution,
-    ParametersConfig,
-    TrainConfig,
-    TuneConfig,
-)
-from math import log
+from .ModelConfig import MetricConfig, ModelConfig, ParameterDistribution, ParametersConfig, TrainConfig, TuneConfig
+from ..metrics import RankingMetricsType
 
 train_movies_config = ModelConfig(
     src_dataset_path=Path("./data/ratings/reviews_Movies_and_TV_5.csv.7z"),
@@ -17,7 +11,7 @@ train_movies_config = ModelConfig(
     epochs=1000,
     early_stopping_patience=5,
     early_stopping_criterion="val_metric",
-    val_metric="NDCG",
+    val_metric=RankingMetricsType.NDCG,
     seed=0,
     train_config=TrainConfig(
         n_factors=100,
@@ -39,12 +33,8 @@ tune_movies_config = ModelConfig(
         metric=MetricConfig(goal="minimize", name="Best val loss"),
         parameters=ParametersConfig(
             n_factors_range=[1, 5, 10, 25, 50, 100],
-            learning_rate=ParameterDistribution(
-                min=log(1e-5), max=log(1e-1), distribution="log_uniform"
-            ),
-            weight_decay=ParameterDistribution(
-                min=log(1e-6), max=log(1e-1), distribution="log_uniform"
-            ),
+            learning_rate=ParameterDistribution(min=log(1e-5), max=log(1e-1), distribution="log_uniform"),
+            weight_decay=ParameterDistribution(min=log(1e-6), max=log(1e-1), distribution="log_uniform"),
             batch_size_range=[64, 128, 256, 512],
         ),
         entity_name="bmxitalia",

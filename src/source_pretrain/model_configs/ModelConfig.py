@@ -68,10 +68,7 @@ class ModelConfig:
     def get_wandb_dict(self):
         return {
             "method": self.tune_config.method,
-            "metric": {
-                "goal": self.tune_config.metric.goal,
-                "name": self.tune_config.metric.name,
-            },
+            "metric": {"goal": self.tune_config.metric.goal, "name": self.tune_config.metric.name},
             "parameters": {
                 "n_factors": {"values": self.tune_config.parameters.n_factors_range},
                 "learning_rate": {

@@ -48,18 +48,10 @@ class DataLoader:
             pos_items = batch_data[:, 1]
             batch_ui_matrix = self.ui_matrix[users]
             # sample three negative items for each user in the batch
-            neg_items = np.random.randint(
-                0, self.num_items, (batch_data.shape[0] * self.n_negs,)
-            )
+            neg_items = np.random.randint(0, self.num_items, (batch_data.shape[0] * self.n_negs,))
             # construct sparse matrix containing the negative items
             batch_ui_neg_matrix = csr_matrix(
-                (
-                    [1] * neg_items.shape[0],
-                    (
-                        np.repeat(np.arange(0, batch_data.shape[0]), self.n_negs),
-                        neg_items,
-                    ),
-                ),
+                ([1] * neg_items.shape[0], (np.repeat(np.arange(0, batch_data.shape[0]), self.n_negs), neg_items)),
                 batch_ui_matrix.shape,
             )
             # find the false negative items (items that are positive among the sampled negatives)
@@ -71,9 +63,7 @@ class DataLoader:
             ].reshape(-1, self.n_negs)
             # get final negative items
             neg_items = neg_items.reshape(-1, self.n_negs)
-            neg_items = neg_items[
-                np.arange(batch_data.shape[0]).reshape(-1, 1), np.argmax(mask, axis=1)
-            ]
+            neg_items = neg_items[np.arange(batch_data.shape[0]).reshape(-1, 1), np.argmax(mask, axis=1)]
 
             users = torch.tensor(users, dtype=torch.int32)
             pos_items = torch.tensor(pos_items, dtype=torch.int32)
@@ -89,15 +79,7 @@ class ValDataLoader:
     It prepares the batches of user-item pairs to learn the MF model or evaluate all the models based on MF.
     """
 
-    def __init__(
-        self,
-        data,
-        ui_matrix,
-        batch_size=1,
-        sampled_n_negs=3000,
-        n_negs=100,
-        shuffle=True,
-    ):
+    def __init__(self, data, ui_matrix, batch_size=1, sampled_n_negs=3000, n_negs=100, shuffle=True):
         """
         Constructor of the data loader.
 
@@ -136,19 +118,12 @@ class ValDataLoader:
             pos_items = batch_data[:, 1]
             batch_ui_matrix = self.ui_matrix[users]
             # sample sampled_n_negs negative items for each user in the batch
-            neg_items = np.random.randint(
-                0, self.num_items, (batch_data.shape[0] * self.sampled_n_negs,)
-            )
+            neg_items = np.random.randint(0, self.num_items, (batch_data.shape[0] * self.sampled_n_negs,))
             # construct sparse matrix containing the negative items
             batch_ui_neg_matrix = csr_matrix(
                 (
                     [1] * neg_items.shape[0],
-                    (
-                        np.repeat(
-                            np.arange(0, batch_data.shape[0]), self.sampled_n_negs
-                        ),
-                        neg_items,
-                    ),
+                    (np.repeat(np.arange(0, batch_data.shape[0]), self.sampled_n_negs), neg_items),
                 ),
                 batch_ui_matrix.shape,
             )
@@ -157,8 +132,7 @@ class ValDataLoader:
 
             # get mask for the sampled indices
             mask = 1 - false_neg_batch_ui_matrix[
-                np.repeat(np.arange(0, batch_data.shape[0]), self.sampled_n_negs),
-                neg_items,
+                np.repeat(np.arange(0, batch_data.shape[0]), self.sampled_n_negs), neg_items
             ].reshape(-1, self.sampled_n_negs)
 
             # get final negative items
@@ -166,9 +140,7 @@ class ValDataLoader:
             # use the argsort on the mask to get the indexes of the items that can be used as real negatives, namely
             # that are not false negatives
             neg_items = neg_items[
-                np.arange(batch_data.shape[0])
-                .repeat(self.n_negs)
-                .reshape(-1, self.n_negs),
+                np.arange(batch_data.shape[0]).repeat(self.n_negs).reshape(-1, self.n_negs),
                 np.argsort(mask, axis=1)[:, : self.n_negs],
             ]
             # create tensors

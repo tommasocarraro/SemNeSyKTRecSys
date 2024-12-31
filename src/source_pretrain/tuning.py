@@ -5,12 +5,12 @@ from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from torch.optim import AdamW
 
+from src.utils import set_seed
 from .data_loader import DataLoader
 from .loss import BPRLoss
 from .metrics import Valid_Metrics_Type
 from .model import MatrixFactorization
 from .trainer import MfTrainer
-from src.utils import set_seed
 
 
 def mf_tuning(
@@ -87,10 +87,4 @@ def mf_tuning(
     # launch the WandB sweep for 150 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(
-        sweep_id,
-        entity=entity_name,
-        function=tune,
-        count=bayesian_run_count,
-        project=exp_name,
-    )
+    wandb.agent(sweep_id, entity=entity_name, function=tune, count=bayesian_run_count, project=exp_name)

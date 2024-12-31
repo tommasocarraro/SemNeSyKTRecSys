@@ -1,13 +1,12 @@
 from typing import Literal
+
 from .ModelConfig import ModelConfig
-from .movies_configs import tune_movies_config, train_movies_config
+from .books_configs import train_books_config, tune_books_config
+from .movies_configs import train_movies_config, tune_movies_config
 from .music_configs import train_music_config, tune_music_config
-from .books_configs import tune_books_config, train_books_config
 
 
-def get_config(
-    dataset_name: Literal["books", "movies", "music"], kind: Literal["train", "tune"]
-) -> ModelConfig:
+def get_config(dataset_name: Literal["books", "movies", "music"], kind: Literal["train", "tune"]) -> ModelConfig:
     if dataset_name == "books":
         config_pair = train_books_config, tune_books_config
     elif dataset_name == "movies":
