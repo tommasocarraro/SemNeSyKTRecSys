@@ -77,7 +77,7 @@ class MfTrainer:
 
         for epoch in range(n_epochs):
             # training step
-            train_loss, log_dict = self.train_epoch(train_loader)
+            train_loss, log_dict = self.train_epoch(train_loader, epoch)
             # validation step
             if isinstance(val_metric, RankingMetricsType):
                 val_score, val_loss_dict = self._validate_ranking(val_loader, val_metric)
@@ -87,14 +87,16 @@ class MfTrainer:
             log_dict.update(val_loss_dict)
             # print epoch data
             if (epoch + 1) % verbose == 0:
-                log_record = f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric} {val_score:.3f}"
+                log_record = (
+                    f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric.value} {val_score:.3f}"
+                )
                 # add log_dict to log_record
                 log_record += " - " + " - ".join([f"{k} {v:.3f}" for k, v in log_dict.items() if k != "train_loss"])
                 # print epoch report
                 logger.info(log_record)
                 if self.wandb_train:
                     # log validation metric value
-                    wandb.log({"Val %s" % (val_metric,): val_score})
+                    wandb.log({"Val %s" % (val_metric.value,): val_score})
                     # log training information
                     wandb.log(log_dict)
             # stop the training if vanishing or exploding gradients are detected
@@ -109,7 +111,7 @@ class MfTrainer:
                 if self.wandb_train:
                     # the metric is logged only when a new best value is achieved for it
                     wandb.log(
-                        {"Best val %s" % (val_metric,): val_score}
+                        {"Best val %s" % (val_metric.value,): val_score}
                         if not early_loss_based
                         else {"Best val loss": val_loss_dict["Val loss"]}
                     )
@@ -127,16 +129,19 @@ class MfTrainer:
                         os.remove(save_paths[0])
                     break
 
-    def train_epoch(self, train_loader: DataLoader):
+    def train_epoch(self, train_loader: DataLoader, epoch: int):
         """
         Method for the training of one single epoch.
 
         :param train_loader: data loader for training data
+        :param epoch: current epoch
         :return: training loss value averaged across training batches and a dictionary containing useful information
         to log, such as other metrics computed by this model
         """
         train_loss = 0.0
-        for batch_idx, (user, pos_items, neg_items) in enumerate(tqdm(train_loader)):
+        for batch_idx, (user, pos_items, neg_items) in enumerate(
+            tqdm(train_loader, desc=f"Currently training epoch {epoch}", dynamic_ncols=True)
+        ):
             self.optimizer.zero_grad()
             pos_preds = self.model(user, pos_items)
             neg_preds = self.model(user, neg_items)
