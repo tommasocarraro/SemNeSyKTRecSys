@@ -42,7 +42,7 @@ def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray) -> float:
     return final_mean_auc
 
 
-def ndcg_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> float:
+def ndcg_at_k(pred_scores: NDArray, ground_truth: Optional[NDArray] = None, k: int = 10) -> float:
     """
     Computes the NDCG (at k) given the predicted scores and relevance of the items.
 
@@ -51,6 +51,10 @@ def ndcg_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> float:
     :param k: length of the ranking on which the metric has to be computed
     :return: NDCG at k position
     """
+    # if ground truth is not given, it assumes Leave One Out evaluation with positive item in the first position
+    if ground_truth is None:
+        ground_truth = np.zeros_like(pred_scores)
+        ground_truth[:, 0] = 1
     k = min(pred_scores.shape[1], k)
     # compute DCG
     # generate ranking
@@ -66,7 +70,7 @@ def ndcg_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> float:
     return dcg / idcg
 
 
-def hit_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> bool:
+def hit_at_k(pred_scores: NDArray, ground_truth: Optional[NDArray] = None, k: int = 10) -> bool:
     """
     Computes the hit ratio (at k) given the predicted scores and relevance of the items.
 
@@ -75,6 +79,10 @@ def hit_at_k(pred_scores: NDArray, ground_truth: NDArray, k=10) -> bool:
     :param k: length of the ranking on which the metric has to be computed
     :return: hit ratio at k position
     """
+    # if ground truth is not given, it assumes Leave One Out evaluation with positive item in the first position
+    if ground_truth is None:
+        ground_truth = np.zeros_like(pred_scores)
+        ground_truth[:, 0] = 1
     k = min(pred_scores.shape[1], k)
     # generate ranking
     rank = np.argsort(-pred_scores, axis=1)

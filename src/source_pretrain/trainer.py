@@ -186,8 +186,8 @@ class MfTrainer:
         :param loader: loader containing evaluation data
         :return: predictions and targets
         """
-        preds, ground_truth = [], []
-        for batch_idx, (users, pos_items, neg_items, gt) in enumerate(loader):
+        preds = []
+        for batch_idx, (users, pos_items, neg_items) in enumerate(loader):
             pos_preds = self.predict(users, pos_items).cpu().numpy()
             neg_preds = (
                 self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten())
@@ -195,9 +195,8 @@ class MfTrainer:
                 .numpy()
             )
             preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
-            ground_truth.append(gt)
 
-        return np.concatenate(preds), np.concatenate(ground_truth)
+        return np.concatenate(preds)
 
     def compute_validation_loss(self, pos_preds: Tensor, neg_preds: Tensor):
         """
@@ -252,9 +251,9 @@ class MfTrainer:
         :return: validation score based on the given metric averaged across all validation examples
         """
         # prepare predictions and targets for evaluation
-        preds, ground_truth = self.prepare_for_evaluation_ranking(val_loader)
+        preds = self.prepare_for_evaluation_ranking(val_loader)
         # compute validation metric
-        val_score = compute_metric(val_metric, preds, ground_truth)
+        val_score = compute_metric(val_metric, preds)
 
         return np.mean(val_score), {}
 

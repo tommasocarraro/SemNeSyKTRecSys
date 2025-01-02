@@ -8,3 +8,4 @@ Semantic Neuro-Symbolic Knowledge Transfer for Recommender Systems
 - decide how to encode the ranking information inside LikesSource
 - define the BPR loss in LTN
 - define the LTN loader for the complete model
+- check if user-item matrix is correctly created

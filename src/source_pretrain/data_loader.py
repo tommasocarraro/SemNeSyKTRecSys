@@ -24,7 +24,7 @@ class DataLoader:
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
         # take only positive interaction for BPR loss
-        self.data = np.array(data)[data[:, -1] > 0]
+        self.data = np.array(data)[data[:, 2] > 0]
 
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -93,7 +93,7 @@ class ValDataLoader:
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
         # take only positive interaction for BPR loss
-        self.data = np.array(data)[data[:, -1] > 0]
+        self.data = np.array(data)[data[:, 2] > 0]
 
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -139,19 +139,14 @@ class ValDataLoader:
             neg_items = neg_items.reshape(-1, self.sampled_n_negs)
             # use the argsort on the mask to get the indexes of the items that can be used as real negatives, namely
             # that are not false negatives
+            # the argsort sorts in ascending order, so we need to be sure to take the last n_negs indices from each row
             neg_items = neg_items[
                 np.arange(batch_data.shape[0]).repeat(self.n_negs).reshape(-1, self.n_negs),
-                np.argsort(mask, axis=1)[:, : self.n_negs],
+                np.argsort(mask, axis=1)[:, -self.n_negs:],
             ]
             # create tensors
             users = torch.tensor(users, dtype=torch.int32)
             pos_items = torch.tensor(pos_items, dtype=torch.int32)
             neg_items = torch.tensor(neg_items, dtype=torch.int32)
-            # construct ground truth matrix for ranking metrics computation
-            # this matrix simply indicates where the positive item and the negative items are positioned in the tensor
-            # containing the predictions. By default, the score of the positive item is always in the first position
-            # in the tensor containing the predictions
-            gt = np.zeros((batch_data.shape[0], self.n_negs + 1), dtype=np.int8)
-            gt[:, 0] = 1
 
-            yield users.to(device), pos_items.to(device), neg_items.to(device), gt
+            yield users.to(device), pos_items.to(device), neg_items.to(device)
