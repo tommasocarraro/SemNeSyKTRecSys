@@ -191,7 +191,7 @@ class MfTrainer:
             pos_preds = self.predict(users, pos_items).cpu().numpy()
             neg_preds = (
                 self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten())
-                .reshape(users.shape[0], -1)
+                .reshape(users.shape[0], -1).cpu()
                 .numpy()
             )
             preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
