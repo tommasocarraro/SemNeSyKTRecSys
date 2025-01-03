@@ -118,14 +118,14 @@ class MfTrainer:
                 early_counter = 0
                 if save_paths:
                     logger.info(f"Saving checkpoint")
-                    self.save_model(save_paths[0], is_checkpoint=True)
+                    self.save_checkpoint(save_paths[0])
             else:
                 early_counter += 1
                 if early is not None and early_counter > early:
                     logger.info("Training interrupted due to early stopping")
                     if save_paths:
-                        self.load_model(save_paths[0])
-                        self.save_model(save_paths[1], is_checkpoint=False)
+                        self.load_checkpoint(save_paths[0])
+                        self.save_final_model(save_paths[1])
                         os.remove(save_paths[0])
                     break
 
@@ -191,7 +191,8 @@ class MfTrainer:
             pos_preds = self.predict(users, pos_items).cpu().numpy()
             neg_preds = (
                 self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten())
-                .reshape(users.shape[0], -1).cpu()
+                .reshape(users.shape[0], -1)
+                .cpu()
                 .numpy()
             )
             preds.append(np.hstack((pos_preds.reshape(-1, 1), neg_preds)))
@@ -257,29 +258,41 @@ class MfTrainer:
 
         return np.mean(val_score), {}
 
-    def save_model(self, path: Path, is_checkpoint=True):
+    def save_checkpoint(self, path: Path):
         """
-        Method for saving the model.
+        Method for saving a model checkpoint.
 
         :param path: path where to save the model
-        :param is_checkpoint: whether the model to be saved is a checkpoint or the final one
         """
         os.makedirs(path.parent, exist_ok=True)
-        if is_checkpoint:
-            torch.save(
-                {"model_state_dict": self.model.state_dict(), "optimizer_state_dict": self.optimizer.state_dict()},
-                path,
-            )
+        torch.save(self.model.state_dict(), path)
 
-        else:
-            torch.save(self.model.state_dict(), path)
-
-    def load_model(self, path: Path):
+    def save_final_model(self, path: Path):
         """
-        Method for loading the model.
+        Method for saving the final model.
+
+        :param path: path where to save the model
+        """
+        os.makedirs(path.parent, exist_ok=True)
+        torch.save(
+            {"model_state_dict": self.model.state_dict(), "optimizer_state_dict": self.optimizer.state_dict()}, path
+        )
+
+    def load_checkpoint(self, path: Path):
+        """
+        Method for loading a model checkpoint.
 
         :param path: path from which the model has to be loaded.
         """
-        checkpoint = torch.load(path)
+        checkpoint = torch.load(path, map_location=device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    def load_final_model(self, path: Path):
+        """
+        Method for loading the final model.
+
+        :param path: path from which the final model has to be loaded.
+        """
+        final_model = torch.load(path, map_location=device)
+        self.model.load_state_dict(final_model)
