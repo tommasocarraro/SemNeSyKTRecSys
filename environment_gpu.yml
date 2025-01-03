@@ -1,7 +1,8 @@
-# manually add pytorch and cuda installation as per your hardware requirements
 name: amazon_gpu
 channels:
   - defaults
+  - pytorch
+  - nvidia
 dependencies:
   - python=3.9
   - tqdm
@@ -13,6 +14,8 @@ dependencies:
   - pandas
   - py7zr
   - python-dotenv
+  - pytorch
+  - pytorch-cuda=11.8
   - pip
   - pip:
       - wandb
