@@ -258,18 +258,18 @@ class MfTrainer:
 
         return np.mean(val_score), {}
 
-    def save_checkpoint(self, path: Path):
+    def save_final_model(self, path: Path):
         """
-        Method for saving a model checkpoint.
+        Method for saving the final model.
 
         :param path: path where to save the model
         """
         os.makedirs(path.parent, exist_ok=True)
         torch.save(self.model.state_dict(), path)
 
-    def save_final_model(self, path: Path):
+    def save_checkpoint(self, path: Path):
         """
-        Method for saving the final model.
+        Method for saving a model checkpoint.
 
         :param path: path where to save the model
         """

@@ -35,6 +35,7 @@ def generate_pre_trained_src_matrix(
     :param batch_size: number of predictions to be computed in parallel at each prediction step.
     """
     # TODO mettere cold start user tutto a zero sulla matrice LikesSource, cosi non trasferisce nulla
+    # TODO mettere i rating della user-item matrix a uno sugli scores o comunque fare in modo che siano gli scores piu' alti
     # load the best weights on the model
     mf_model.load_state_dict(torch.load(best_weights, map_location=device))
     # initialize predictions tensor
