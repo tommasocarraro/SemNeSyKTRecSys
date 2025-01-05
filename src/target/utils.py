@@ -23,6 +23,7 @@ def get_reg_axiom_data(src_ui_matrix: csr_matrix,
     :param top_k_items: numpy array containing for each shared user a list of top-k items the user might like, generated
     using a recommendation model pre-trained in the source domain
     """
+    processed_interactions = []
     # find IDs of source domain items for which there exists a path with at least one target domain item
     src_exist_path_items = set(sim_matrix.nonzero()[0])
     # find IDs of target domain items for which there exists a path with at least one source domain item
@@ -69,4 +70,5 @@ def get_reg_axiom_data(src_ui_matrix: csr_matrix,
                                 if tgt_item_id in user_paths.nonzero()[1]:
                                     # if the current path converges into the current target item, we generate the
                                     # triplet
-                                    yield user, src_item_id, tgt_item_id
+                                    processed_interactions.append((user, src_item_id, tgt_item_id))
+    return np.array(processed_interactions)

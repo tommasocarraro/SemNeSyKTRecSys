@@ -24,7 +24,7 @@ def generate_pre_trained_src_matrix(
     # load the best weights on the model
     mf_model.load_state_dict(torch.load(best_weights, map_location=device))
     # initialize predictions tensor
-    preds = torch.zeros((1, mf_model.n_items))
+    preds = torch.zeros((n_shared_users, mf_model.n_items))
     # compute predictions for all shared users and items pairs and put them in the preds tensor
     # each row is a user and contains the predictions for all the items in the catalog for that user
     for u in tqdm(range(n_shared_users)):
