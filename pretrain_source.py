@@ -11,12 +11,12 @@ from loguru import logger
 from src.data_preprocessing.Dataset import Dataset
 from src.data_preprocessing.process_source_target import process_source_target
 from src.model_configs import ModelConfig, get_config
-from src.source_pretrain.data_loader import DataLoader, ValDataLoader
-from src.source_pretrain.loss import BPRLoss
-from src.source_pretrain.metrics import RankingMetricsType
-from src.source_pretrain.model import MatrixFactorization
-from src.source_pretrain.trainer import MfTrainer
-from src.source_pretrain.tuning import mf_tuning
+from src.data_loader import DataLoader, ValDataLoader
+from src.source.loss import BPRLoss
+from src.metrics import RankingMetricsType
+from src.model import MatrixFactorization
+from src.source.mf_trainer import MfTrainer
+from src.source.tuning import mf_tuning
 from src.utils import set_seed
 
 parser = argparse.ArgumentParser(description="PyTorch BPR Training")

@@ -2,7 +2,7 @@ from math import log
 from pathlib import Path
 
 from src.data_preprocessing.Split_Strategy import LeaveLastOut
-from src.source_pretrain.metrics import RankingMetricsType
+from src.metrics import RankingMetricsType
 from .ModelConfig import (
     DatasetConfig,
     MetricConfig,

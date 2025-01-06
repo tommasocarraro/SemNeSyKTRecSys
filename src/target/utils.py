@@ -18,7 +18,7 @@ def get_reg_axiom_data(
 
     :param src_ui_matrix: sparse user-item matrix containing positive interactions in the source domain. It is used to
     determine the cold-start users in the source domain. Knowledge cannot be transferred from these users as the model
-    learned few information.
+    learned little information.
     :param tgt_ui_matrix: sparse user-item matrix containing positive interactions in the target domain
     :param n_sh_users: number of shared users across domains
     :param sim_matrix: similarity matrix containing a 1 if there exists a path between the source and target item,
@@ -33,7 +33,7 @@ def get_reg_axiom_data(
     tgt_exist_path_items = set(sim_matrix.nonzero()[1])
     # iterate through each user in the set of shared users (the shared users are the only ones for which the information
     # can be transferred)
-    for user in tqdm(range(n_sh_users)):
+    for user in tqdm(range(n_sh_users), desc="Generating user-item pairs as input to LTN model", dynamic_ncols=True):
         # check if the user is cold-start in the source domain
         user_src_interacted_items = src_ui_matrix[user].nonzero()[1]
         if len(user_src_interacted_items) > 5:

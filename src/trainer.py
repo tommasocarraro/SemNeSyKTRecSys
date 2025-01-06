@@ -1,5 +1,6 @@
 import os
 import sys
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Callable, Literal, Optional, Union
 
@@ -9,38 +10,24 @@ import wandb
 from loguru import logger
 from ltn import LTNObject
 from torch import Tensor
-from tqdm import tqdm
+from torch.optim import Optimizer
 
+from src.data_loader import DataLoader, ValDataLoader
 from src.device import device
-from .data_loader import DataLoader, ValDataLoader
-from .metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type, compute_metric
-from .model import MatrixFactorization
+from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type, compute_metric
+from src.model import MatrixFactorization
 
 
-class MfTrainer:
-    """
-    Basic trainer for training a Matrix Factorization model using gradient descent.
-    """
-
-    def __init__(
-        self,
-        model: MatrixFactorization,
-        optimizer: torch.optim.Optimizer,
-        loss: Callable[[Tensor, Tensor], Union[Tensor, LTNObject]],
-        wandb_train: bool = False,
-    ):
-        """
-        Constructor of the trainer for the MF model.
-
-        :param model: Matrix Factorization model
-        :param optimizer: optimizer used for the training of the model
-        :param wandb_train: whether the data has to be logged to WandB or not
-        :param loss: loss that is used for training the Matrix Factorization model. It could be MSE or Focal Loss
-        """
-        self.model = model.to(device)
-        self.optimizer = optimizer
-        self.wandb_train = wandb_train
-        self.loss = loss
+class Trainer(ABC):
+    model: MatrixFactorization
+    optimizer: Optimizer
+    loss: Union[
+        Callable[[Tensor, Tensor], Tensor],
+        Callable[[Tensor], Tensor],
+        Callable[[LTNObject, LTNObject], LTNObject],
+        Callable[[LTNObject], LTNObject],
+    ]
+    wandb_train: bool
 
     def train(
         self,
@@ -126,28 +113,6 @@ class MfTrainer:
                         self.save_final_model(save_paths[1])
                         os.remove(save_paths[0])
                     break
-
-    def train_epoch(self, train_loader: DataLoader, epoch: int):
-        """
-        Method for the training of one single epoch.
-
-        :param train_loader: data loader for training data
-        :param epoch: current epoch
-        :return: training loss value averaged across training batches and a dictionary containing useful information
-        to log, such as other metrics computed by this model
-        """
-        train_loss = 0.0
-        for batch_idx, (user, pos_items, neg_items) in enumerate(
-            tqdm(train_loader, desc=f"Currently training epoch {epoch}", dynamic_ncols=True)
-        ):
-            self.optimizer.zero_grad()
-            pos_preds = self.model(user, pos_items)
-            neg_preds = self.model(user, neg_items)
-            loss = self.loss(pos_preds, neg_preds)
-            train_loss += loss.item()
-            loss.backward()
-            self.optimizer.step()
-        return train_loss / len(train_loader), {"train_loss": train_loss / len(train_loader)}
 
     def predict(self, users: Tensor, items: Tensor, dim: int = 1):
         """
@@ -288,7 +253,7 @@ class MfTrainer:
 
         :param path: path from which the model has to be loaded.
         """
-        checkpoint = torch.load(path, map_location=device)
+        checkpoint = torch.load(path, map_location=device, weights_only=True)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
@@ -298,5 +263,9 @@ class MfTrainer:
 
         :param path: path from which the final model has to be loaded.
         """
-        final_model = torch.load(path, map_location=device)
+        final_model = torch.load(path, map_location=device, weights_only=True)
         self.model.load_state_dict(final_model)
+
+    @abstractmethod
+    def train_epoch(self, train_loader: DataLoader, epoch: int):
+        pass

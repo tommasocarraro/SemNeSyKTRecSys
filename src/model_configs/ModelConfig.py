@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from src.data_preprocessing.Split_Strategy import SplitStrategy
-from src.source_pretrain.metrics import Valid_Metrics_Type
+from src.metrics import Valid_Metrics_Type
 
 
 @dataclass(frozen=True)

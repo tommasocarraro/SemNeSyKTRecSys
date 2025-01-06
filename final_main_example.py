@@ -1,16 +1,16 @@
 from pathlib import Path
 
 import torch
+from loguru import logger
 
-import src.source_pretrain.loss
+from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.process_source_target import process_source_target
-from src.source_pretrain.data_loader import DataLoader, ValDataLoader
-from src.source_pretrain.inference import generate_pre_trained_src_matrix
-from src.source_pretrain.metrics import RankingMetricsType
-from src.source_pretrain.model import MatrixFactorization
+from src.model import MatrixFactorization
 from src.model_configs import get_config
-from src.source_pretrain.trainer import MfTrainer
-from src.target.trainer import LTNRegTrainer
+from src.source.inference import generate_pre_trained_src_matrix
+from src.source.loss import BPRLoss
+from src.source.mf_trainer import MfTrainer
+from src.target.ltn_trainer import LTNRegTrainer
 from src.target.utils import get_reg_axiom_data
 from src.utils import set_seed
 
@@ -25,67 +25,116 @@ dataset = process_source_target(
 
 set_seed(0)
 
-mf_model_src = MatrixFactorization(dataset.src_n_users, dataset.src_n_items, 64)
-
-mf_model_tgt = MatrixFactorization(dataset.tgt_n_users, dataset.tgt_n_items, 64)
-
-trainer_src = MfTrainer(
-    mf_model_src,
-    torch.optim.AdamW(params=mf_model_src.parameters(), lr=0.001, weight_decay=0.00001),
-    src.source_pretrain.loss.BPRLoss(),
+mf_model_src = MatrixFactorization(
+    n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
 )
 
-tr_loader_src = DataLoader(dataset.src_tr[:1000], dataset.src_ui_matrix, 128, 3)
-val_loader_src = ValDataLoader(dataset.src_val[:1000], dataset.src_ui_matrix, 512, 150, 100)
-te_loader_src = ValDataLoader(dataset.src_te[:1000], dataset.src_ui_matrix, 512, 150, 100)
+mf_model_tgt = MatrixFactorization(
+    n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=config.tgt_train_config.n_factors
+)
+
+trainer_src = MfTrainer(
+    model=mf_model_src,
+    optimizer=torch.optim.AdamW(
+        params=mf_model_src.parameters(),
+        lr=config.src_train_config.learning_rate,
+        weight_decay=config.src_train_config.weight_decay,
+    ),
+    loss=BPRLoss(),
+)
+
+tr_loader_src = DataLoader(
+    data=dataset.src_tr, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size, n_negs=3
+)
+val_loader_src = ValDataLoader(
+    data=dataset.src_val,
+    ui_matrix=dataset.src_ui_matrix,
+    batch_size=config.src_train_config.batch_size,
+    sampled_n_negs=150,
+    n_negs=100,
+)
+te_loader_src = ValDataLoader(
+    data=dataset.src_te,
+    ui_matrix=dataset.src_ui_matrix,
+    batch_size=config.src_train_config.batch_size,
+    sampled_n_negs=150,
+    n_negs=100,
+)
 
 trainer_src.train(
     train_loader=tr_loader_src,
     val_loader=val_loader_src,
-    val_metric=RankingMetricsType.NDCG10,
-    early=5,
+    val_metric=config.val_metric,
+    early=config.early_stopping_patience,
     verbose=1,
-    early_stopping_criterion="val_metric",
-    save_paths=(Path("./source_models/checkpoint_src_movies.pth"), Path("./source_models/best_src_movies.pth")),
+    early_stopping_criterion=config.early_stopping_criterion,
+    save_paths=config.src_train_config.model_save_paths,
 )
 
 
-te_ndcg, _ = trainer_src.validate(te_loader_src, RankingMetricsType.NDCG10)
-print(te_ndcg)
+test_metric, _ = trainer_src.validate(val_loader=te_loader_src, val_metric=config.val_metric)
+logger.info(f"{config.val_metric.value} for source domain model computed on the test set: {test_metric}")
 
-# trainer = LTNTrainer(mf_model, torch.optim.AdamW(params=mf_model.parameters(), lr=0.001, weight_decay=0.00001))
+# trainer_tgt = LTNTrainer(
+#     mf_model=mf_model_tgt,
+#     optimizer=torch.optim.AdamW(
+#         params=mf_model_tgt.parameters(),
+#         lr=config.tgt_train_config.learning_rate,
+#         weight_decay=config.tgt_train_config.weight_decay,
+#     ),
+# )
 
 trainer_tgt = LTNRegTrainer(
-    mf_model_tgt,
-    torch.optim.AdamW(params=mf_model_tgt.parameters(), lr=0.001, weight_decay=0.00001),
-    get_reg_axiom_data(
-        dataset.src_ui_matrix,
-        dataset.tgt_ui_matrix,
-        100,  # dataset.n_sh_users,
-        dataset.sim_matrix,
-        generate_pre_trained_src_matrix(
-            mf_model_src,
-            Path("./source_models/best_src_movies.pth"),
-            100,  # dataset.n_sh_users,
+    mf_model=mf_model_tgt,
+    optimizer=torch.optim.AdamW(
+        params=mf_model_tgt.parameters(),
+        lr=config.tgt_train_config.learning_rate,
+        weight_decay=config.tgt_train_config.weight_decay,
+    ),
+    processed_interactions=get_reg_axiom_data(
+        src_ui_matrix=dataset.src_ui_matrix,
+        tgt_ui_matrix=dataset.tgt_ui_matrix,
+        n_sh_users=dataset.n_sh_users,
+        sim_matrix=dataset.sim_matrix,
+        top_k_items=generate_pre_trained_src_matrix(
+            mf_model=mf_model_src,
+            best_weights_path=config.tgt_train_config.model_save_paths[1],
+            n_shared_users=dataset.n_sh_users,
             k=20,
-            batch_size=512,
+            batch_size=config.tgt_train_config.batch_size,
         ),
     ),
+    p_forall=2,
+    p_sat_agg=2,
 )
 
-tr_loader_tgt = DataLoader(dataset.tgt_tr[:1000], dataset.tgt_ui_matrix, 128, 3)
-val_loader_tgt = ValDataLoader(dataset.tgt_val[:1000], dataset.tgt_ui_matrix, 512, 150, 100)
-te_loader_tgt = ValDataLoader(dataset.tgt_te[:1000], dataset.tgt_ui_matrix, 512, 150, 100)
+tr_loader_tgt = DataLoader(
+    data=dataset.tgt_tr, ui_matrix=dataset.tgt_ui_matrix, batch_size=config.tgt_train_config.batch_size, n_negs=3
+)
+val_loader_tgt = ValDataLoader(
+    data=dataset.tgt_val,
+    ui_matrix=dataset.tgt_ui_matrix,
+    batch_size=config.tgt_train_config.batch_size,
+    sampled_n_negs=150,
+    n_negs=100,
+)
+te_loader_tgt = ValDataLoader(
+    data=dataset.tgt_te,
+    ui_matrix=dataset.tgt_ui_matrix,
+    batch_size=config.tgt_train_config.batch_size,
+    sampled_n_negs=150,
+    n_negs=100,
+)
 
 trainer_tgt.train(
     train_loader=tr_loader_tgt,
     val_loader=val_loader_tgt,
-    val_metric=RankingMetricsType.NDCG10,
-    early=5,
+    val_metric=config.val_metric,
+    early=config.early_stopping_patience,
     verbose=1,
-    early_stopping_criterion="val_metric",
-    save_paths=(Path("./source_models/checkpoint_src_books.pth"), Path("./source_models/best_src_books.pth")),
+    early_stopping_criterion=config.early_stopping_criterion,
+    save_paths=config.tgt_train_config.model_save_paths,
 )
 
-te_ndcg, _ = trainer_tgt.validate(te_loader_tgt, RankingMetricsType.NDCG10)
-print(te_ndcg)
+test_metric, _ = trainer_tgt.validate(val_loader=te_loader_tgt, val_metric=config.val_metric)
+logger.info(f"{config.val_metric.value} for source domain model computed on the test set: {test_metric}")
