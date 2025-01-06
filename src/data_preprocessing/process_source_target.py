@@ -12,13 +12,13 @@ from scipy.sparse import csr_matrix
 
 from src.utils import decompress_7z
 from .Dataset import Dataset
-from .Preprocess_Strategy import SplitStrategy
+from .Split_Strategy import SplitStrategy
+from src.model_configs.ModelConfig import DatasetConfig
 
 
 def process_source_target(
-    split_strategy: SplitStrategy,
-    src_dataset_path: Path,
-    tgt_dataset_path: Path,
+    src_dataset_config: DatasetConfig,
+    tgt_dataset_config: DatasetConfig,
     paths_file_path: Path,
     save_dir_path: Optional[Path] = None,
     clear_saved_dataset: bool = False,
@@ -31,24 +31,24 @@ def process_source_target(
     3. it creates the items_source X items_target matrix, containing 1 in position (i,j) if the source domain item i
     is semantically connected (there exists a KG paths) to the target domain item j, 0 otherwise
 
-    :param split_strategy: strategy used to split the source domain dataset into train, validation and test sets
-    :param src_dataset_path: path to the source dataset
-    :param tgt_dataset_path: path to the target dataset
+    :param src_dataset_config: source dataset configuration containing location and split strategy
+    :param tgt_dataset_config: target dataset configuration containing location and split strategy
     :param paths_file_path: paths between entities in the two different domain
     :param save_dir_path: path where to save the dataset. None if the dataset should not be saved on disk.
     :param clear_saved_dataset: whether to clear the saved dataset if it exists
     """
     logger.info("Reading datasets from file system")
     # decompress source and target rating files, if needed
-    src_dataset_path = decompress_7z(src_dataset_path)
-    tgt_dataset_path = decompress_7z(tgt_dataset_path)
+    src_dataset_path = decompress_7z(src_dataset_config.dataset_path)
+    tgt_dataset_path = decompress_7z(tgt_dataset_config.dataset_path)
 
     if save_dir_path is not None:
         save_file_path = make_save_file_path(
             save_dir_path=save_dir_path,
             src_dataset_path=src_dataset_path,
             tgt_dataset_path=tgt_dataset_path,
-            split_strategy=split_strategy,
+            src_split_strategy=src_dataset_config.split_strategy,
+            tgt_split_strategy=src_dataset_config.split_strategy,
         )
 
         maybe_dataset = load_or_clear_dataset(save_file_path=save_file_path, clear_saved_dataset=clear_saved_dataset)
@@ -87,8 +87,8 @@ def process_source_target(
     sparse_src_matrix = create_ui_matrix(src_ratings)
     sparse_tgt_matrix = create_ui_matrix(tgt_ratings)
 
-    src_tr, src_val, src_te = split_strategy.src_split_strategy.split(src_ratings.to_numpy())
-    tgt_tr, tgt_val, tgt_te = split_strategy.tgt_split_strategy.split(tgt_ratings.to_numpy())
+    src_tr, src_val, src_te = src_dataset_config.split_strategy.split(src_ratings.to_numpy())
+    tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
     sim_matrix = create_sim_matrix(
@@ -177,7 +177,11 @@ def create_ui_matrix(df: DataFrame) -> csr_matrix:
 
 
 def make_save_file_path(
-    save_dir_path: Path, src_dataset_path: Path, tgt_dataset_path: Path, split_strategy: SplitStrategy
+    save_dir_path: Path,
+    src_dataset_path: Path,
+    tgt_dataset_path: Path,
+    src_split_strategy: SplitStrategy,
+    tgt_split_strategy: SplitStrategy,
 ) -> Path:
     """
     Constructs the path where the dataset should be stored on file system by numpy
@@ -185,12 +189,15 @@ def make_save_file_path(
     :param save_dir_path: path of the directory where the dataset should be stored
     :param src_dataset_path: path of the raw csv dataset
     :param tgt_dataset_path: path to the target dataset
-    :param split_strategy: strategy used to split the dataset
+    :param src_split_strategy: strategy used to split the source dataset
+    :param tgt_split_strategy: strategy used to split the target dataset
     :return: Location of the processed dataset
     """
     makedirs(save_dir_path, exist_ok=True)
 
-    source_file_name = f"{src_dataset_path.stem}_{tgt_dataset_path.stem}_{hash(split_strategy)}.npy"
+    source_file_name = (
+        f"{src_dataset_path.stem}_{tgt_dataset_path.stem}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
+    )
     return save_dir_path / source_file_name
 
 

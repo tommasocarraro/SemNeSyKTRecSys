@@ -1,13 +1,16 @@
 import numpy as np
+from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from tqdm import tqdm
 
 
-def get_reg_axiom_data(src_ui_matrix: csr_matrix,
-                       tgt_ui_matrix: csr_matrix,
-                       n_sh_users: int,
-                       sim_matrix: csr_matrix,
-                       top_k_items: np.ndarray):
+def get_reg_axiom_data(
+    src_ui_matrix: csr_matrix,
+    tgt_ui_matrix: csr_matrix,
+    n_sh_users: int,
+    sim_matrix: csr_matrix,
+    top_k_items: NDArray,
+):
     """
     This function generates user-item pairs that will be given in input to the second axiom of the LTN model, namely the
     axiom that perform logical regularization based on information transferred from the source domain to the target

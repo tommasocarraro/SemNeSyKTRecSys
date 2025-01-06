@@ -1,7 +1,5 @@
-import numpy as np
 import torch
-from scipy.sparse import csr_matrix
-from torch.nn.functional import softmax
+from numpy.typing import NDArray
 from tqdm import tqdm
 
 from src.device import device
@@ -9,7 +7,7 @@ from src.device import device
 
 def generate_pre_trained_src_matrix(
     mf_model, best_weights, n_shared_users, k, batch_size
-) -> csr_matrix:
+) -> NDArray:
     """
     This function takes the pre-trained MF model in the source domain and generates a ranking of source domain items for
     each shared user. The first k position in the ranking are the top recommended items

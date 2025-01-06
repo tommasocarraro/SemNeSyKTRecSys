@@ -6,9 +6,9 @@ from scipy.sparse import csr_matrix
 from torch.optim import AdamW
 
 from src.utils import set_seed
-from .data_loader import DataLoader
+from .data_loader import DataLoader, ValDataLoader
 from .loss import BPRLoss
-from .metrics import Valid_Metrics_Type
+from .metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
 from .model import MatrixFactorization
 from .trainer import MfTrainer
 
@@ -54,7 +54,12 @@ def mf_tuning(
     """
     set_seed(seed)
     # create loader for validation
-    val_loader = DataLoader(val_set, ui_matrix, val_batch_size)
+    if metric in RankingMetricsType:
+        val_loader = ValDataLoader(data=val_set, ui_matrix=ui_matrix, batch_size=val_batch_size)
+    elif metric in PredictionMetricsType:
+        val_loader = DataLoader(data=val_set, ui_matrix=ui_matrix, batch_size=val_batch_size)
+    else:
+        raise ValueError(f"{metric} is not a valid metric")
 
     # define function to call for performing one run of the hyperparameter search
 

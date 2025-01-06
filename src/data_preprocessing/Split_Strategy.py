@@ -1,15 +1,100 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable, Literal, Union
-
+from typing import Callable, Literal, Optional, Union
+from abc import ABC, abstractmethod
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.model_selection import train_test_split
 
 
+class SplitStrategy(ABC):
+    @abstractmethod
+    def split(self, ratings: NDArray) -> tuple[NDArray, NDArray, NDArray]:
+        pass
+
+
+@dataclass(frozen=True)
+class LeaveLastOut(SplitStrategy):
+    """
+    This strategy splits the data such that both validation and test sets only contain the last positive interaction
+    for each user, as long as there are any.
+    """
+
+    seed: Optional[int]
+
+    def split(self, ratings: NDArray) -> tuple[NDArray, NDArray, NDArray]:
+        """
+        Computes the train, validation and test splits of the given ratings such that both validation and test splits
+        contain only the last positive interaction for each user.
+
+        :param ratings: the ratings numpy array
+        :return: the train, val and test splits of the given ratings
+        """
+        train, test = _split_ratings(ratings, self.seed, lambda r: _compute_test_indices_one_out(r, "temporal"))
+        train, val = _split_ratings(train, self.seed, lambda r: _compute_test_indices_one_out(r, "temporal"))
+        return train, val, test
+
+
+@dataclass(frozen=True)
+class LeaveOneOut(SplitStrategy):
+    """
+    This strategy splits the data such that both validation and test sets only contain one random positive interaction
+    for each user, as long as there are any.
+    """
+
+    seed: Optional[int]
+
+    def split(self, ratings: NDArray) -> tuple[NDArray, NDArray, NDArray]:
+        """
+        Computes the train, validation and test splits of the given ratings such that both validation and test splits
+        contain only one random positive interaction for each user.
+
+        :param ratings: the ratings numpy array
+        :return: the train, val and test splits of the given ratings
+        """
+        train, test = _split_ratings(ratings, self.seed, lambda r: _compute_test_indices_one_out(r, "sample"))
+        train, val = _split_ratings(train, self.seed, lambda r: _compute_test_indices_one_out(r, "sample"))
+        return train, val, test
+
+
+@dataclass(frozen=True)
+class PercentSplit(SplitStrategy):
+    """
+    Defines the percent split strategy, which means the dataset is partitioned into train, val and test using percentage
+    values for validation and test.
+    """
+
+    seed: Optional[int]
+    val_size: float
+    test_size: float
+    user_level: bool
+
+    def split(self, ratings: NDArray) -> tuple[NDArray, NDArray, NDArray]:
+        """
+        Computes the train, validation and test splits of the given ratings according to the percentage sizes of
+        validation and test sets defined during initialization.
+
+        :param ratings: the ratings numpy array
+        :return: the train, val and test splits of the given ratings
+        """
+        assert self.val_size + self.test_size <= 1.0, "Validation + test percent size cannot be larger than 100"
+        if self.user_level:
+            train, test = _split_ratings(ratings, self.seed, lambda r: _compute_test_indices_frac(r, self.test_size))
+            train, val = _split_ratings(train, self.seed, lambda r: _compute_test_indices_frac(r, self.val_size))
+            return train, val, test
+        else:
+            train, test = train_test_split(
+                ratings, random_state=self.seed, stratify=ratings[:, 2], test_size=self.test_size
+            )
+            train, val = train_test_split(
+                train, random_state=self.seed, stratify=train[:, 2], test_size=self.val_size
+            )
+            return train, val, test
+
+
 def _split_ratings(
     ratings: NDArray,
-    seed: int,
+    seed: Optional[int],
     compute_test_indices: Callable[[NDArray], Union[list[int], tuple[list[int], NDArray]]],
 ) -> tuple[NDArray, NDArray]:
     """
@@ -108,102 +193,3 @@ def _compute_test_indices_frac(ratings: NDArray, frac: float) -> list[int]:
         if len(neg_indices) > 1:
             test_indices.extend(np.random.choice(neg_indices, size=sample_size_neg, replace=False))
     return test_indices
-
-
-@dataclass(frozen=True)
-class LeaveLastOut:
-    """
-    This strategy splits the data such that both validation and test sets only contain the last positive interaction
-    for each user, as long as there are any.
-    """
-
-    seed: int
-
-    def split(self, ratings: NDArray) -> tuple[NDArray, NDArray, NDArray]:
-        """
-        Computes the train, validation and test splits of the given ratings such that both validation and test splits
-        contain only the last positive interaction for each user.
-
-        :param ratings: the ratings numpy array
-        :return: the train, val and test splits of the given ratings
-        """
-        train, test = _split_ratings(ratings, self.seed, lambda r: _compute_test_indices_one_out(r, "temporal"))
-        train, val = _split_ratings(train, self.seed, lambda r: _compute_test_indices_one_out(r, "temporal"))
-        return train, val, test
-
-
-@dataclass(frozen=True)
-class LeaveOneOut:
-    """
-    This strategy splits the data such that both validation and test sets only contain one random positive interaction
-    for each user, as long as there are any.
-    """
-
-    seed: int
-
-    def split(self, ratings: NDArray) -> tuple[NDArray, NDArray, NDArray]:
-        """
-        Computes the train, validation and test splits of the given ratings such that both validation and test splits
-        contain only one random positive interaction for each user.
-
-        :param ratings: the ratings numpy array
-        :return: the train, val and test splits of the given ratings
-        """
-        train, test = _split_ratings(ratings, self.seed, lambda r: _compute_test_indices_one_out(r, "sample"))
-        train, val = _split_ratings(train, self.seed, lambda r: _compute_test_indices_one_out(r, "sample"))
-        return train, val, test
-
-
-@dataclass(frozen=True)
-class PercentSplit:
-    """
-    Defines the percent split strategy, which means the dataset is partitioned into train, val and test using percentage
-    values for validation and test.
-    """
-
-    seed: int
-    val_size: float
-    test_size: float
-    user_level: bool
-
-    def split(self, ratings: NDArray) -> tuple[NDArray, NDArray, NDArray]:
-        """
-        Computes the train, validation and test splits of the given ratings according to the percentage sizes of
-        validation and test sets defined during initialization.
-
-        :param ratings: the ratings numpy array
-        :return: the train, val and test splits of the given ratings
-        """
-        assert self.val_size + self.test_size <= 1.0, "Validation + test percent size cannot be larger than 100"
-        if self.user_level:
-            train, test = _split_ratings(ratings, self.seed, lambda r: _compute_test_indices_frac(r, self.test_size))
-            train, val = _split_ratings(train, self.seed, lambda r: _compute_test_indices_frac(r, self.val_size))
-            return train, val, test
-        else:
-            train, test = train_test_split(
-                ratings, random_state=self.seed, stratify=ratings[:, 2], test_size=self.test_size
-            )
-            train, val = train_test_split(
-                train, random_state=self.seed, stratify=train[:, 2], test_size=self.val_size
-            )
-            return train, val, test
-
-
-@dataclass(frozen=True)
-class SplitStrategy:
-    """
-    Data class which holds the split strategies for both source and target datasets.
-
-    Supported strategies are:
-
-    - PercentSplit: splits the dataset into train, validation and test according to percentage sizes.
-
-    - LeaveOneOut: splits the dataset into train, validation and test so that ons positive interaction is sampled for
-    each user.
-
-    - LeaveLastOut: splits the dataset into train, validation and test so that the last positive interaction is selected
-    for each user.
-    """
-
-    src_split_strategy: Union[PercentSplit, LeaveOneOut, LeaveLastOut]
-    tgt_split_strategy: Union[PercentSplit, LeaveOneOut, LeaveLastOut]

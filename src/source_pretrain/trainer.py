@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import wandb
 from loguru import logger
+from ltn import LTNObject
 from torch import Tensor
 from tqdm import tqdm
 
@@ -25,7 +26,7 @@ class MfTrainer:
         self,
         model: MatrixFactorization,
         optimizer: torch.optim.Optimizer,
-        loss: Callable[[Tensor, Tensor], Tensor],
+        loss: Callable[[Tensor, Tensor], Union[Tensor, LTNObject]],
         wandb_train: bool = False,
     ):
         """
@@ -79,10 +80,7 @@ class MfTrainer:
             # training step
             train_loss, log_dict = self.train_epoch(train_loader, epoch)
             # validation step
-            if isinstance(val_metric, RankingMetricsType):
-                val_score, val_loss_dict = self._validate_ranking(val_loader, val_metric)
-            else:
-                val_score, val_loss_dict = self.validate(val_loader, val_metric, use_val_loss=True)
+            val_score, val_loss_dict = self.validate(val_loader, val_metric, use_val_loss=True)
             # merge log dictionaries
             log_dict.update(val_loss_dict)
             # print epoch data
@@ -224,9 +222,15 @@ class MfTrainer:
         :return: validation score based on the given metric averaged across all validation examples
         """
         if isinstance(val_metric, RankingMetricsType):
-            return self._validate_ranking(val_loader, val_metric)
+            if isinstance(val_loader, ValDataLoader):
+                return self._validate_ranking(val_loader, val_metric)
+            else:
+                raise RuntimeError("A ValDataLoader was expected but got DataLoader instead")
         elif isinstance(val_metric, PredictionMetricsType):
-            return self._validate_preds(val_loader, val_metric, use_val_loss)
+            if isinstance(val_loader, DataLoader):
+                return self._validate_preds(val_loader, val_metric, use_val_loss)
+            else:
+                raise RuntimeError("A DataLoader was expected but got ValDataLoader instead")
         raise ValueError("Unknown validation metric")
 
     def _validate_preds(self, val_loader: DataLoader, val_metric: PredictionMetricsType, use_val_loss: bool = False):
