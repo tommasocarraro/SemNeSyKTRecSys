@@ -21,4 +21,4 @@ RUN conda env create -f /app/environment_gpu.yml && conda clean -a
 ENV CONDA_DEFAULT_ENV="amazon_gpu"
 ENV PATH=/opt/conda/envs/$CONDA_DEFAULT_ENV/bin:$PATH
 
-CMD ["python", "pretrain_source.py", "--tune", "music"]
+CMD ["python", "pretrain_source.py", "--tune", "music", "movies"]
