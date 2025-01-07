@@ -1,7 +1,7 @@
 from math import log
 from pathlib import Path
 
-from src.data_preprocessing.Split_Strategy import LeaveLastOut
+from src.data_preprocessing.Split_Strategy import LeaveOneOut
 from src.metrics import RankingMetricsType
 from .ModelConfig import (
     DatasetConfig,
@@ -17,10 +17,10 @@ _seed = 0
 
 train_books_to_movies_config = ModelConfig(
     src_dataset_config=DatasetConfig(
-        dataset_path=Path("./data/ratings/reviews_Books_5.csv.7z"), split_strategy=LeaveLastOut(seed=_seed)
+        dataset_path=Path("./data/ratings/reviews_Books_5.csv.7z"), split_strategy=LeaveOneOut(seed=_seed)
     ),
     tgt_dataset_config=DatasetConfig(
-        dataset_path=Path("./data/ratings/reviews_Movies_and_TV_5.csv.7z"), split_strategy=LeaveLastOut(seed=_seed)
+        dataset_path=Path("./data/ratings/reviews_Movies_and_TV_5.csv.7z"), split_strategy=LeaveOneOut(seed=_seed)
     ),
     paths_file_path=Path("./data/kg_paths/books(pop:300)->movies(cs:5).json.7z"),
     epochs=1000,
