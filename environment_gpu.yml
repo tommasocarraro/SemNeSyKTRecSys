@@ -8,13 +8,12 @@ dependencies:
   - tqdm
   - orjson
   - loguru
-  - numpy
+  - numpy=1.26.4
   - scipy
   - scikit-learn
   - pandas
   - py7zr
   - python-dotenv
-  - pytorch
   - nvidia/label/cuda-11.8.0::cuda
   - pytorch::pytorch=2.0.1=*cuda* # force cuda version
   - pytorch-cuda=11.8
