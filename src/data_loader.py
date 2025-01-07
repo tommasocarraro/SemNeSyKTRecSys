@@ -79,7 +79,7 @@ class ValDataLoader:
     It prepares the batches of user-item pairs to learn the MF model or evaluate all the models based on MF.
     """
 
-    def __init__(self, data, ui_matrix, batch_size=1, sampled_n_negs=3000, n_negs=100, shuffle=True):
+    def __init__(self, data, ui_matrix, batch_size=1, sampled_n_negs=150, n_negs=100, shuffle=True):
         """
         Constructor of the data loader.
 
