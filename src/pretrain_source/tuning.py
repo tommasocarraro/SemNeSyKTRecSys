@@ -64,7 +64,7 @@ def mf_tuning(
     # define function to call for performing one run of the hyperparameter search
 
     def tune():
-        with wandb.init(project=exp_name, entity=entity_name) as run:
+        with wandb.init() as run:
             # get one random configuration
             k = wandb.config.n_factors
             lr = wandb.config.learning_rate
@@ -89,7 +89,7 @@ def mf_tuning(
                 early_stopping_criterion=early_stopping_criterion,
             )
 
-    # launch the WandB sweep for 150 runs
+    # launch the WandB sweep for 50 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, entity=entity_name, function=tune, count=bayesian_run_count, project=exp_name)
+    wandb.agent(sweep_id, function=tune, count=bayesian_run_count)

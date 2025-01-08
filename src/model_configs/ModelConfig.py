@@ -34,7 +34,7 @@ class MetricConfig:
 class ParameterDistribution:
     min: float
     max: float
-    distribution: Literal["log_uniform"]
+    distribution: Literal["log_uniform_values"]
 
 
 @dataclass(frozen=True)

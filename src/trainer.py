@@ -83,7 +83,7 @@ class Trainer(ABC):
                 logger.info(log_record)
                 if self.wandb_train:
                     # log validation metric value
-                    wandb.log({"Val %s" % (val_metric.value,): val_score})
+                    wandb.log({"Val metric": val_score})
                     # log training information
                     wandb.log(log_dict)
             # stop the training if vanishing or exploding gradients are detected
@@ -98,7 +98,7 @@ class Trainer(ABC):
                 if self.wandb_train:
                     # the metric is logged only when a new best value is achieved for it
                     wandb.log(
-                        {"Best val %s" % (val_metric.value,): val_score}
+                        {"Best val metric": val_score}
                         if not early_loss_based
                         else {"Best val loss": val_loss_dict["Val loss"]}
                     )

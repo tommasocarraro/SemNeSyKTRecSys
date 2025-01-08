@@ -62,8 +62,8 @@ tune_music_to_movies_config = ModelConfig(
         metric=MetricConfig(goal="maximize", name="Best val metric"),
         parameters=ParametersConfigMf(
             n_factors_range=[1, 5, 10, 25, 50, 100, 150, 200],
-            learning_rate=ParameterDistribution(min=log(1e-5), max=log(1e-1), distribution="log_uniform"),
-            weight_decay=ParameterDistribution(min=log(1e-6), max=log(1e-1), distribution="log_uniform"),
+            learning_rate=ParameterDistribution(min=1e-5, max=1e-1, distribution="log_uniform_values"),
+            weight_decay=ParameterDistribution(min=1e-6, max=1e-1, distribution="log_uniform_values"),
             batch_size_range=[128, 256, 512],
         ),
         entity_name="bmxitalia",
@@ -76,8 +76,8 @@ tune_music_to_movies_config = ModelConfig(
         metric=MetricConfig(goal="maximize", name="Best val metric"),
         parameters=ParametersConfigMf(
             n_factors_range=[1, 5, 10, 25, 50, 100, 150, 200],
-            learning_rate=ParameterDistribution(min=log(1e-5), max=log(1e-1), distribution="log_uniform"),
-            weight_decay=ParameterDistribution(min=log(1e-6), max=log(1e-1), distribution="log_uniform"),
+            learning_rate=ParameterDistribution(min=1e-5, max=1e-1, distribution="log_uniform_values"),
+            weight_decay=ParameterDistribution(min=1e-6, max=1e-1, distribution="log_uniform_values"),
             batch_size_range=[128, 256, 512],
         ),
         entity_name="bmxitalia",

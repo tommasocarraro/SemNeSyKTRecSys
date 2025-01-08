@@ -66,15 +66,13 @@ def ltn_tuning(
     # define function to call for performing one run of the hyperparameter search
 
     def tune():
-        with wandb.init(project=exp_name, entity=entity_name) as run:
+        with wandb.init() as run:
             # get one random configuration
             k = wandb.config.n_factors
             lr = wandb.config.learning_rate
             wd = wandb.config.weight_decay
             tr_batch_size = wandb.config.batch_size
             p_forall = wandb.config.p_forall
-            # p_sat_agg = wandb.config.p_sat_agg
-            # neg_score_value = wandb.config.neg_score_value
             # set run name
             run.name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall={p_forall}"
             # define loader, model, optimizer and trainer
@@ -96,7 +94,7 @@ def ltn_tuning(
     # launch the WandB sweep for 150 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, entity=entity_name, function=tune, count=bayesian_run_count, project=exp_name)
+    wandb.agent(sweep_id, function=tune, count=bayesian_run_count)
 
 
 def ltn_tuning_reg(
@@ -162,7 +160,7 @@ def ltn_tuning_reg(
     # define function to call for performing one run of the hyperparameter search
 
     def tune():
-        with wandb.init(project=exp_name, entity=entity_name) as run:
+        with wandb.init() as run:
             # get one random configuration
             k = wandb.config.n_factors
             lr = wandb.config.learning_rate
@@ -173,7 +171,7 @@ def ltn_tuning_reg(
             neg_score_value = wandb.config.neg_score_value
             top_k_src = wandb.config.top_k_src
             # set run name
-            run.name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall={p_forall}"
+            run.name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall={p_forall}_p_sat_agg={p_sat_agg}_neg_score_value={neg_score_value}"
             # define loader, model, optimizer and trainer
             train_loader = DataLoader(train_set, tgt_ui_matrix, tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
@@ -210,7 +208,7 @@ def ltn_tuning_reg(
                 early_stopping_criterion=early_stopping_criterion,
             )
 
-    # launch the WandB sweep for 150 runs
+    # launch the WandB sweep for 50 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, entity=entity_name, function=tune, count=bayesian_run_count, project=exp_name)
+    wandb.agent(sweep_id, function=tune, count=bayesian_run_count)
