@@ -10,9 +10,7 @@ class PredictionMetricsType(Enum):
 
 
 class RankingMetricsType(Enum):
-    NDCG = "NDCG"
     NDCG10 = "NDCG@10"
-    HR = "HR"
     HR10 = "HR@10"
 
 
@@ -42,13 +40,13 @@ def auc(users: NDArray, pos_preds: NDArray, neg_preds: NDArray) -> float:
     return final_mean_auc
 
 
-def ndcg_at_k(pred_scores: NDArray, ground_truth: Optional[NDArray] = None, k: int = 10) -> float:
+def ndcg_at_k(pred_scores: NDArray, k: int, ground_truth: Optional[NDArray] = None) -> float:
     """
     Computes the NDCG (at k) given the predicted scores and relevance of the items.
 
     :param pred_scores: score vector in output from the recommender (unsorted ranking)
-    :param ground_truth: binary vector with relevance data (1 relevant, 0 not relevant)
     :param k: length of the ranking on which the metric has to be computed
+    :param ground_truth: binary vector with relevance data (1 relevant, 0 not relevant)
     :return: NDCG at k position
     """
     # if ground truth is not given, it assumes Leave One Out evaluation with positive item in the first position
@@ -70,7 +68,7 @@ def ndcg_at_k(pred_scores: NDArray, ground_truth: Optional[NDArray] = None, k: i
     return dcg / idcg
 
 
-def hit_at_k(pred_scores: NDArray, ground_truth: Optional[NDArray] = None, k: int = 10) -> bool:
+def hit_at_k(pred_scores: NDArray, k: int, ground_truth: Optional[NDArray] = None) -> bool:
     """
     Computes the hit ratio (at k) given the predicted scores and relevance of the items.
 
@@ -113,10 +111,10 @@ def compute_metric(
         if metric.value.startswith("AUC"):
             return auc(users=users, pos_preds=pos_preds, neg_preds=neg_preds)
     else:
-        kws = {"k": int(metric.value.split("@")[1])} if "@" in metric.value else {}
+        k = int(metric.value.split("@")[1])
         if metric.value.startswith("NDCG"):
-            return ndcg_at_k(pred_scores=preds, ground_truth=ground_truth, **kws)
+            return ndcg_at_k(pred_scores=preds, ground_truth=ground_truth, k=k)
         elif metric.value.startswith("HR"):
-            return hit_at_k(pred_scores=preds, ground_truth=ground_truth, **kws)
+            return hit_at_k(pred_scores=preds, ground_truth=ground_truth, k=k)
 
     raise ValueError("Invalid parameters combination")
