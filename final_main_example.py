@@ -3,15 +3,15 @@ from pathlib import Path
 import torch
 from loguru import logger
 
+from src.cross_domain.ltn_trainer import LTNRegTrainer
+from src.cross_domain.utils import get_reg_axiom_data
 from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.process_source_target import process_source_target
 from src.model import MatrixFactorization
 from src.model_configs import get_config
-from src.source.inference import generate_pre_trained_src_matrix
-from src.source.loss import BPRLoss
-from src.source.mf_trainer import MfTrainer
-from src.target.ltn_trainer import LTNRegTrainer
-from src.target.utils import get_reg_axiom_data
+from src.pretrain_source.inference import generate_pre_trained_src_matrix
+from src.pretrain_source.loss import BPRLoss
+from src.pretrain_source.mf_trainer import MfTrainer
 from src.utils import set_seed
 
 config = get_config(src_dataset_name="music", tgt_dataset_name="movies", kind="train")
@@ -68,7 +68,8 @@ trainer_src.train(
     early=config.early_stopping_patience,
     verbose=1,
     early_stopping_criterion=config.early_stopping_criterion,
-    save_paths=config.src_train_config.model_save_paths,
+    checkpoint_save_path=config.src_train_config.checkpoint_save_path,
+    final_model_save_path=config.src_train_config.final_model_save_path,
 )
 
 
@@ -98,9 +99,9 @@ trainer_tgt = LTNRegTrainer(
         sim_matrix=dataset.sim_matrix,
         top_k_items=generate_pre_trained_src_matrix(
             mf_model=mf_model_src,
-            best_weights_path=config.tgt_train_config.model_save_paths[1],
+            best_weights_path=config.src_train_config.final_model_save_path,
             n_shared_users=dataset.n_sh_users,
-            k=20,
+            top_k_src=20,
             batch_size=config.tgt_train_config.batch_size,
         ),
     ),
@@ -133,7 +134,8 @@ trainer_tgt.train(
     early=config.early_stopping_patience,
     verbose=1,
     early_stopping_criterion=config.early_stopping_criterion,
-    save_paths=config.tgt_train_config.model_save_paths,
+    checkpoint_save_path=config.tgt_train_config.checkpoint_save_path,
+    final_model_save_path=config.tgt_train_config.final_model_save_path,
 )
 
 test_metric, _ = trainer_tgt.validate(val_loader=te_loader_tgt, val_metric=config.val_metric)

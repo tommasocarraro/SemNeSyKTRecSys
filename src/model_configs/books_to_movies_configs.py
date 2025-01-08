@@ -8,9 +8,14 @@ from .ModelConfig import (
     MetricConfig,
     ModelConfig,
     ParameterDistribution,
-    ParametersConfig,
-    TrainConfig,
-    TuneConfig,
+    ParametersConfigLtn,
+    ParametersConfigLtnReg,
+    ParametersConfigMf,
+    TrainConfigSrc,
+    TrainConfigTgt,
+    TuneConfigLtn,
+    TuneConfigLtnReg,
+    TuneConfigMf,
 )
 
 _seed = 0
@@ -28,34 +33,34 @@ train_books_to_movies_config = ModelConfig(
     early_stopping_criterion="val_metric",
     val_metric=RankingMetricsType.NDCG10,
     seed=_seed,
-    src_train_config=TrainConfig(
+    src_train_config=TrainConfigSrc(
         n_factors=10,
         learning_rate=0.001,
         weight_decay=0.001,
         batch_size=512,
-        model_save_paths=(
-            Path("./source_models/checkpoint_src_books_movies.pth"),
-            Path("./source_models/best_src_books_movies.pth"),
-        ),
+        checkpoint_save_path=Path("./source_models/checkpoint_src_books_movies.pth"),
+        final_model_save_path=Path("./source_models/best_src_books_movies.pth"),
     ),
-    tgt_train_config=TrainConfig(
+    tgt_train_config=TrainConfigTgt(
         n_factors=10,
         learning_rate=0.001,
         weight_decay=0.001,
         batch_size=256,
-        model_save_paths=(
-            Path("./target_models/checkpoint_tgt_books_movies.pth"),
-            Path("./target_models/best_tgt_books_movies.pth"),
-        ),
+        checkpoint_save_path=Path("./target_models/checkpoint_tgt_books_movies.pth"),
+        final_model_save_path=Path("./target_models/best_tgt_books_movies.pth"),
+        top_k_src=10,
+        p_forall=2,
+        p_sat_agg=2,
+        neg_score=0.0,
     ),
 )
 
 tune_books_to_movies_config = ModelConfig(
     **{k: v for k, v in train_books_to_movies_config.__dict__.items() if not "tune" in k},
-    src_tune_config=TuneConfig(
+    src_mf_tune_config=TuneConfigMf(
         method="bayes",
-        metric=MetricConfig(goal="minimize", name="Best val loss"),
-        parameters=ParametersConfig(
+        metric=MetricConfig(goal="maximize", name="Best val metric"),
+        parameters=ParametersConfigMf(
             n_factors_range=[1, 5, 10, 25, 50, 100, 150, 200],
             learning_rate=ParameterDistribution(min=log(1e-5), max=log(1e-1), distribution="log_uniform"),
             weight_decay=ParameterDistribution(min=log(1e-6), max=log(1e-1), distribution="log_uniform"),
@@ -66,10 +71,10 @@ tune_books_to_movies_config = ModelConfig(
         bayesian_run_count=50,
         sweep_id=None,
     ),
-    tgt_tune_config=TuneConfig(
+    tgt_mf_tune_config=TuneConfigMf(
         method="bayes",
-        metric=MetricConfig(goal="minimize", name="Best val loss"),
-        parameters=ParametersConfig(
+        metric=MetricConfig(goal="maximize", name="Best val metric"),
+        parameters=ParametersConfigMf(
             n_factors_range=[1, 5, 10, 25, 50, 100, 150, 200],
             learning_rate=ParameterDistribution(min=log(1e-5), max=log(1e-1), distribution="log_uniform"),
             weight_decay=ParameterDistribution(min=log(1e-6), max=log(1e-1), distribution="log_uniform"),
@@ -79,5 +84,17 @@ tune_books_to_movies_config = ModelConfig(
         exp_name="amazon",
         bayesian_run_count=50,
         sweep_id=None,
+    ),
+    ltn_tune_config=TuneConfigLtn(
+        method="bayes",
+        metric=MetricConfig(goal="maximize", name="Best val metric"),
+        parameters=ParametersConfigLtn(p_forall=[1, 2, 5, 10]),
+    ),
+    ltn_reg_tune_config=TuneConfigLtnReg(
+        method="bayes",
+        metric=MetricConfig(goal="maximize", name="Best val metric"),
+        parameters=ParametersConfigLtnReg(
+            p_forall=[1, 2, 5, 10], p_sat_agg=[1, 2, 5, 10], top_k_src=[10, 50, 100, 200]
+        ),
     )
 )

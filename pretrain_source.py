@@ -5,21 +5,20 @@ from typing import Literal
 
 import dotenv
 import torch
-import wandb
 from loguru import logger
 
+import wandb
+from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
 from src.data_preprocessing.process_source_target import process_source_target
-from src.model_configs import ModelConfig, get_config
-from src.data_loader import DataLoader, ValDataLoader
-from src.source.loss import BPRLoss
-from src.metrics import RankingMetricsType
 from src.model import MatrixFactorization
-from src.source.mf_trainer import MfTrainer
-from src.source.tuning import mf_tuning
+from src.model_configs import ModelConfig, get_config
+from src.pretrain_source.loss import BPRLoss
+from src.pretrain_source.mf_trainer import MfTrainer
+from src.pretrain_source.tuning import mf_tuning
 from src.utils import set_seed
 
-parser = argparse.ArgumentParser(description="PyTorch BPR Training")
+parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument("--train", action="store_true")
 group.add_argument("--tune", action="store_true")
@@ -33,7 +32,7 @@ parser.add_argument(
 parser.add_argument("--clear", help="recompute dataset", action="store_true")
 
 
-def main_source():
+def main():
     args = parser.parse_args()
 
     src_dataset_name, tgt_dataset_name = args.datasets
@@ -88,24 +87,24 @@ def train_source(dataset: Dataset, config: ModelConfig):
         early=config.early_stopping_patience,
         verbose=1,
         early_stopping_criterion=config.early_stopping_criterion,
-        save_paths=config.src_train_config.model_save_paths,
+        checkpoint_save_path=config.src_train_config.checkpoint_save_path,
+        final_model_save_path=config.src_train_config.final_model_save_path,
     )
 
-    logger.info(
-        f"Training complete. Final validation AUC and loss: {tr.validate(val_loader, RankingMetricsType.NDCG, True)}"
-    )
+    val_metric_results, _ = tr.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
 
-    if dataset.src_te is not None:
-        te_loader = ValDataLoader(
-            data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size
-        )
-        te_metric, _ = tr.validate(te_loader, val_metric=config.val_metric)
-        logger.info(f"Test {config.val_metric}: {te_metric:.4f}")
+    logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
+
+    te_loader = ValDataLoader(
+        data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size
+    )
+    te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric}: {te_metric_results:.4f}")
 
 
 def tune_source(dataset: Dataset, config: ModelConfig):
-    if config.src_tune_config is None:
-        raise ValueError()
+    if config.src_mf_tune_config is None:
+        raise ValueError("Missing tuning configuration")
 
     # wandb login
     if not dotenv.load_dotenv():
@@ -119,7 +118,7 @@ def tune_source(dataset: Dataset, config: ModelConfig):
 
     mf_tuning(
         seed=config.seed,
-        tune_config=config.get_wandb_dict("source"),
+        tune_config=config.get_wandb_dict_mf("source"),
         train_set=dataset.src_tr,
         val_set=dataset.src_val,
         val_batch_size=config.src_train_config.batch_size,
@@ -130,12 +129,12 @@ def tune_source(dataset: Dataset, config: ModelConfig):
         n_epochs=config.epochs,
         early=config.early_stopping_patience,
         early_stopping_criterion=config.early_stopping_criterion,
-        entity_name=config.src_tune_config.entity_name,
-        exp_name=config.src_tune_config.exp_name,
-        bayesian_run_count=config.src_tune_config.bayesian_run_count,
-        sweep_id=config.src_tune_config.sweep_id,
+        entity_name=config.src_mf_tune_config.entity_name,
+        exp_name=config.src_mf_tune_config.exp_name,
+        bayesian_run_count=config.src_mf_tune_config.bayesian_run_count,
+        sweep_id=config.src_mf_tune_config.sweep_id,
     )
 
 
 if __name__ == "__main__":
-    main_source()
+    main()

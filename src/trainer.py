@@ -34,11 +34,12 @@ class Trainer(ABC):
         train_loader: DataLoader,
         val_loader: Union[DataLoader, ValDataLoader],
         val_metric: Valid_Metrics_Type,
+        checkpoint_save_path: Optional[Path] = None,
+        final_model_save_path: Optional[Path] = None,
         n_epochs: int = 500,
         early: Optional[int] = None,
         early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
         verbose: int = 10,
-        save_paths: Optional[tuple[Path, Path]] = None,
     ):
         """
         Method for the train of the model.
@@ -46,11 +47,12 @@ class Trainer(ABC):
         :param train_loader: data loader for training dataset
         :param val_loader: data loader for validation dataset
         :param val_metric: validation metric name
+        :param checkpoint_save_path: Path where to save the training checkpoints
+        :param final_model_save_path: Path where to save the final model
         :param n_epochs: number of epochs of training, default to 500
         :param early: patience for early stopping, default to None
         :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
         :param verbose: number of epochs to wait for printing training details
-        :param save_paths: tuple of paths where to save the checkpoint (first path) and the best model (second path)
         """
         logger.debug(f"Starting training on {device}")
         early_loss_based = True if early_stopping_criterion == "val_loss" else False
@@ -101,17 +103,17 @@ class Trainer(ABC):
                         else {"Best val loss": val_loss_dict["Val loss"]}
                     )
                 early_counter = 0
-                if save_paths:
+                if checkpoint_save_path is not None:
                     logger.info(f"Saving checkpoint")
-                    self.save_checkpoint(save_paths[0])
+                    self.model.save_checkpoint(checkpoint_save_path)
             else:
                 early_counter += 1
                 if early is not None and early_counter > early:
                     logger.info("Training interrupted due to early stopping")
-                    if save_paths:
-                        self.load_checkpoint(save_paths[0])
-                        self.save_final_model(save_paths[1])
-                        os.remove(save_paths[0])
+                    if final_model_save_path is not None and checkpoint_save_path is not None:
+                        self.model.load_checkpoint(checkpoint_save_path)
+                        self.model.save_final_model(final_model_save_path)
+                        os.remove(checkpoint_save_path)
                     break
 
     def predict(self, users: Tensor, items: Tensor, dim: int = 1):
@@ -226,45 +228,6 @@ class Trainer(ABC):
         val_score = compute_metric(val_metric, preds)
 
         return np.mean(val_score), {}
-
-    def save_final_model(self, path: Path):
-        """
-        Method for saving the final model.
-
-        :param path: path where to save the model
-        """
-        os.makedirs(path.parent, exist_ok=True)
-        torch.save(self.model.state_dict(), path)
-
-    def save_checkpoint(self, path: Path):
-        """
-        Method for saving a model checkpoint.
-
-        :param path: path where to save the model
-        """
-        os.makedirs(path.parent, exist_ok=True)
-        torch.save(
-            {"model_state_dict": self.model.state_dict(), "optimizer_state_dict": self.optimizer.state_dict()}, path
-        )
-
-    def load_checkpoint(self, path: Path):
-        """
-        Method for loading a model checkpoint.
-
-        :param path: path from which the model has to be loaded.
-        """
-        checkpoint = torch.load(path, map_location=device, weights_only=True)
-        self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
-    def load_final_model(self, path: Path):
-        """
-        Method for loading the final model.
-
-        :param path: path from which the final model has to be loaded.
-        """
-        final_model = torch.load(path, map_location=device, weights_only=True)
-        self.model.load_state_dict(final_model)
 
     @abstractmethod
     def train_epoch(self, train_loader: DataLoader, epoch: int):

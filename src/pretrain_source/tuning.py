@@ -5,12 +5,12 @@ from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from torch.optim import AdamW
 
-from src.utils import set_seed
 from src.data_loader import DataLoader, ValDataLoader
-from src.source.loss import BPRLoss
 from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
 from src.model import MatrixFactorization
-from src.source.mf_trainer import MfTrainer
+from src.pretrain_source.loss import BPRLoss
+from src.pretrain_source.mf_trainer import MfTrainer
+from src.utils import set_seed
 
 
 def mf_tuning(
@@ -23,9 +23,9 @@ def mf_tuning(
     n_items: int,
     ui_matrix: csr_matrix,
     metric: Valid_Metrics_Type,
+    early_stopping_criterion: Literal["val_loss", "val_metric"],
     n_epochs: Optional[int] = 1000,
     early: Optional[int] = 5,
-    early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
     bayesian_run_count: Optional[int] = 10,

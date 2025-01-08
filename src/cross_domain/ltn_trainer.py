@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from src.data_loader import DataLoader
 from src.model import MatrixFactorization
-from src.target.loss import LTNLoss
+from src.cross_domain.loss import LTNLoss
 from src.trainer import Trainer
 
 
@@ -70,6 +70,7 @@ class LTNRegTrainer(Trainer):
         processed_interactions: NDArray,
         p_sat_agg: int,
         p_forall: int,
+        neg_score_value: float,
         wandb_train=False,
     ):
         """
@@ -92,6 +93,7 @@ class LTNRegTrainer(Trainer):
         self.Forall = ltn.Quantifier(ltn.fuzzy_ops.AggregPMeanError(), quantifier="f")
         self.SatAgg = ltn.fuzzy_ops.SatAgg(agg_op=ltn.fuzzy_ops.AggregPMeanError(p=p_sat_agg))
         self.p_forall = p_forall
+        self.neg_score_value = neg_score_value
 
     def train_epoch(self, train_loader: DataLoader, epoch: int):
         train_loss, train_sat_agg, ax1_sat, ax2_sat = 0.0, 0.0, [], []
@@ -115,8 +117,9 @@ class LTNRegTrainer(Trainer):
             batch_proc_int = self.processed_interactions[proc_int_indices]
             # this is a negative score that is fixed during training. Every time the model transfer knowledge, it has to
             # maximize the distance of the positive item score from this score. This might be a hyper-parameter
-            # TODO understand if 0 if adequate and if this has to be set as an argument of the trainer
-            neg_score = ltn.Variable("neg_score", torch.tensor([0.0] * u.shape[0]), add_batch_dim=False)
+            neg_score = ltn.Variable(
+                "neg_score", torch.tensor([self.neg_score_value] * u.shape[0]), add_batch_dim=False
+            )
             # define variables
             reg_user = ltn.Variable("reg_user", torch.tensor(batch_proc_int[:, 0]), add_batch_dim=False)
             reg_item = ltn.Variable("reg_item", torch.tensor(batch_proc_int[:, 2]), add_batch_dim=False)

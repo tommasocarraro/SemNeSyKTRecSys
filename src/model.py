@@ -1,4 +1,10 @@
+import os
+from pathlib import Path
+
 import torch
+
+from src.device import device
+from loguru import logger
 
 
 class MatrixFactorization(torch.nn.Module):
@@ -54,3 +60,49 @@ class MatrixFactorization(torch.nn.Module):
         if self.normalize:
             pred = torch.sigmoid(pred)
         return pred
+
+    def save_final_model(self, path: Path):
+        """
+        Method for saving the final model.
+
+        :param path: path where to save the model
+        """
+        os.makedirs(path.parent, exist_ok=True)
+        torch.save(self.model.state_dict(), path)
+
+    def save_checkpoint(self, path: Path):
+        """
+        Method for saving a model checkpoint.
+
+        :param path: path where to save the model
+        """
+        os.makedirs(path.parent, exist_ok=True)
+        torch.save(
+            {"model_state_dict": self.model.state_dict(), "optimizer_state_dict": self.optimizer.state_dict()}, path
+        )
+
+    def load_checkpoint(self, path: Path):
+        """
+        Method for loading a model checkpoint.
+
+        :param path: path from which the model has to be loaded.
+        """
+        if not path.is_file():
+            logger.error(f"Model file '{path}' does not exist.")
+            exit(1)
+
+        checkpoint = torch.load(path, map_location=device, weights_only=True)
+        self.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    def load_final_model(self, path: Path):
+        """
+        Method for loading the final model.
+
+        :param path: path from which the final model has to be loaded.
+        """
+        if not path.is_file():
+            logger.error(f"Model file '{path}' does not exist.")
+            exit(1)
+        final_model = torch.load(path, map_location=device, weights_only=True)
+        self.load_state_dict(final_model)
