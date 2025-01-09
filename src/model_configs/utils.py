@@ -184,7 +184,7 @@ def get_default_tune_config_ltn_reg(
     weight_decay_range=(1e-6, 1e-1),
     p_forall_range=(1, 2, 5, 10),
     p_sat_agg_range=(1, 2, 5, 10),
-    neg_score_range=(),
+    neg_score_range=(0.0, -0.3, -0.5, -1.0, -4.0),
     top_k_src_range=(10, 50, 100, 200),
 ) -> TuneConfigLtnReg:
     return TuneConfigLtnReg(

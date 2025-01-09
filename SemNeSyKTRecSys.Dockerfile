@@ -22,4 +22,4 @@ RUN conda env create -f /app/environment_gpu.yml && conda clean -a
 ENV CONDA_DEFAULT_ENV="amazon_gpu"
 ENV PATH=/opt/conda/envs/$CONDA_DEFAULT_ENV/bin:$PATH
 
-CMD ["python", "train_target.py", "--tune", "music", "movies"]
+CMD ["python", "train_target.py", "--tune", "music", "movies", "--src_model_path", "./source_models/best_src_music_movies.pth"]
