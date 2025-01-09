@@ -11,6 +11,7 @@ WORKDIR /app
 
 COPY src /app/src
 COPY pretrain_source.py /app/pretrain_source.py
+COPY train_target.py /app/train_target.py
 COPY environment_gpu.yml /app/environment_gpu.yml
 COPY data/kg_paths /app/data/kg_paths
 COPY data/ratings /app/data/ratings
@@ -21,4 +22,4 @@ RUN conda env create -f /app/environment_gpu.yml && conda clean -a
 ENV CONDA_DEFAULT_ENV="amazon_gpu"
 ENV PATH=/opt/conda/envs/$CONDA_DEFAULT_ENV/bin:$PATH
 
-CMD ["python", "pretrain_source.py", "--tune", "music", "movies"]
+CMD ["python", "train_target.py", "--tune", "music", "movies"]
