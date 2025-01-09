@@ -105,14 +105,14 @@ class Trainer(ABC):
                 early_counter = 0
                 if checkpoint_save_path is not None:
                     logger.info(f"Saving checkpoint")
-                    self.model.save_checkpoint(checkpoint_save_path)
+                    self.save_checkpoint(checkpoint_save_path)
             else:
                 early_counter += 1
                 if early is not None and early_counter > early:
                     logger.info("Training interrupted due to early stopping")
                     if final_model_save_path is not None and checkpoint_save_path is not None:
-                        self.model.load_checkpoint(checkpoint_save_path)
-                        self.model.save_final_model(final_model_save_path)
+                        self.load_checkpoint(checkpoint_save_path)
+                        self.model.save_model(final_model_save_path)
                         os.remove(checkpoint_save_path)
                     break
 
@@ -228,6 +228,31 @@ class Trainer(ABC):
         val_score = compute_metric(val_metric, preds)
 
         return np.mean(val_score), {}
+
+    def save_checkpoint(self, path: Path):
+        """
+        Method for saving a model checkpoint.
+
+        :param path: path where to save the model
+        """
+        os.makedirs(path.parent, exist_ok=True)
+        torch.save(
+            {"model_state_dict": self.model.state_dict(), "optimizer_state_dict": self.optimizer.state_dict()}, path
+        )
+
+    def load_checkpoint(self, path: Path):
+        """
+        Method for loading a model checkpoint.
+
+        :param path: path from which the model has to be loaded.
+        """
+        if not path.is_file():
+            logger.error(f"Model file '{path}' does not exist.")
+            exit(1)
+
+        checkpoint = torch.load(path, map_location=device, weights_only=True)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     @abstractmethod
     def train_epoch(self, train_loader: DataLoader, epoch: int):

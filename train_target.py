@@ -79,7 +79,7 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
         mf_model_src = MatrixFactorization(
             n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
         )
-        mf_model_src.load_final_model(src_model_path)
+        mf_model_src.load_model(src_model_path)
 
         processed_interactions = get_reg_axiom_data(
             src_ui_matrix=dataset.src_ui_matrix,
