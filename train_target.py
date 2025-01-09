@@ -5,9 +5,9 @@ from typing import Literal, Optional
 
 import dotenv
 import torch
+import wandb
 from loguru import logger
 
-import wandb
 from src.cross_domain.ltn_trainer import LTNRegTrainer, LTNTrainer
 from src.cross_domain.tuning import ltn_tuning, ltn_tuning_reg
 from src.cross_domain.utils import get_reg_axiom_data
@@ -61,25 +61,25 @@ def main():
 
 
 def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[Path]):
-    logger.info(f"Training the model with configuration: {config.get_train_config('target')}")
+    kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
+    train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
 
-    tr_loader = DataLoader(
-        data=dataset.tgt_tr, ui_matrix=dataset.tgt_ui_matrix, batch_size=config.tgt_train_config.batch_size
-    )
+    logger.info(f"Training the model with configuration: {config.get_train_config_str(kind)}")
+
+    tr_loader = DataLoader(data=dataset.tgt_tr, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.batch_size)
 
     val_loader = ValDataLoader(
-        data=dataset.tgt_val, ui_matrix=dataset.tgt_ui_matrix, batch_size=config.tgt_train_config.batch_size
+        data=dataset.tgt_val, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.batch_size
     )
 
     mf_model_tgt = MatrixFactorization(
-        n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=config.tgt_train_config.n_factors
+        n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=train_config.n_factors
     )
 
     if src_model_path is not None:
         mf_model_src = MatrixFactorization(
             n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
         )
-        mf_model_src.load_model(src_model_path)
 
         processed_interactions = get_reg_axiom_data(
             src_ui_matrix=dataset.src_ui_matrix,
@@ -90,32 +90,28 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
                 mf_model=mf_model_src,
                 best_weights_path=config.src_train_config.final_model_save_path,
                 n_shared_users=dataset.n_sh_users,
-                top_k_src=config.tgt_train_config.top_k_src,
-                batch_size=config.tgt_train_config.batch_size,
+                top_k_src=train_config.top_k_src,
+                batch_size=train_config.batch_size,
             ),
         )
 
         tr = LTNRegTrainer(
             mf_model=mf_model_tgt,
             optimizer=torch.optim.AdamW(
-                mf_model_tgt.parameters(),
-                lr=config.tgt_train_config.learning_rate,
-                weight_decay=config.tgt_train_config.weight_decay,
+                mf_model_tgt.parameters(), lr=train_config.learning_rate, weight_decay=train_config.weight_decay
             ),
-            p_forall=config.tgt_train_config.p_forall,
-            p_sat_agg=config.tgt_train_config.p_sat_agg,
-            neg_score_value=config.tgt_train_config.neg_score,
+            p_forall=train_config.p_forall,
+            p_sat_agg=train_config.p_sat_agg,
+            neg_score_value=train_config.neg_score,
             processed_interactions=processed_interactions,
         )
     else:
         tr = LTNTrainer(
             mf_model=mf_model_tgt,
             optimizer=torch.optim.AdamW(
-                mf_model_tgt.parameters(),
-                lr=config.tgt_train_config.learning_rate,
-                weight_decay=config.tgt_train_config.weight_decay,
+                mf_model_tgt.parameters(), lr=train_config.learning_rate, weight_decay=train_config.weight_decay
             ),
-            p_forall=config.tgt_train_config.p_forall,
+            p_forall=train_config.p_forall,
         )
 
     tr.train(
@@ -125,8 +121,8 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
         early=config.early_stopping_patience,
         verbose=1,
         early_stopping_criterion=config.early_stopping_criterion,
-        checkpoint_save_path=config.src_train_config.checkpoint_save_path,
-        final_model_save_path=config.src_train_config.final_model_save_path,
+        checkpoint_save_path=train_config.checkpoint_save_path,
+        final_model_save_path=train_config.final_model_save_path,
     )
 
     val_metric_results, _ = tr.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
@@ -134,7 +130,7 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
     te_loader = ValDataLoader(
-        data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size
+        data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=train_config.batch_size
     )
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric}: {te_metric_results:.4f}")
@@ -143,6 +139,9 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
 def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[Path]):
     if config.tgt_mf_tune_config is None:
         raise ValueError("Missing tuning configuration")
+
+    kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
+    train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
 
     # wandb login
     if not dotenv.load_dotenv():
@@ -163,7 +162,7 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
             tune_config=config.get_wandb_dict_ltn(),
             train_set=dataset.tgt_tr,
             val_set=dataset.tgt_val,
-            val_batch_size=config.tgt_train_config.batch_size,
+            val_batch_size=train_config.batch_size,
             n_users=dataset.tgt_n_users,
             n_items=dataset.tgt_n_items,
             src_ui_matrix=dataset.src_ui_matrix,
@@ -177,7 +176,7 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
             bayesian_run_count=config.tgt_mf_tune_config.bayesian_run_count,
             sweep_id=config.tgt_mf_tune_config.sweep_id,
             best_src_model_path=src_model_path,
-            src_batch_size=config.tgt_train_config.batch_size,
+            src_batch_size=train_config.batch_size,
             sim_matrix=dataset.sim_matrix,
             n_sh_users=dataset.n_sh_users,
             mf_model_src=mf_model_src,
@@ -188,7 +187,7 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
             tune_config=config.get_wandb_dict_ltn(),
             train_set=dataset.tgt_tr,
             val_set=dataset.tgt_val,
-            val_batch_size=config.tgt_train_config.batch_size,
+            val_batch_size=train_config.batch_size,
             n_users=dataset.tgt_n_users,
             n_items=dataset.tgt_n_items,
             tgt_ui_matrix=dataset.tgt_ui_matrix,

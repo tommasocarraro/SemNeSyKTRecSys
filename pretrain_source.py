@@ -56,7 +56,7 @@ def main():
 
 
 def train_source(dataset: Dataset, config: ModelConfig):
-    logger.info(f"Training the model with configuration: {config.get_train_config('source')}")
+    logger.info(f"Training the model with configuration: {config.get_train_config_str('source')}")
 
     tr_loader = DataLoader(
         data=dataset.src_tr, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size

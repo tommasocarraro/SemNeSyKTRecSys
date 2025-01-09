@@ -7,7 +7,7 @@ from src.metrics import Valid_Metrics_Type
 
 
 @dataclass(frozen=True)
-class TrainConfigSrc:
+class TrainConfigMf:
     n_factors: int
     learning_rate: float
     weight_decay: float
@@ -17,9 +17,13 @@ class TrainConfigSrc:
 
 
 @dataclass(frozen=True)
-class TrainConfigTgt(TrainConfigSrc):
-    top_k_src: int
+class TrainConfigLtn(TrainConfigMf):
     p_forall: int
+
+
+@dataclass(frozen=True)
+class TrainConfigLtnReg(TrainConfigLtn):
+    top_k_src: int
     p_sat_agg: Optional[int]
     neg_score: Optional[float]
 
@@ -98,19 +102,37 @@ class ModelConfig:
     early_stopping_criterion: Literal["val_loss", "val_metric"]
     val_metric: Valid_Metrics_Type
     seed: int
-    src_train_config: TrainConfigSrc
-    tgt_train_config: TrainConfigTgt
+    src_train_config: TrainConfigMf
+    ltn_train_config: TrainConfigLtn
+    ltn_reg_train_config: TrainConfigLtnReg
     src_mf_tune_config: Optional[TuneConfigMf] = None
     tgt_mf_tune_config: Optional[TuneConfigMf] = None
     ltn_tune_config: Optional[TuneConfigLtn] = None
     ltn_reg_tune_config: Optional[TuneConfigLtnReg] = None
 
-    def get_train_config(self, kind: Literal["source", "target"]):
-        config = self.src_train_config if kind == "source" else self.tgt_train_config
-        return (
-            f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
-            f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}"
-        )
+    def get_train_config_str(self, kind: Literal["source", "ltn", "ltn_reg"]) -> str:
+        if kind == "source":
+            config = self.src_train_config
+            config_str = (
+                f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
+                f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}"
+            )
+        elif kind == "ltn":
+            config = self.ltn_train_config
+            config_str = (
+                f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
+                f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}, p_forall: {config.p_forall}"
+            )
+        elif kind == "ltn_reg":
+            config = self.ltn_reg_train_config
+            config_str = (
+                f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
+                f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}, p_forall: {config.p_forall}, "
+                f"top_k_src: {config.top_k_src}, p_forall: {config.p_forall}, "
+            )
+        else:
+            raise ValueError(f"Unknown train kind {kind}")
+        return config_str
 
     def get_wandb_dict_mf(self, kind: Literal["source", "target"]):
         config = self.src_mf_tune_config if kind == "source" else self.tgt_mf_tune_config
