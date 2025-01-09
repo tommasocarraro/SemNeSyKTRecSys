@@ -5,9 +5,9 @@ from typing import Literal
 
 import dotenv
 import torch
+import wandb
 from loguru import logger
 
-import wandb
 from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
 from src.data_preprocessing.process_source_target import process_source_target

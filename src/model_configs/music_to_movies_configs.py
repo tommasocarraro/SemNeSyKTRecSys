@@ -1,63 +1,57 @@
-from math import log
-from pathlib import Path
-
 from src.data_preprocessing.Split_Strategy import LeaveOneOut
 from src.metrics import RankingMetricsType
-from .ModelConfig import (
-    DatasetConfig,
-    MetricConfig,
-    ModelConfig,
-    ParameterDistribution,
-    ParametersConfigLtn,
-    ParametersConfigLtnReg,
-    ParametersConfigMf,
-    TrainConfigLtnReg,
-    TrainConfigMf,
-    TrainConfigLtn,
-    TuneConfigLtn,
-    TuneConfigLtnReg,
-    TuneConfigMf,
+from .ModelConfig import DatasetConfig, ModelConfig
+from .utils import (
+    Domains_Type,
+    dataset_name_to_path,
+    dataset_pair_to_paths_file,
+    get_default_tune_config_ltn,
+    get_default_tune_config_ltn_reg,
+    get_default_tune_config_mf,
+    make_train_config_ltn,
+    make_train_config_ltn_reg,
+    make_train_config_mf,
 )
 
 _seed = 0
+_src_domain: Domains_Type = "music"
+_tgt_domain: Domains_Type = "movies"
 
 train_music_to_movies_config = ModelConfig(
     src_dataset_config=DatasetConfig(
-        dataset_path=Path("./data/ratings/reviews_CDs_and_Vinyl_5.csv.7z"), split_strategy=LeaveOneOut(seed=_seed)
+        dataset_path=dataset_name_to_path[_src_domain], split_strategy=LeaveOneOut(seed=_seed)
     ),
     tgt_dataset_config=DatasetConfig(
-        dataset_path=Path("./data/ratings/reviews_Movies_and_TV_5.csv.7z"), split_strategy=LeaveOneOut(seed=_seed)
+        dataset_path=dataset_name_to_path[_tgt_domain], split_strategy=LeaveOneOut(seed=_seed)
     ),
-    paths_file_path=Path("./data/kg_paths/music(pop:200)->movies(cs:5).json.7z"),
-    epochs=1000,
-    early_stopping_patience=5,
+    paths_file_path=dataset_pair_to_paths_file[_src_domain][_tgt_domain],
     early_stopping_criterion="val_metric",
     val_metric=RankingMetricsType.NDCG10,
     seed=_seed,
-    src_train_config=TrainConfigMf(
-        n_factors=100,
-        learning_rate=0.0001388,
-        weight_decay=0.0001313,
-        batch_size=256,
-        checkpoint_save_path=Path("./source_models/checkpoint_src_music_movies.pth"),
-        final_model_save_path=Path("./source_models/best_src_music_movies.pth"),
-    ),
-    ltn_train_config=TrainConfigLtn(
-        n_factors=100,
-        learning_rate=0.0001,
-        weight_decay=0.0001,
+    src_train_config=make_train_config_mf(
+        src_domain_name=_src_domain,
+        tgt_domain_name=_tgt_domain,
+        n_factors=10,
+        learning_rate=0.001,
+        weight_decay=0.001,
         batch_size=512,
-        checkpoint_save_path=Path("./target_models/checkpoint_ltn_music_movies.pth"),
-        final_model_save_path=Path("./target_models/best_ltn_music_movies.pth"),
+    ),
+    ltn_train_config=make_train_config_ltn(
+        src_domain_name=_src_domain,
+        tgt_domain_name=_tgt_domain,
+        n_factors=10,
+        learning_rate=0.001,
+        weight_decay=0.001,
+        batch_size=256,
         p_forall=2,
     ),
-    ltn_reg_train_config=TrainConfigLtnReg(
-        n_factors=100,
-        learning_rate=0.0001,
-        weight_decay=0.0001,
-        batch_size=512,
-        checkpoint_save_path=Path("./target_models/checkpoint_ltn_reg_music_movies.pth"),
-        final_model_save_path=Path("./target_models/best_ltn_reg_music_movies.pth"),
+    ltn_reg_train_config=make_train_config_ltn_reg(
+        src_domain_name=_src_domain,
+        tgt_domain_name=_tgt_domain,
+        n_factors=10,
+        learning_rate=0.001,
+        weight_decay=0.001,
+        batch_size=256,
         top_k_src=10,
         p_forall=2,
         p_sat_agg=2,
@@ -67,44 +61,7 @@ train_music_to_movies_config = ModelConfig(
 
 tune_music_to_movies_config = ModelConfig(
     **{k: v for k, v in train_music_to_movies_config.__dict__.items() if not "tune" in k},
-    src_mf_tune_config=TuneConfigMf(
-        method="bayes",
-        metric=MetricConfig(goal="maximize", name="Best val metric"),
-        parameters=ParametersConfigMf(
-            n_factors_range=[1, 5, 10, 25, 50, 100, 150, 200],
-            learning_rate=ParameterDistribution(min=1e-5, max=1e-1, distribution="log_uniform_values"),
-            weight_decay=ParameterDistribution(min=1e-6, max=1e-1, distribution="log_uniform_values"),
-            batch_size_range=[128, 256, 512],
-        ),
-        entity_name="bmxitalia",
-        exp_name="amazon",
-        bayesian_run_count=50,
-        sweep_id=None,
-    ),
-    tgt_mf_tune_config=TuneConfigMf(
-        method="bayes",
-        metric=MetricConfig(goal="maximize", name="Best val metric"),
-        parameters=ParametersConfigMf(
-            n_factors_range=[1, 5, 10, 25, 50, 100, 150, 200],
-            learning_rate=ParameterDistribution(min=1e-5, max=1e-1, distribution="log_uniform_values"),
-            weight_decay=ParameterDistribution(min=1e-6, max=1e-1, distribution="log_uniform_values"),
-            batch_size_range=[128, 256, 512],
-        ),
-        entity_name="bmxitalia",
-        exp_name="amazon",
-        bayesian_run_count=50,
-        sweep_id=None,
-    ),
-    ltn_tune_config=TuneConfigLtn(
-        method="bayes",
-        metric=MetricConfig(goal="maximize", name="Best val metric"),
-        parameters=ParametersConfigLtn(p_forall=[1, 2, 5, 10]),
-    ),
-    ltn_reg_tune_config=TuneConfigLtnReg(
-        method="bayes",
-        metric=MetricConfig(goal="maximize", name="Best val metric"),
-        parameters=ParametersConfigLtnReg(
-            p_forall=[1, 2, 5, 10], p_sat_agg=[1, 2, 5, 10], top_k_src=[10, 50, 100, 200]
-        ),
-    )
+    src_mf_tune_config=get_default_tune_config_mf(),
+    ltn_tune_config=get_default_tune_config_ltn(),
+    ltn_reg_tune_config=get_default_tune_config_ltn_reg()
 )

@@ -133,15 +133,15 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
         data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=train_config.batch_size
     )
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric}: {te_metric_results:.4f}")
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
 def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[Path]):
-    if config.tgt_mf_tune_config is None:
-        raise ValueError("Missing tuning configuration")
-
     kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
     train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
+    tune_config = config.ltn_tune_config if kind == "ltn" else config.ltn_reg_tune_config
+    if tune_config is None:
+        raise ValueError("Missing tuning configuration")
 
     # wandb login
     if not dotenv.load_dotenv():
@@ -171,10 +171,10 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
             n_epochs=config.epochs,
             early=config.early_stopping_patience,
             early_stopping_criterion=config.early_stopping_criterion,
-            entity_name=config.tgt_mf_tune_config.entity_name,
-            exp_name=config.tgt_mf_tune_config.exp_name,
-            bayesian_run_count=config.tgt_mf_tune_config.bayesian_run_count,
-            sweep_id=config.tgt_mf_tune_config.sweep_id,
+            entity_name=tune_config.entity_name,
+            exp_name=tune_config.exp_name,
+            bayesian_run_count=tune_config.bayesian_run_count,
+            sweep_id=tune_config.sweep_id,
             best_src_model_path=src_model_path,
             src_batch_size=train_config.batch_size,
             sim_matrix=dataset.sim_matrix,
@@ -195,10 +195,10 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
             n_epochs=config.epochs,
             early=config.early_stopping_patience,
             early_stopping_criterion=config.early_stopping_criterion,
-            entity_name=config.tgt_mf_tune_config.entity_name,
-            exp_name=config.tgt_mf_tune_config.exp_name,
-            bayesian_run_count=config.tgt_mf_tune_config.bayesian_run_count,
-            sweep_id=config.tgt_mf_tune_config.sweep_id,
+            entity_name=tune_config.entity_name,
+            exp_name=tune_config.exp_name,
+            bayesian_run_count=tune_config.bayesian_run_count,
+            sweep_id=tune_config.sweep_id,
         )
 
 

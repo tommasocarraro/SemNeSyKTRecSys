@@ -13,12 +13,12 @@ from .utils import (
     make_train_config_mf,
 )
 
+
 _seed = 0
-_src_domain: Domains_Type = "books"
-_tgt_domain: Domains_Type = "movies"
+_src_domain: Domains_Type = "movies"
+_tgt_domain: Domains_Type = "music"
 
-
-train_books_to_movies_config = ModelConfig(
+train_movies_to_music_config = ModelConfig(
     src_dataset_config=DatasetConfig(
         dataset_path=dataset_name_to_path[_src_domain], split_strategy=LeaveOneOut(seed=_seed)
     ),
@@ -60,8 +60,8 @@ train_books_to_movies_config = ModelConfig(
     ),
 )
 
-tune_books_to_movies_config = ModelConfig(
-    **{k: v for k, v in train_books_to_movies_config.__dict__.items() if not "tune" in k},
+tune_movies_to_music_config = ModelConfig(
+    **{k: v for k, v in train_movies_to_music_config.__dict__.items() if not "tune" in k},
     src_mf_tune_config=get_default_tune_config_mf(),
     ltn_tune_config=get_default_tune_config_ltn(),
     ltn_reg_tune_config=get_default_tune_config_ltn_reg()

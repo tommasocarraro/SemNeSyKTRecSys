@@ -89,8 +89,8 @@ trainer_tgt = LTNRegTrainer(
     mf_model=mf_model_tgt,
     optimizer=torch.optim.AdamW(
         params=mf_model_tgt.parameters(),
-        lr=config.tgt_train_config.learning_rate,
-        weight_decay=config.tgt_train_config.weight_decay,
+        lr=config.tgt_train_config.learning_rate_range,
+        weight_decay=config.tgt_train_config.weight_decay_range,
     ),
     processed_interactions=get_reg_axiom_data(
         src_ui_matrix=dataset.src_ui_matrix,
