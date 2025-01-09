@@ -40,9 +40,9 @@ train_movies_to_music_config = ModelConfig(
     ltn_train_config=make_train_config_ltn(
         src_domain_name=_src_domain,
         tgt_domain_name=_tgt_domain,
-        n_factors=10,
-        learning_rate=0.001,
-        weight_decay=0.001,
+        n_factors=100,
+        learning_rate=0.00013886,
+        weight_decay=0.00013136,
         batch_size=256,
         p_forall=2,
     ),
