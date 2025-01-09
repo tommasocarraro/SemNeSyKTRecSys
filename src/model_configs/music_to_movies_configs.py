@@ -35,9 +35,9 @@ train_music_to_movies_config = ModelConfig(
     seed=_seed,
     src_train_config=TrainConfigSrc(
         n_factors=100,
-        learning_rate=0.0001,
-        weight_decay=0.0001,
-        batch_size=512,
+        learning_rate=0.0001388,
+        weight_decay=0.0001313,
+        batch_size=256,
         checkpoint_save_path=Path("./source_models/checkpoint_src_music_movies.pth"),
         final_model_save_path=Path("./source_models/best_src_music_movies.pth"),
     ),

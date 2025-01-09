@@ -35,9 +35,9 @@ train_movies_to_books_config = ModelConfig(
     seed=_seed,
     src_train_config=TrainConfigSrc(
         n_factors=100,
-        learning_rate=0.0003,
-        weight_decay=0.07,
-        batch_size=512,
+        learning_rate=0.0002269,
+        weight_decay=0.0069649,
+        batch_size=128,
         checkpoint_save_path=Path("./source_models/checkpoint_src_movies_books.pth"),
         final_model_save_path=Path("./source_models/best_src_movies_books.pth"),
     ),
