@@ -79,7 +79,7 @@ def ltn_tuning(
             train_loader = DataLoader(train_set, tgt_ui_matrix, tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
-            trainer = LTNTrainer(mf_model=mf, optimizer=optimizer, p_forall=p_forall)
+            trainer = LTNTrainer(mf_model=mf, optimizer=optimizer, p_forall=p_forall, wandb_train=True)
             # perform training
             trainer.train(
                 train_loader=train_loader,
@@ -196,6 +196,7 @@ def ltn_tuning_reg(
                 p_sat_agg=p_sat_agg,
                 neg_score_value=neg_score_value,
                 processed_interactions=processed_interactions,
+                wandb_train=True
             )
             # perform training
             trainer.train(
