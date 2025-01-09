@@ -9,6 +9,7 @@ from src.data_loader import DataLoader
 from src.model import MatrixFactorization
 from src.cross_domain.loss import LTNLoss
 from src.trainer import Trainer
+from src.device import device
 
 
 class LTNTrainer(Trainer):
@@ -27,7 +28,7 @@ class LTNTrainer(Trainer):
         :param p_forall: hyperparameter p for universal quantifier aggregator
         :param wandb_train: whether the training information has to be logged on WandB or not
         """
-        self.model = mf_model
+        self.model = mf_model.to(device)
         self.optimizer = optimizer
         self.wandb_train = wandb_train
         self.loss = LTNLoss()
@@ -84,7 +85,7 @@ class LTNRegTrainer(Trainer):
         :param p_forall: hyperparameter p for universal quantifier aggregator
         :param wandb_train: whether the training information has to be logged on WandB or not
         """
-        self.model = mf_model
+        self.model = mf_model.to(device)
         self.optimizer = optimizer
         self.loss = LTNLoss()
         self.wandb_train = wandb_train
