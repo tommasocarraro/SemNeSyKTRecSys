@@ -118,7 +118,7 @@ def tune_source(dataset: Dataset, config: ModelConfig):
 
     mf_tuning(
         seed=config.seed,
-        tune_config=config.get_wandb_dict_mf("source"),
+        tune_config=config.get_wandb_dict_mf(),
         train_set=dataset.src_tr,
         val_set=dataset.src_val,
         val_batch_size=config.src_train_config.batch_size,

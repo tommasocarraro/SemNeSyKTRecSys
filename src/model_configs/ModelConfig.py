@@ -142,24 +142,23 @@ class ModelConfig:
             raise ValueError(f"Unknown train kind {kind}")
         return config_str
 
-    def get_wandb_dict_mf(self, kind: Literal["source", "target"]):
-        config = self.src_mf_tune_config if kind == "source" else self.tgt_mf_tune_config
+    def get_wandb_dict_mf(self):
         return {
-            "method": config.method,
-            "metric": {"goal": config.metric.goal, "name": config.metric.name},
+            "method": self.src_mf_tune_config.method,
+            "metric": {"goal": self.src_mf_tune_config.metric.goal, "name": self.src_mf_tune_config.metric.name},
             "parameters": {
-                "n_factors": {"values": config.parameters.n_factors_range},
+                "n_factors": {"values": self.src_mf_tune_config.parameters.n_factors_range},
                 "learning_rate": {
-                    "min": config.parameters.learning_rate_range.min,
-                    "max": config.parameters.learning_rate_range.max,
-                    "distribution": config.parameters.learning_rate_range.distribution,
+                    "min": self.src_mf_tune_config.parameters.learning_rate_range.min,
+                    "max": self.src_mf_tune_config.parameters.learning_rate_range.max,
+                    "distribution": self.src_mf_tune_config.parameters.learning_rate_range.distribution,
                 },
                 "weight_decay": {
-                    "min": config.parameters.weight_decay_range.min,
-                    "max": config.parameters.weight_decay_range.max,
-                    "distribution": config.parameters.weight_decay_range.distribution,
+                    "min": self.src_mf_tune_config.parameters.weight_decay_range.min,
+                    "max": self.src_mf_tune_config.parameters.weight_decay_range.max,
+                    "distribution": self.src_mf_tune_config.parameters.weight_decay_range.distribution,
                 },
-                "batch_size": {"values": config.parameters.batch_size_range},
+                "batch_size": {"values": self.src_mf_tune_config.parameters.batch_size_range},
             },
         }
 

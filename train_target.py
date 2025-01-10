@@ -159,7 +159,7 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
         )
         ltn_tuning_reg(
             seed=config.seed,
-            tune_config=config.get_wandb_dict_ltn(),
+            tune_config=config.get_wandb_dict_ltn_reg(),
             train_set=dataset.tgt_tr,
             val_set=dataset.tgt_val,
             val_batch_size=train_config.batch_size,
