@@ -168,10 +168,11 @@ def ltn_tuning_reg(
             tr_batch_size = wandb.config.batch_size
             p_forall = wandb.config.p_forall
             p_sat_agg = wandb.config.p_sat_agg
-            neg_score_value = wandb.config.neg_score_value
+            neg_score_value = - wandb.config.neg_score_value
             top_k_src = wandb.config.top_k_src
             # set run name
             run.name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall={p_forall}_p_sat_agg={p_sat_agg}_neg_score_value={neg_score_value}"
+            print(run.name)
             # define loader, model, optimizer and trainer
             train_loader = DataLoader(train_set, tgt_ui_matrix, tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
