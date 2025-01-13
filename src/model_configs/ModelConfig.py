@@ -76,7 +76,7 @@ class ParametersConfigLtnReg(ParametersConfigMf):
     top_k_src_range: list[int]
     p_forall_range: list[int]
     p_sat_agg_range: list[int]
-    neg_score_range: list[float]
+    neg_score_range: ParameterDistribution
 
 
 @dataclass(frozen=True)

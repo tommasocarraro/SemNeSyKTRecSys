@@ -184,7 +184,7 @@ def get_default_tune_config_ltn_reg(
     weight_decay_range=(1e-6, 1e-1),
     p_forall_range=(1, 2, 5, 10),
     p_sat_agg_range=(1, 2, 5, 10),
-    neg_score_range=(0.0, -0.3, -0.5, -1.0, -4.0),
+    neg_score_range=(-5.0, -0.1),
     top_k_src_range=(10, 50, 100, 200),
 ) -> TuneConfigLtnReg:
     return TuneConfigLtnReg(
@@ -202,7 +202,9 @@ def get_default_tune_config_ltn_reg(
             p_forall_range=list(p_forall_range),
             p_sat_agg_range=list(p_sat_agg_range),
             top_k_src_range=list(top_k_src_range),
-            neg_score_range=list(neg_score_range),
+            neg_score_range=ParameterDistribution(
+                min=neg_score_range[0], max=neg_score_range[1], distribution="log_uniform_values"
+            ),
         ),
         entity_name="bmxitalia",
         exp_name="amazon",
