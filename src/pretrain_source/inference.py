@@ -22,6 +22,8 @@ def generate_pre_trained_src_matrix(
     :param top_k_src: number of items at the top of the ranking that have to be treated as positive items.
     :param batch_size: number of predictions to be computed in parallel at each prediction step.
     """
+    # put model on correct device
+    mf_model = mf_model.to(device)
     # load the best weights on the model
     mf_model.load_state_dict(torch.load(best_weights_path, map_location=device, weights_only=True))
     # initialize predictions tensor
