@@ -206,9 +206,9 @@ class ModelConfig:
                 "p_forall": {"values": self.ltn_reg_tune_config.parameters.p_forall_range},
                 "p_sat_agg": {"values": self.ltn_reg_tune_config.parameters.p_sat_agg_range},
                 "neg_score_value": {
-                    "min": config.parameters.neg_score_range.min,
-                    "max": config.parameters.neg_score_range.max,
-                    "distribution": config.parameters.neg_score_range.distribution,
+                    "min": self.ltn_reg_tune_config.parameters.neg_score_range.min,
+                    "max": self.ltn_reg_tune_config.parameters.neg_score_range.max,
+                    "distribution": self.ltn_reg_tune_config.parameters.neg_score_range.distribution,
                 }
             },
         }
