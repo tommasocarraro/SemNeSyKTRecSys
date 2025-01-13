@@ -24,6 +24,7 @@ COPY train_target.py /app/train_target.py
 COPY environment_gpu.yml /app/environment_gpu.yml
 COPY data/kg_paths /app/data/kg_paths
 COPY data/ratings /app/data/ratings
+COPY source_models /app/source_models
 COPY .env /app/.env
 
 RUN conda env create -f /app/environment_gpu.yml && conda clean -a
@@ -37,4 +38,4 @@ RUN chown -R $USER:$USER_GROUP /app
 # Switch to the non-root user
 USER $USER
 
-CMD ["python", "pretrain_source.py", "--train", "movies", "music"]
+CMD ["python", "train_target.py", "--tune", "music", "movies", "--src_model_path", "./source_models/best_src_music_movies.pth"]
