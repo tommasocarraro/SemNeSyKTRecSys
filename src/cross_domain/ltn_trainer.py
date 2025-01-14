@@ -70,7 +70,8 @@ class LTNRegTrainer(Trainer):
         optimizer: Optimizer,
         processed_interactions: NDArray,
         p_sat_agg: int,
-        p_forall: int,
+        p_forall_ax1: int,
+        p_forall_ax2: int,
         neg_score_value: float,
         wandb_train=False,
     ):
@@ -82,7 +83,8 @@ class LTNRegTrainer(Trainer):
         :param processed_interactions: user-item interactions for which the sampling for the regularization axiom has
         to be performed
         :param p_sat_agg: hyperparameter p for sat aggregator
-        :param p_forall: hyperparameter p for universal quantifier aggregator
+        :param p_forall_ax1: hyperparameter p for universal quantifier aggregator of axiom 1
+        :param p_forall_ax2: hyperparameter p for universal quantifier aggregator of axiom 2
         :param wandb_train: whether the training information has to be logged on WandB or not
         """
         self.model = mf_model.to(device)
@@ -93,7 +95,8 @@ class LTNRegTrainer(Trainer):
         self.Score = ltn.Function(mf_model)
         self.Forall = ltn.Quantifier(ltn.fuzzy_ops.AggregPMeanError(), quantifier="f")
         self.SatAgg = ltn.fuzzy_ops.SatAgg(agg_op=ltn.fuzzy_ops.AggregPMeanError(p=p_sat_agg))
-        self.p_forall = p_forall
+        self.p_forall_ax1 = p_forall_ax1
+        self.p_forall_ax2 = p_forall_ax2
         self.neg_score_value = neg_score_value
 
     def train_epoch(self, train_loader: DataLoader, epoch: int):
@@ -109,7 +112,7 @@ class LTNRegTrainer(Trainer):
             axiom1 = self.Forall(
                 ltn.diag(user, item_pos, item_neg),
                 self.loss(self.Score(user, item_pos), self.Score(user, item_neg)),
-                p=self.p_forall,
+                p=self.p_forall_ax1,
             )
             ax1_sat.append(axiom1.value.item())
             # axiom 2
@@ -128,7 +131,7 @@ class LTNRegTrainer(Trainer):
             axiom2 = self.Forall(
                 ltn.diag(reg_user, reg_item, neg_score),
                 self.loss(self.Score(reg_user, reg_item), neg_score),
-                p=self.p_forall,
+                p=self.p_forall_ax2,
             )
             ax2_sat.append(axiom2.value.item())
             train_sat = self.SatAgg(axiom1, axiom2)

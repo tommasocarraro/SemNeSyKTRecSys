@@ -182,7 +182,8 @@ def get_default_tune_config_ltn_reg(
     batch_size_range=(128, 256, 512),
     learning_rate_range=(1e-5, 1e-1),
     weight_decay_range=(1e-6, 1e-1),
-    p_forall_range=(1, 2, 5, 10),
+    p_forall_ax1_range=(1, 2, 5, 10),
+    p_forall_ax2_range=(1, 2, 5, 10),
     p_sat_agg_range=(1, 2, 5, 10),
     neg_score_range=(0.1, 5.0),
     top_k_src_range=(10, 50, 100, 200),
@@ -199,7 +200,8 @@ def get_default_tune_config_ltn_reg(
                 min=weight_decay_range[0], max=weight_decay_range[1], distribution="log_uniform_values"
             ),
             batch_size_range=list(batch_size_range),
-            p_forall_range=list(p_forall_range),
+            p_forall_ax1_range=list(p_forall_ax1_range),
+            p_forall_ax2_range=list(p_forall_ax2_range),
             p_sat_agg_range=list(p_sat_agg_range),
             top_k_src_range=list(top_k_src_range),
             neg_score_range=ParameterDistribution(
