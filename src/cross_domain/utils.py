@@ -32,7 +32,7 @@ def get_reg_axiom_data(
     using a recommendation model pre-trained in the source domain
     :param save_dir_path: path to save the generated reg axiom data
     """
-    save_dir_file_path = save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_reg_axiom.npy"
+    save_dir_file_path = save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_k={top_k_items.shape[1]}_reg_axiom.npy"
     if save_dir_file_path.is_file():
         return np.load(save_dir_file_path)
 
