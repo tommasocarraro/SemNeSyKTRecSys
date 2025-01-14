@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
@@ -10,6 +12,9 @@ def get_reg_axiom_data(
     n_sh_users: int,
     sim_matrix: csr_matrix,
     top_k_items: NDArray,
+    save_dir_path: Path,
+    src_dataset_name: str,
+    tgt_dataset_name: str,
 ):
     """
     This function generates user-item pairs that will be given in input to the second axiom of the LTN model, namely the
@@ -25,12 +30,18 @@ def get_reg_axiom_data(
     0 otherwise
     :param top_k_items: numpy array containing for each shared user a list of top-k items the user might like, generated
     using a recommendation model pre-trained in the source domain
+    :param save_dir_path: path to save the generated reg axiom data
     """
+    save_dir_file_path = save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_reg_axiom.npy"
+    if save_dir_file_path.is_file():
+        return np.load(save_dir_file_path)
+
     processed_interactions = []
     # find IDs of source domain items for which there exists a path with at least one target domain item
     src_exist_path_items = set(sim_matrix.nonzero()[0])
     # find IDs of target domain items for which there exists a path with at least one source domain item
     tgt_exist_path_items = set(sim_matrix.nonzero()[1])
+    tgt_exist_path_items_l = list(tgt_exist_path_items)
     # iterate through each user in the set of shared users (the shared users are the only ones for which the information
     # can be transferred)
     for user in tqdm(range(n_sh_users), desc="Generating user-item pairs as input to LTN model", dynamic_ncols=True):
@@ -57,21 +68,27 @@ def get_reg_axiom_data(
                 if len(user_tgt_interacted_items) <= 5:
                     # get all the items for which a rating is missing in the target domain for this cold-start user
                     all_items = np.arange(tgt_ui_matrix.shape[1])
+                    # for each item, check if the item is connected with at least one source domain item
                     no_rated_items = np.setdiff1d(all_items, user_tgt_interacted_items)
 
-                    for tgt_item_id in no_rated_items:
-                        # for each item, check if the item is connected with at least one source domain item
-                        if tgt_item_id in tgt_exist_path_items:
-                            # if the connection exists, we want to find to which source domain items liked by the shared
-                            # user this item is connected
+                    # pre-compute paths existence for all top-k items for the shared user
+                    user_src_tgt_paths = sim_matrix[filtered_user_src_top_k]
 
-                            # get paths for the top-k items recommended for the shared user
-                            user_src_tgt_paths = sim_matrix[filtered_user_src_top_k]
-                            # for each possible path from each of the top-k source items for the shared user, we check
-                            # if the path converges into the current target item
-                            for src_item_id, user_paths in zip(filtered_user_src_top_k, user_src_tgt_paths):
-                                if tgt_item_id in user_paths.nonzero()[1]:
-                                    # if the current path converges into the current target item, we generate the
-                                    # triplet
-                                    processed_interactions.append((user, src_item_id, tgt_item_id))
-    return np.array(processed_interactions)
+                    # get indices of target domain items for which a path to the source domain item exists each set in
+                    # this list contains paths from a source domain item to all the connected target domain items
+                    user_paths = [set(user_paths.nonzero()[1]) for user_paths in user_src_tgt_paths]
+
+                    for tgt_item_id in np.intersect1d(no_rated_items, tgt_exist_path_items_l):
+                        # if the connection exists, we want to find to which source domain items liked by the shared
+                        # user this item is connected
+
+                        # for each possible path from each of the top-k source items for the shared user, we check
+                        # if the path converges into the current target item
+                        for src_item_id, path_indices in zip(filtered_user_src_top_k, user_paths):
+                            if tgt_item_id in path_indices:
+                                # if the current path converges into the current target item, we generate the triplet
+                                processed_interactions.append((user, src_item_id, tgt_item_id))
+
+    processed_interactions = np.array(processed_interactions)
+    np.save(save_dir_file_path, processed_interactions)
+    return processed_interactions

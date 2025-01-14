@@ -11,7 +11,6 @@ from src.cross_domain.utils import get_reg_axiom_data
 from src.data_loader import DataLoader, ValDataLoader
 from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
 from src.model import MatrixFactorization
-from src.pretrain_source.inference import generate_pre_trained_src_matrix
 from src.utils import set_seed
 
 
@@ -101,17 +100,18 @@ def ltn_tuning_reg(
     seed: int,
     tune_config: dict[str, Any],
     train_set: NDArray,
-    src_batch_size: int,
     val_set: NDArray,
     val_batch_size: int,
     n_users: int,
     n_sh_users: int,
     n_items: int,
+    sim_matrix: csr_matrix,
     src_ui_matrix: csr_matrix,
     tgt_ui_matrix: csr_matrix,
-    sim_matrix: csr_matrix,
-    mf_model_src: MatrixFactorization,
-    best_src_model_path: Path,
+    top_200_preds: NDArray,
+    src_dataset_name: str,
+    tgt_dataset_name: str,
+    save_dir_path: Path,
     val_metric: Valid_Metrics_Type,
     early_stopping_criterion: Literal["val_loss", "val_metric"],
     n_epochs: Optional[int] = 1000,
@@ -128,17 +128,11 @@ def ltn_tuning_reg(
     :param seed: seed for reproducibility
     :param tune_config: configuration for the tuning of hyperparameters
     :param train_set: train set on which the tuning is performed
-    :param src_batch_size: batch size used for source domain training
     :param val_set: validation set on which the tuning is evaluated
     :param val_batch_size: batch size for validation
     :param n_users: number of users in the dataset
-    :param n_sh_users: number of shared users in the dataset
     :param n_items: number of items in the dataset
-    :param src_ui_matrix: sparse matrix of user interactions from source domain
     :param tgt_ui_matrix: sparse matrix of user interactions from target domain
-    :param sim_matrix: sparse matrix of similarity between items from source and target domain
-    :param mf_model_src: Matrix Factorization model for the source domain
-    :param best_src_model_path: path where the state dict of the source MF model is saved
     :param val_metric: validation metric that has to be used
     :param n_epochs: number of epochs for hyperparameter tuning
     :param early: number of epochs for early stopping
@@ -168,27 +162,26 @@ def ltn_tuning_reg(
             tr_batch_size = wandb.config.batch_size
             p_forall = wandb.config.p_forall
             p_sat_agg = wandb.config.p_sat_agg
-            neg_score_value = - wandb.config.neg_score_value
+            neg_score_value = -wandb.config.neg_score_value
             top_k_src = wandb.config.top_k_src
+            top_k_preds = top_200_preds[:, :top_k_src]
+            processed_interactions = get_reg_axiom_data(
+                src_ui_matrix=src_ui_matrix,
+                tgt_ui_matrix=tgt_ui_matrix,
+                n_sh_users=n_sh_users,
+                sim_matrix=sim_matrix,
+                top_k_items=top_k_preds,
+                save_dir_path=save_dir_path,
+                src_dataset_name=src_dataset_name,
+                tgt_dataset_name=tgt_dataset_name,
+            )
             # set run name
             run.name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall={p_forall}_p_sat_agg={p_sat_agg}_neg_score_value={neg_score_value}"
             # define loader, model, optimizer and trainer
             train_loader = DataLoader(train_set, tgt_ui_matrix, tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
-            processed_interactions = get_reg_axiom_data(
-                src_ui_matrix=src_ui_matrix,
-                tgt_ui_matrix=tgt_ui_matrix,
-                n_sh_users=n_sh_users,
-                sim_matrix=sim_matrix,
-                top_k_items=generate_pre_trained_src_matrix(
-                    mf_model=mf_model_src,
-                    best_weights_path=best_src_model_path,
-                    n_shared_users=n_sh_users,
-                    top_k_src=top_k_src,
-                    batch_size=src_batch_size,
-                ),
-            )
+
             trainer = LTNRegTrainer(
                 mf_model=mf,
                 optimizer=optimizer,
@@ -196,7 +189,7 @@ def ltn_tuning_reg(
                 p_sat_agg=p_sat_agg,
                 neg_score_value=neg_score_value,
                 processed_interactions=processed_interactions,
-                wandb_train=True
+                wandb_train=True,
             )
             # perform training
             trainer.train(

@@ -16,6 +16,7 @@ from src.data_preprocessing.Dataset import Dataset
 from src.data_preprocessing.process_source_target import process_source_target
 from src.model import MatrixFactorization
 from src.model_configs import ModelConfig, get_config
+from src.model_configs.ModelConfig import TuneConfigLtnReg
 from src.pretrain_source.inference import generate_pre_trained_src_matrix
 from src.utils import set_seed
 
@@ -33,6 +34,8 @@ parser.add_argument(
 parser.add_argument("--src_model_path", type=str, help="Path to pretrained source model", required=False)
 parser.add_argument("--clear", help="recompute dataset", action="store_true")
 
+save_dir_path = Path("data/saved_data/")
+
 
 def main():
     args = parser.parse_args()
@@ -48,19 +51,25 @@ def main():
         src_dataset_config=config.src_dataset_config,
         tgt_dataset_config=config.tgt_dataset_config,
         paths_file_path=config.paths_file_path,
-        save_dir_path=Path("data/saved_data/"),
+        save_dir_path=save_dir_path,
         clear_saved_dataset=args.clear,
     )
 
     src_model_path = Path(src_model_path) if src_model_path is not None else None
 
     if args.train:
-        train_target(dataset, config, src_model_path)
+        train_target(dataset, config, src_model_path, src_dataset_name, tgt_dataset_name)
     elif args.tune:
-        tune_target(dataset, config, src_model_path)
+        tune_target(dataset, config, src_model_path, src_dataset_name, tgt_dataset_name)
 
 
-def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[Path]):
+def train_target(
+    dataset: Dataset,
+    config: ModelConfig,
+    src_model_path: Optional[Path],
+    src_dataset_name: str,
+    tgt_dataset_name: str,
+):
     kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
     train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
 
@@ -81,18 +90,23 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
             n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
         )
 
+        top_k_items = generate_pre_trained_src_matrix(
+            mf_model=mf_model_src,
+            best_weights_path=config.src_train_config.final_model_save_path,
+            n_shared_users=dataset.n_sh_users,
+            save_dir_path=save_dir_path,
+            batch_size=2048,
+        )[:, : train_config.top_k_src]
+
         processed_interactions = get_reg_axiom_data(
             src_ui_matrix=dataset.src_ui_matrix,
             tgt_ui_matrix=dataset.tgt_ui_matrix,
             n_sh_users=dataset.n_sh_users,
             sim_matrix=dataset.sim_matrix,
-            top_k_items=generate_pre_trained_src_matrix(
-                mf_model=mf_model_src,
-                best_weights_path=config.src_train_config.final_model_save_path,
-                n_shared_users=dataset.n_sh_users,
-                top_k_src=train_config.top_k_src,
-                batch_size=train_config.batch_size,
-            ),
+            top_k_items=top_k_items,
+            save_dir_path=save_dir_path,
+            src_dataset_name=src_dataset_name,
+            tgt_dataset_name=tgt_dataset_name,
         )
 
         tr = LTNRegTrainer(
@@ -136,7 +150,13 @@ def train_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
-def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[Path]):
+def tune_target(
+    dataset: Dataset,
+    config: ModelConfig,
+    src_model_path: Optional[Path],
+    src_dataset_name: str,
+    tgt_dataset_name: str,
+):
     kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
     train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
     tune_config = config.ltn_tune_config if kind == "ltn" else config.ltn_reg_tune_config
@@ -154,9 +174,19 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
     wandb.login(key=api_key)
 
     if src_model_path is not None:
+        tune_config: TuneConfigLtnReg
         mf_model_src = MatrixFactorization(
             n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
         )
+
+        top_200_preds = generate_pre_trained_src_matrix(
+            mf_model=mf_model_src,
+            best_weights_path=src_model_path,
+            n_shared_users=dataset.n_sh_users,
+            batch_size=2048,
+            save_dir_path=save_dir_path,
+        )
+
         ltn_tuning_reg(
             seed=config.seed,
             tune_config=config.get_wandb_dict_ltn_reg(),
@@ -175,11 +205,12 @@ def tune_target(dataset: Dataset, config: ModelConfig, src_model_path: Optional[
             exp_name=tune_config.exp_name,
             bayesian_run_count=tune_config.bayesian_run_count,
             sweep_id=tune_config.sweep_id,
-            best_src_model_path=src_model_path,
-            src_batch_size=train_config.batch_size,
+            top_200_preds=top_200_preds,
             sim_matrix=dataset.sim_matrix,
             n_sh_users=dataset.n_sh_users,
-            mf_model_src=mf_model_src,
+            save_dir_path=save_dir_path,
+            src_dataset_name=src_dataset_name,
+            tgt_dataset_name=tgt_dataset_name,
         )
     else:
         ltn_tuning(
