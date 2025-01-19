@@ -26,6 +26,7 @@ class TrainConfigLtnReg(TrainConfigLtn):
     top_k_src: int
     p_sat_agg: int
     neg_score: float
+    p_forall_ax2: int
 
 
 @dataclass(frozen=True)
@@ -211,6 +212,6 @@ class ModelConfig:
                     "min": self.ltn_reg_tune_config.parameters.neg_score_range.min,
                     "max": self.ltn_reg_tune_config.parameters.neg_score_range.max,
                     "distribution": self.ltn_reg_tune_config.parameters.neg_score_range.distribution,
-                }
+                },
             },
         }
