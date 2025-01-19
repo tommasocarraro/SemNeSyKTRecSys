@@ -138,7 +138,7 @@ class ModelConfig:
             config_str = (
                 f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
                 f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}, p_forall: {config.p_forall}, "
-                f"top_k_src: {config.top_k_src}, p_forall: {config.p_forall}, "
+                f"top_k_src: {config.top_k_src}, p_forall_ax1: {config.p_forall}, p_forall_ax2: {config.p_forall_ax2} "
             )
         else:
             raise ValueError(f"Unknown train kind {kind}")
