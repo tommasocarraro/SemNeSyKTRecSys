@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 from src.device import device
 from src.model import MatrixFactorization
+from loguru import logger
 
 
 def generate_pre_trained_src_matrix(
@@ -33,6 +34,7 @@ def generate_pre_trained_src_matrix(
     mf_model = mf_model.to(device)
     # load the best weights on the model
     mf_model.load_state_dict(torch.load(best_weights_path, map_location=device, weights_only=True))
+    logger.debug("Loaded source model's weights")
     # initialize predictions tensor
     preds = torch.zeros((n_shared_users, mf_model.n_items))
     # compute predictions for all shared users and items pairs and put them in the preds tensor
