@@ -114,7 +114,8 @@ def train_target(
             optimizer=torch.optim.AdamW(
                 mf_model_tgt.parameters(), lr=train_config.learning_rate, weight_decay=train_config.weight_decay
             ),
-            p_forall=train_config.p_forall,
+            p_forall_ax1=train_config.p_forall,
+            p_forall_ax2=train_config.p_forall_ax2,
             p_sat_agg=train_config.p_sat_agg,
             neg_score_value=train_config.neg_score,
             processed_interactions=processed_interactions,
