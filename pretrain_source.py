@@ -99,7 +99,7 @@ def train_source(dataset: Dataset, config: ModelConfig):
         data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size
     )
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric}: {te_metric_results:.4f}")
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
 def tune_source(dataset: Dataset, config: ModelConfig):
