@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+from loguru import logger
 from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from tqdm import tqdm
@@ -31,8 +32,12 @@ def get_reg_axiom_data(
     :param top_k_items: numpy array containing for each shared user a list of top-k items the user might like, generated
     using a recommendation model pre-trained in the source domain
     :param save_dir_path: path to save the generated reg axiom data
+    :param src_dataset_name: name of the source domain dataset to use
+    :param tgt_dataset_name: name of the target domain dataset to use
     """
-    save_dir_file_path = save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_k={top_k_items.shape[1]}_reg_axiom.npy"
+    save_dir_file_path = (
+        save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_k={top_k_items.shape[1]}_reg_axiom.npy"
+    )
     if save_dir_file_path.is_file():
         return np.load(save_dir_file_path)
 
@@ -89,6 +94,9 @@ def get_reg_axiom_data(
                                 # if the current path converges into the current target item, we generate the triplet
                                 processed_interactions.append((user, src_item_id, tgt_item_id))
 
+    logger.debug("User-item pairs generated. Converting to numpy array")
     processed_interactions = np.array(processed_interactions)
+    logger.debug("Saving the numpy array to file system")
     np.save(save_dir_file_path, processed_interactions)
+    logger.debug("Returning the user-item pairs")
     return processed_interactions
