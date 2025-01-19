@@ -44,6 +44,15 @@ class MatrixFactorization(torch.nn.Module):
         torch.nn.init.xavier_normal_(self.u_bias.weight)
         torch.nn.init.xavier_normal_(self.i_bias.weight)
 
+    def re_init_weights(self):
+        """
+        Reinitialize the weights of the model
+        """
+        torch.nn.init.xavier_normal_(self.u_emb.weight)
+        torch.nn.init.xavier_normal_(self.i_emb.weight)
+        torch.nn.init.xavier_normal_(self.u_bias.weight)
+        torch.nn.init.xavier_normal_(self.i_bias.weight)
+
     def forward(self, u_idx: torch.Tensor, i_idx: torch.Tensor, dim: int = 1):
         """
         It computes the scores for the given user-item pairs using inner product (dot product).

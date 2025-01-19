@@ -16,6 +16,7 @@ from src.data_loader import DataLoader, ValDataLoader
 from src.device import device
 from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type, compute_metric
 from src.model import MatrixFactorization
+from src.utils import set_seed
 
 
 class Trainer(ABC):
@@ -228,6 +229,60 @@ class Trainer(ABC):
         val_score = compute_metric(val_metric, preds)
 
         return np.mean(val_score), {}
+
+    def validate_k_times(
+        self,
+        k: int,
+        initial_seed: int,
+        train_loader: DataLoader,
+        val_loader: Union[DataLoader, ValDataLoader],
+        val_metric: Valid_Metrics_Type,
+        checkpoint_save_path: Optional[Path] = None,
+        final_model_save_path: Optional[Path] = None,
+        n_epochs: int = 500,
+        early: Optional[int] = None,
+        early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
+        verbose: int = 10,
+    ):
+        """
+        Method for the validating the model using k different seeds.
+
+        :param k: the number of seeds to use
+        :param initial_seed: the seed to use to randomly generate the k seeds
+        :param train_loader: data loader for training dataset
+        :param val_loader: data loader for validation dataset
+        :param val_metric: validation metric name
+        :param checkpoint_save_path: Path where to save the training checkpoints
+        :param final_model_save_path: Path where to save the final model
+        :param n_epochs: number of epochs of training, default to 500
+        :param early: patience for early stopping, default to None
+        :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
+        :param verbose: number of epochs to wait for printing training details
+        """
+        # setting the initial seed to reproducibly create the list of seeds
+        set_seed(initial_seed)
+        # drawing k random integers between 0 and the maximum integer which numpy can store
+        seeds = np.random.random_integers(low=0, high=np.iinfo(np.int32).max, size=k)
+        val_results = []
+        for seed in seeds:
+            # resetting the run by using the new seed and initializing the model's weights
+            set_seed(seed)
+            self.model.re_init_weights()
+            # training with the new initial weights
+            self.train(
+                train_loader=train_loader,
+                val_loader=val_loader,
+                val_metric=val_metric,
+                checkpoint_save_path=checkpoint_save_path,
+                final_model_save_path=final_model_save_path,
+                n_epochs=n_epochs,
+                early=early,
+                early_stopping_criterion=early_stopping_criterion,
+                verbose=verbose,
+            )
+            val_score, _ = self.validate(val_loader, val_metric, use_val_loss=True)
+            val_results.append(val_score)
+        return np.mean(val_results)
 
     def save_checkpoint(self, path: Path):
         """
