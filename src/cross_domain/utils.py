@@ -94,9 +94,18 @@ def get_reg_axiom_data(
                                 # if the current path converges into the current target item, we generate the triplet
                                 processed_interactions.append((user, src_item_id, tgt_item_id))
 
-    logger.debug("User-item pairs generated. Converting to numpy array")
-    processed_interactions = np.array(processed_interactions)
-    logger.debug("Saving the numpy array to file system")
-    np.save(save_dir_file_path, processed_interactions)
-    logger.debug("Returning the user-item pairs")
-    return processed_interactions
+                                # if the length of interactions grows past a certain size
+                                if len(processed_interactions) > 10000:
+                                    # append to the file
+                                    np.save(save_dir_file_path, np.array(processed_interactions))
+                                    # and reset the list in order to avoid memory issues
+                                    processed_interactions = []
+
+    # save any remaining interactions
+    if processed_interactions:
+        np.save(save_dir_file_path, np.array(processed_interactions))
+        del processed_interactions
+    logger.debug(f"User-item pairs generated and stored in {save_dir_file_path}")
+
+    logger.debug("Reloading the file and returning the dense array")
+    return np.load(save_dir_file_path)
