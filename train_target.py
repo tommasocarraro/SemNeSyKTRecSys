@@ -33,6 +33,7 @@ parser.add_argument(
 )
 parser.add_argument("--src_model_path", type=str, help="Path to pretrained source model", required=False)
 parser.add_argument("--clear", help="recompute dataset", action="store_true")
+parser.add_argument("--sweep", help="wandb sweep id", type=str, required=False)
 
 save_dir_path = Path("data/saved_data/")
 
@@ -40,9 +41,13 @@ save_dir_path = Path("data/saved_data/")
 def main():
     args = parser.parse_args()
 
+    if args.sweep and not args.tune:
+        parser.error("--sweep can only be used with --tune")
+
     src_dataset_name, tgt_dataset_name = args.datasets
     src_model_path = args.src_model_path
     kind: Literal["train", "tune"] = "train" if args.train else "tune"
+    sweep_id = args.sweep
 
     config = get_config(src_dataset_name=src_dataset_name, tgt_dataset_name=tgt_dataset_name, kind=kind)
     set_seed(config.seed)
@@ -58,9 +63,22 @@ def main():
     src_model_path = Path(src_model_path) if src_model_path is not None else None
 
     if args.train:
-        train_target(dataset, config, src_model_path, src_dataset_name, tgt_dataset_name)
+        train_target(
+            dataset=dataset,
+            config=config,
+            src_model_path=src_model_path,
+            src_dataset_name=src_dataset_name,
+            tgt_dataset_name=tgt_dataset_name,
+        )
     elif args.tune:
-        tune_target(dataset, config, src_model_path, src_dataset_name, tgt_dataset_name)
+        tune_target(
+            dataset=dataset,
+            config=config,
+            src_model_path=src_model_path,
+            src_dataset_name=src_dataset_name,
+            tgt_dataset_name=tgt_dataset_name,
+            sweep_id=sweep_id,
+        )
 
 
 def train_target(
@@ -157,6 +175,7 @@ def tune_target(
     src_model_path: Optional[Path],
     src_dataset_name: str,
     tgt_dataset_name: str,
+    sweep_id: Optional[str],
 ):
     kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
     train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
@@ -205,7 +224,7 @@ def tune_target(
             entity_name=tune_config.entity_name,
             exp_name=tune_config.exp_name,
             bayesian_run_count=tune_config.bayesian_run_count,
-            sweep_id=tune_config.sweep_id,
+            sweep_id=sweep_id or tune_config.sweep_id,
             top_200_preds=top_200_preds,
             sim_matrix=dataset.sim_matrix,
             n_sh_users=dataset.n_sh_users,
@@ -230,7 +249,7 @@ def tune_target(
             entity_name=tune_config.entity_name,
             exp_name=tune_config.exp_name,
             bayesian_run_count=tune_config.bayesian_run_count,
-            sweep_id=tune_config.sweep_id,
+            sweep_id=sweep_id or tune_config.sweep_id,
         )
 
 

@@ -93,7 +93,7 @@ def ltn_tuning(
     # launch the WandB sweep for 150 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, function=tune, count=bayesian_run_count)
+    wandb.agent(sweep_id, function=tune, entity=entity_name, project=exp_name, count=bayesian_run_count)
 
 
 def ltn_tuning_reg(
@@ -131,8 +131,15 @@ def ltn_tuning_reg(
     :param val_set: validation set on which the tuning is evaluated
     :param val_batch_size: batch size for validation
     :param n_users: number of users in the dataset
+    :param n_sh_users: number of users shared between the source and target domains
     :param n_items: number of items in the dataset
+    :param sim_matrix: sparse matrix representing whether paths between source and target domain items exist
+    :param src_ui_matrix: sparse matrix of user interactions from source domain
     :param tgt_ui_matrix: sparse matrix of user interactions from target domain
+    :param top_200_preds: the top 200 predictions for each user in the source domain
+    :param src_dataset_name: label of the source domain, used for naming temporary files
+    :param tgt_dataset_name: label of the target domain, used for naming temporary files
+    :param save_dir_path: directory where to store temporary files
     :param val_metric: validation metric that has to be used
     :param n_epochs: number of epochs for hyperparameter tuning
     :param early: number of epochs for early stopping
@@ -207,4 +214,4 @@ def ltn_tuning_reg(
     # launch the WandB sweep for 50 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, function=tune, count=bayesian_run_count)
+    wandb.agent(sweep_id, function=tune, entity=entity_name, project=exp_name, count=bayesian_run_count)
