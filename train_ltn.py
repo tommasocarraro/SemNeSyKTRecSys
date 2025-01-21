@@ -1,4 +1,3 @@
-import argparse
 import os
 from pathlib import Path
 from typing import Literal, Optional
@@ -8,6 +7,7 @@ import torch
 import wandb
 from loguru import logger
 
+from args_parser import get_args
 from src.cross_domain.ltn_trainer import LTNRegTrainer, LTNTrainer
 from src.cross_domain.tuning import ltn_tuning, ltn_tuning_reg
 from src.cross_domain.utils import get_reg_axiom_data
@@ -20,37 +20,13 @@ from src.model_configs.ModelConfig import TuneConfigLtnReg
 from src.pretrain_source.inference import generate_pre_trained_src_matrix
 from src.utils import set_seed
 
-parser = argparse.ArgumentParser()
-group = parser.add_mutually_exclusive_group(required=True)
-group.add_argument("--train", action="store_true")
-group.add_argument("--tune", action="store_true")
-parser.add_argument(
-    "datasets",
-    type=str,
-    help="Datasets to use (appears after --train or --tune)",
-    nargs=2,
-    choices=["movies", "music", "books"],
-)
-parser.add_argument("--src_model_path", type=str, help="Path to pretrained source model", required=False)
-parser.add_argument("--clear", help="recompute dataset", action="store_true")
-parser.add_argument("--sweep", help="wandb sweep id", type=str, required=False)
-parser.add_argument("--sparsity", help="sparsity factor", type=float, required=False, default=1)
-
 save_dir_path = Path("data/saved_data/")
 
 
 def main():
-    args = parser.parse_args()
-
-    if args.sweep and not args.tune:
-        parser.error("--sweep can only be used with --tune")
-
-    src_dataset_name, tgt_dataset_name = args.datasets
-    src_model_path = args.src_model_path
-    kind: Literal["train", "tune"] = "train" if args.train else "tune"
-    sweep_id = args.sweep
-
-    tgt_sparsity = args.sparsity
+    src_dataset_name, tgt_dataset_name, src_model_path, kind, sweep_id, src_sparsity, tgt_sparsity, clear_dataset = (
+        get_args()
+    )
 
     config = get_config(src_dataset_name=src_dataset_name, tgt_dataset_name=tgt_dataset_name, kind=kind)
     set_seed(config.seed)
@@ -60,14 +36,15 @@ def main():
         tgt_dataset_config=config.tgt_dataset_config,
         paths_file_path=config.paths_file_path,
         save_dir_path=save_dir_path,
-        clear_saved_dataset=args.clear,
+        clear_saved_dataset=clear_dataset,
         seed=config.seed,
-        target_sparsity=tgt_sparsity,
+        src_sparsity=src_sparsity,
+        tgt_sparsity=tgt_sparsity,
     )
 
     src_model_path = Path(src_model_path) if src_model_path is not None else None
 
-    if args.train:
+    if kind == "train":
         train_target(
             dataset=dataset,
             config=config,
@@ -76,7 +53,7 @@ def main():
             tgt_dataset_name=tgt_dataset_name,
             tgt_sparsity=tgt_sparsity,
         )
-    elif args.tune:
+    elif kind == "tune":
         tune_target(
             dataset=dataset,
             config=config,

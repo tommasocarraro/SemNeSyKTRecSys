@@ -10,17 +10,18 @@ from loguru import logger
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
 
-from src.utils import decompress_7z, set_seed
+from src.model_configs.ModelConfig import DatasetConfig
+from src.utils import decompress_7z
 from .Dataset import Dataset
 from .Split_Strategy import SplitStrategy
-from src.model_configs.ModelConfig import DatasetConfig
 
 
 def process_source_target(
     src_dataset_config: DatasetConfig,
     tgt_dataset_config: DatasetConfig,
     paths_file_path: Path,
-    target_sparsity: float,
+    src_sparsity: float,
+    tgt_sparsity: float,
     seed: int,
     save_dir_path: Optional[Path] = None,
     clear_saved_dataset: bool = False,
@@ -36,7 +37,9 @@ def process_source_target(
     :param src_dataset_config: source dataset configuration containing location and split strategy
     :param tgt_dataset_config: target dataset configuration containing location and split strategy
     :param paths_file_path: paths between entities in the two different domain
-    :param target_sparsity: target domain sparsity factor
+    :param src_sparsity: source domain sparsity factor
+    :param tgt_sparsity: target domain sparsity factor
+    :param seed: seed for random number generator
     :param save_dir_path: path where to save the dataset. None if the dataset should not be saved on disk.
     :param clear_saved_dataset: whether to clear the saved dataset if it exists
     """
@@ -52,7 +55,8 @@ def process_source_target(
             tgt_dataset_path=tgt_dataset_path,
             src_split_strategy=src_dataset_config.split_strategy,
             tgt_split_strategy=src_dataset_config.split_strategy,
-            tgt_sparsity=target_sparsity,
+            src_sparsity=src_sparsity,
+            tgt_sparsity=tgt_sparsity,
         )
 
         maybe_dataset = load_or_clear_dataset(save_file_path=save_file_path, clear_saved_dataset=clear_saved_dataset)
@@ -88,8 +92,8 @@ def process_source_target(
     tgt_n_items = tgt_ratings["itemId"].nunique()
 
     # creating sparse user-item matrices for source and target domains
-    sparse_src_matrix = create_ui_matrix(src_ratings, seed=seed)
-    sparse_tgt_matrix = create_ui_matrix(tgt_ratings, seed=seed, sparsity_percent=target_sparsity)
+    sparse_src_matrix = create_ui_matrix(src_ratings, seed=seed, sparsity_percent=src_sparsity)
+    sparse_tgt_matrix = create_ui_matrix(tgt_ratings, seed=seed, sparsity_percent=tgt_sparsity)
 
     src_tr, src_val, src_te = src_dataset_config.split_strategy.split(src_ratings.to_numpy())
     tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
@@ -165,7 +169,7 @@ def save_dataset(dataset: Dataset, save_file_path: Path) -> None:
     np.save(save_file_path, dataset)  # type: ignore
 
 
-def create_ui_matrix(df: DataFrame, seed: int, sparsity_percent: float = 1.0) -> csr_matrix:
+def create_ui_matrix(df: DataFrame, seed: int, sparsity_percent: float) -> csr_matrix:
     """
     Creates the user-item interaction matrix from the given dataframe.
 
@@ -182,9 +186,6 @@ def create_ui_matrix(df: DataFrame, seed: int, sparsity_percent: float = 1.0) ->
             raise ValueError("sparsity must be between 0 and 1, excluding zero.")
 
         if sparsity_percent < 1:
-            logger.info(
-                f"Artificially increasing the target domain's sparsity by retaining {sparsity_percent * 100}% of ratings for each user"
-            )
             df = (
                 df.groupby("userId")
                 .apply(lambda x: x.sample(frac=sparsity_percent, random_state=seed))
@@ -201,6 +202,7 @@ def make_save_file_path(
     save_dir_path: Path,
     src_dataset_path: Path,
     tgt_dataset_path: Path,
+    src_sparsity: float,
     tgt_sparsity: float,
     src_split_strategy: SplitStrategy,
     tgt_split_strategy: SplitStrategy,
@@ -211,6 +213,7 @@ def make_save_file_path(
     :param save_dir_path: path of the directory where the dataset should be stored
     :param src_dataset_path: path of the raw csv dataset
     :param tgt_dataset_path: path to the target dataset
+    :param src_sparsity: the sparsity of the source dataset
     :param tgt_sparsity: the sparsity of the target dataset
     :param src_split_strategy: strategy used to split the source dataset
     :param tgt_split_strategy: strategy used to split the target dataset
@@ -218,7 +221,7 @@ def make_save_file_path(
     """
     makedirs(save_dir_path, exist_ok=True)
 
-    source_file_name = f"{src_dataset_path.stem}_{tgt_dataset_path.stem}_sparsity={tgt_sparsity}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
+    source_file_name = f"{src_dataset_path.stem}_{tgt_dataset_path.stem}_src_sparsity={src_sparsity}_tgt_sparsity={tgt_sparsity}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
     return save_dir_path / source_file_name
 
 

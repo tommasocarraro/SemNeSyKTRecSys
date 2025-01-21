@@ -1,13 +1,12 @@
-import argparse
 import os
 from pathlib import Path
-from typing import Literal
 
 import dotenv
 import torch
 import wandb
 from loguru import logger
 
+from args_parser import get_args
 from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
 from src.data_preprocessing.process_source_target import process_source_target
@@ -18,26 +17,11 @@ from src.pretrain_source.mf_trainer import MfTrainer
 from src.pretrain_source.tuning import mf_tuning
 from src.utils import set_seed
 
-parser = argparse.ArgumentParser()
-group = parser.add_mutually_exclusive_group(required=True)
-group.add_argument("--train", action="store_true")
-group.add_argument("--tune", action="store_true")
-parser.add_argument(
-    "datasets",
-    type=str,
-    help="Datasets to use (appears after --train or --tune)",
-    nargs=2,
-    choices=["movies", "music", "books"],
-)
-parser.add_argument("--clear", help="recompute dataset", action="store_true")
-
 
 def main():
-    args = parser.parse_args()
-
-    src_dataset_name, tgt_dataset_name = args.datasets
-    kind: Literal["train", "tune"] = "train" if args.train else "tune"
-
+    src_dataset_name, tgt_dataset_name, src_model_path, kind, sweep_id, src_sparsity, tgt_sparsity, clear_dataset = (
+        get_args()
+    )
     config = get_config(src_dataset_name=src_dataset_name, tgt_dataset_name=tgt_dataset_name, kind=kind)
     set_seed(config.seed)
 
@@ -46,16 +30,19 @@ def main():
         tgt_dataset_config=config.tgt_dataset_config,
         paths_file_path=config.paths_file_path,
         save_dir_path=Path("data/saved_data/"),
-        clear_saved_dataset=args.clear,
+        clear_saved_dataset=clear_dataset,
+        seed=config.seed,
+        src_sparsity=src_sparsity,
+        tgt_sparsity=tgt_sparsity,
     )
 
-    if args.train:
-        train_source(dataset, config)
-    elif args.tune:
-        tune_source(dataset, config)
+    if kind == "train":
+        train_mf(dataset, config)
+    elif kind == "tune":
+        tune_mf(dataset, config)
 
 
-def train_source(dataset: Dataset, config: ModelConfig):
+def train_mf(dataset: Dataset, config: ModelConfig):
     logger.info(f"Training the model with configuration: {config.get_train_config_str('source')}")
 
     tr_loader = DataLoader(
@@ -102,7 +89,7 @@ def train_source(dataset: Dataset, config: ModelConfig):
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
-def tune_source(dataset: Dataset, config: ModelConfig):
+def tune_mf(dataset: Dataset, config: ModelConfig):
     if config.src_mf_tune_config is None:
         raise ValueError("Missing tuning configuration")
 
