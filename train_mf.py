@@ -1,67 +1,48 @@
 import os
-from pathlib import Path
+from typing import Literal
 
 import dotenv
 import torch
 import wandb
 from loguru import logger
 
-from args_parser import get_args
 from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
-from src.data_preprocessing.process_source_target import process_source_target
 from src.model import MatrixFactorization
-from src.model_configs import ModelConfig, get_config
+from src.model_configs import ModelConfig
 from src.pretrain_source.loss import BPRLoss
 from src.pretrain_source.mf_trainer import MfTrainer
 from src.pretrain_source.tuning import mf_tuning
-from src.utils import set_seed
 
 
-def main():
-    src_dataset_name, tgt_dataset_name, src_model_path, kind, sweep_id, src_sparsity, tgt_sparsity, clear_dataset = (
-        get_args()
-    )
-    config = get_config(src_dataset_name=src_dataset_name, tgt_dataset_name=tgt_dataset_name, kind=kind)
-    set_seed(config.seed)
+def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
+    logger.info(f"Training the model with configuration: {config.get_train_config_str('mf')}")
 
-    dataset = process_source_target(
-        src_dataset_config=config.src_dataset_config,
-        tgt_dataset_config=config.tgt_dataset_config,
-        paths_file_path=config.paths_file_path,
-        save_dir_path=Path("data/saved_data/"),
-        clear_saved_dataset=clear_dataset,
-        src_sparsity=src_sparsity,
-        tgt_sparsity=tgt_sparsity,
-    )
+    if which_dataset == "source":
+        tr = dataset.src_tr
+        val = dataset.src_val
+        te = dataset.src_te
+        ui_matrix = dataset.src_ui_matrix
+        n_users = dataset.src_n_users
+        n_items = dataset.src_n_items
+    else:
+        tr = dataset.tgt_tr
+        val = dataset.tgt_val
+        te = dataset.tgt_te
+        ui_matrix = dataset.tgt_ui_matrix
+        n_users = dataset.tgt_n_users
+        n_items = dataset.tgt_n_items
 
-    if kind == "train":
-        train_mf(dataset, config)
-    elif kind == "tune":
-        tune_mf(dataset, config)
+    tr_loader = DataLoader(data=tr, ui_matrix=ui_matrix, batch_size=config.mf_train_config.batch_size)
 
+    val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=config.mf_train_config.batch_size)
 
-def train_mf(dataset: Dataset, config: ModelConfig):
-    logger.info(f"Training the model with configuration: {config.get_train_config_str('source')}")
-
-    tr_loader = DataLoader(
-        data=dataset.src_tr, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size
-    )
-
-    val_loader = ValDataLoader(
-        data=dataset.src_val, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size
-    )
-
-    mf = MatrixFactorization(
-        n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
-    )
+    mf = MatrixFactorization(n_users=n_users, n_items=n_items, n_factors=config.mf_train_config.n_factors)
 
     tr = MfTrainer(
         model=mf,
         optimizer=torch.optim.AdamW(
-            mf.parameters(),
-            lr=config.src_train_config.learning_rate,
-            weight_decay=config.src_train_config.weight_decay,
+            mf.parameters(), lr=config.mf_train_config.learning_rate, weight_decay=config.mf_train_config.weight_decay
         ),
         loss=BPRLoss(),
     )
@@ -73,54 +54,60 @@ def train_mf(dataset: Dataset, config: ModelConfig):
         early=config.early_stopping_patience,
         verbose=1,
         early_stopping_criterion=config.early_stopping_criterion,
-        checkpoint_save_path=config.src_train_config.checkpoint_save_path,
-        final_model_save_path=config.src_train_config.final_model_save_path,
+        checkpoint_save_path=config.mf_train_config.checkpoint_save_path,
+        final_model_save_path=config.mf_train_config.final_model_save_path,
     )
 
     val_metric_results, _ = tr.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
 
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
-    te_loader = ValDataLoader(
-        data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size
-    )
+    te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=config.mf_train_config.batch_size)
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
-def tune_mf(dataset: Dataset, config: ModelConfig):
-    if config.src_mf_tune_config is None:
+def tune_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
+    if config.mf_tune_config is None:
         raise ValueError("Missing tuning configuration")
 
     # wandb login
     if not dotenv.load_dotenv():
         logger.error("No environment variables found")
         exit(1)
-    api_key = os.getenv("WANDB_API_KEY")
-    if api_key is None:
+    wandb_api_key = os.getenv("WANDB_API_KEY")
+    if wandb_api_key is None:
         logger.error("Missing Wandb API key in the environment file")
         exit(1)
-    wandb.login(key=api_key)
+    wandb.login(key=wandb_api_key)
+
+    if which_dataset == "source":
+        tr = dataset.src_tr
+        val = dataset.src_val
+        ui_matrix = dataset.src_ui_matrix
+        n_users = dataset.src_n_users
+        n_items = dataset.src_n_items
+    else:
+        tr = dataset.tgt_tr
+        val = dataset.tgt_val
+        ui_matrix = dataset.tgt_ui_matrix
+        n_users = dataset.tgt_n_users
+        n_items = dataset.tgt_n_items
 
     mf_tuning(
-        seed=config.seed,
         tune_config=config.get_wandb_dict_mf(),
-        train_set=dataset.src_tr,
-        val_set=dataset.src_val,
-        val_batch_size=config.src_train_config.batch_size,
-        n_users=dataset.src_n_users,
-        n_items=dataset.src_n_items,
-        ui_matrix=dataset.src_ui_matrix,
+        train_set=tr,
+        val_set=val,
+        val_batch_size=config.mf_train_config.batch_size,
+        n_users=n_users,
+        n_items=n_items,
+        ui_matrix=ui_matrix,
         metric=config.val_metric,
         n_epochs=config.epochs,
         early=config.early_stopping_patience,
         early_stopping_criterion=config.early_stopping_criterion,
-        entity_name=config.src_mf_tune_config.entity_name,
-        exp_name=config.src_mf_tune_config.exp_name,
-        bayesian_run_count=config.src_mf_tune_config.bayesian_run_count,
-        sweep_id=config.src_mf_tune_config.sweep_id,
+        entity_name=config.mf_tune_config.entity_name,
+        exp_name=config.mf_tune_config.exp_name,
+        bayesian_run_count=config.mf_tune_config.bayesian_run_count,
+        sweep_id=config.mf_tune_config.sweep_id,
     )
-
-
-if __name__ == "__main__":
-    main()

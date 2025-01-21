@@ -11,11 +11,9 @@ from src.cross_domain.utils import get_reg_axiom_data
 from src.data_loader import DataLoader, ValDataLoader
 from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
 from src.model import MatrixFactorization
-from src.utils import set_seed
 
 
 def ltn_tuning(
-    seed: int,
     tune_config: dict[str, Any],
     train_set: NDArray,
     val_set: NDArray,
@@ -36,7 +34,6 @@ def ltn_tuning(
     It performs the hyperparameter tuning of the MF model using the given hyperparameter search configuration,
     training and validation set. It can be used for both the MF model trained on the source domain and the baseline MF.
 
-    :param seed: seed for reproducibility
     :param tune_config: configuration for the tuning of hyperparameters
     :param train_set: train set on which the tuning is performed
     :param val_set: validation set on which the tuning is evaluated
@@ -53,7 +50,6 @@ def ltn_tuning(
     :param bayesian_run_count: number of runs of Bayesian optimization
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
     """
-    set_seed(seed)
     # create loader for validation
     if val_metric in RankingMetricsType:
         val_loader = ValDataLoader(data=val_set, ui_matrix=tgt_ui_matrix, batch_size=val_batch_size)
@@ -97,7 +93,6 @@ def ltn_tuning(
 
 
 def ltn_tuning_reg(
-    seed: int,
     tune_config: dict[str, Any],
     train_set: NDArray,
     val_set: NDArray,
@@ -126,7 +121,6 @@ def ltn_tuning_reg(
     It performs the hyperparameter tuning of the MF model using the given hyperparameter search configuration,
     training and validation set. It can be used for both the MF model trained on the source domain and the baseline MF.
 
-    :param seed: seed for reproducibility
     :param tune_config: configuration for the tuning of hyperparameters
     :param train_set: train set on which the tuning is performed
     :param val_set: validation set on which the tuning is evaluated
@@ -151,7 +145,6 @@ def ltn_tuning_reg(
     :param bayesian_run_count: number of runs of Bayesian optimization
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
     """
-    set_seed(seed)
     # create loader for validation
     if val_metric in RankingMetricsType:
         val_loader = ValDataLoader(data=val_set, ui_matrix=tgt_ui_matrix, batch_size=val_batch_size)

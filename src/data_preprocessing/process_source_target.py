@@ -181,9 +181,7 @@ def create_ui_matrix(df: DataFrame) -> csr_matrix:
     n_users = df["userId"].nunique()
     n_items = df["itemId"].nunique()
     pos_ratings = df[df["rating"] == 1]
-    return csr_matrix(
-        (pos_ratings["rating"], (pos_ratings["userId"], pos_ratings["itemId"])), shape=(n_users, n_items)
-    )
+    return csr_matrix((pos_ratings["rating"], (pos_ratings["userId"], pos_ratings["itemId"])), shape=(n_users, n_items))
 
 
 def make_save_file_path(
@@ -213,9 +211,7 @@ def make_save_file_path(
     return save_dir_path / source_file_name
 
 
-def reindex_users(
-    ratings: DataFrame, sh_users: set[int], sh_u_ids: list[int], sh_users_string_to_id: dict[str, int]
-):
+def reindex_users(ratings: DataFrame, sh_users: set[int], sh_u_ids: list[int], sh_users_string_to_id: dict[str, int]):
     """
     Re-indexes the users on the ratings dataframe in order to obtain incremental integer identifiers. Furthermore, the
     users shared between source and target domains are relocated to the first rows.

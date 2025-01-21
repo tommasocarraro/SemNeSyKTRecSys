@@ -26,7 +26,7 @@ dataset = process_source_target(
 set_seed(0)
 
 mf_model_src = MatrixFactorization(
-    n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
+    n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.mf_train_config.n_factors
 )
 
 mf_model_tgt = MatrixFactorization(
@@ -37,26 +37,26 @@ trainer_src = MfTrainer(
     model=mf_model_src,
     optimizer=torch.optim.AdamW(
         params=mf_model_src.parameters(),
-        lr=config.src_train_config.learning_rate,
-        weight_decay=config.src_train_config.weight_decay,
+        lr=config.mf_train_config.learning_rate,
+        weight_decay=config.mf_train_config.weight_decay,
     ),
     loss=BPRLoss(),
 )
 
 tr_loader_src = DataLoader(
-    data=dataset.src_tr, ui_matrix=dataset.src_ui_matrix, batch_size=config.src_train_config.batch_size, n_negs=3
+    data=dataset.src_tr, ui_matrix=dataset.src_ui_matrix, batch_size=config.mf_train_config.batch_size, n_negs=3
 )
 val_loader_src = ValDataLoader(
     data=dataset.src_val,
     ui_matrix=dataset.src_ui_matrix,
-    batch_size=config.src_train_config.batch_size,
+    batch_size=config.mf_train_config.batch_size,
     sampled_n_negs=150,
     n_negs=100,
 )
 te_loader_src = ValDataLoader(
     data=dataset.src_te,
     ui_matrix=dataset.src_ui_matrix,
-    batch_size=config.src_train_config.batch_size,
+    batch_size=config.mf_train_config.batch_size,
     sampled_n_negs=150,
     n_negs=100,
 )
@@ -68,8 +68,8 @@ trainer_src.train(
     early=config.early_stopping_patience,
     verbose=1,
     early_stopping_criterion=config.early_stopping_criterion,
-    checkpoint_save_path=config.src_train_config.checkpoint_save_path,
-    final_model_save_path=config.src_train_config.final_model_save_path,
+    checkpoint_save_path=config.mf_train_config.checkpoint_save_path,
+    final_model_save_path=config.mf_train_config.final_model_save_path,
 )
 
 
@@ -99,7 +99,7 @@ trainer_tgt = LTNRegTrainer(
         sim_matrix=dataset.sim_matrix,
         top_k_items=generate_pre_trained_src_matrix(
             mf_model=mf_model_src,
-            best_weights_path=config.src_train_config.final_model_save_path,
+            best_weights_path=config.mf_train_config.final_model_save_path,
             n_shared_users=dataset.n_sh_users,
             top_k_src=20,
             batch_size=config.tgt_train_config.batch_size,

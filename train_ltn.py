@@ -1,81 +1,34 @@
 import os
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 import dotenv
 import torch
 import wandb
 from loguru import logger
 
-from args_parser import get_args
-from src.cross_domain.ltn_trainer import LTNRegTrainer, LTNTrainer
-from src.cross_domain.tuning import ltn_tuning, ltn_tuning_reg
+from src.cross_domain.ltn_trainer import LTNRegTrainer
+from src.cross_domain.tuning import ltn_tuning_reg
 from src.cross_domain.utils import get_reg_axiom_data
 from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
-from src.data_preprocessing.process_source_target import process_source_target
 from src.model import MatrixFactorization
-from src.model_configs import ModelConfig, get_config
-from src.model_configs.ModelConfig import TuneConfigLtnReg
+from src.model_configs import ModelConfig
+from src.model_configs.utils import Domains_Type, get_best_weights_path
 from src.pretrain_source.inference import generate_pre_trained_src_matrix
-from src.utils import set_seed
-
-save_dir_path = Path("data/saved_data/")
 
 
-def main():
-    src_dataset_name, tgt_dataset_name, src_model_path, kind, sweep_id, src_sparsity, tgt_sparsity, clear_dataset = (
-        get_args()
-    )
-
-    config = get_config(src_dataset_name=src_dataset_name, tgt_dataset_name=tgt_dataset_name, kind=kind)
-    set_seed(config.seed)
-
-    dataset = process_source_target(
-        src_dataset_config=config.src_dataset_config,
-        tgt_dataset_config=config.tgt_dataset_config,
-        paths_file_path=config.paths_file_path,
-        save_dir_path=save_dir_path,
-        clear_saved_dataset=clear_dataset,
-        src_sparsity=src_sparsity,
-        tgt_sparsity=tgt_sparsity,
-    )
-
-    src_model_path = Path(src_model_path) if src_model_path is not None else None
-
-    if kind == "train":
-        train_target(
-            dataset=dataset,
-            config=config,
-            src_model_path=src_model_path,
-            src_dataset_name=src_dataset_name,
-            tgt_dataset_name=tgt_dataset_name,
-            tgt_sparsity=tgt_sparsity,
-        )
-    elif kind == "tune":
-        tune_target(
-            dataset=dataset,
-            config=config,
-            src_model_path=src_model_path,
-            src_dataset_name=src_dataset_name,
-            tgt_dataset_name=tgt_dataset_name,
-            sweep_id=sweep_id,
-            tgt_sparsity=tgt_sparsity,
-        )
-
-
-def train_target(
+def train_ltn_reg(
     dataset: Dataset,
     config: ModelConfig,
-    src_model_path: Optional[Path],
-    src_dataset_name: str,
-    tgt_dataset_name: str,
+    src_dataset_name: Domains_Type,
+    tgt_dataset_name: Domains_Type,
+    src_sparsity: float,
     tgt_sparsity: float,
+    save_dir_path: Path,
 ):
-    kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
-    train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
-
-    logger.info(f"Training the model with configuration: {config.get_train_config_str(kind)}")
+    train_config = config.ltn_reg_train_config
+    logger.info(f"Training the model with configuration: {config.get_train_config_str('ltn_reg')}")
 
     tr_loader = DataLoader(data=dataset.tgt_tr, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.batch_size)
 
@@ -87,50 +40,53 @@ def train_target(
         n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=train_config.n_factors
     )
 
-    if src_model_path is not None:
-        mf_model_src = MatrixFactorization(
-            n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
-        )
+    mf_model_src = MatrixFactorization(
+        n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.mf_train_config.n_factors
+    )
 
-        top_k_items = generate_pre_trained_src_matrix(
-            mf_model=mf_model_src,
-            best_weights_path=config.src_train_config.final_model_save_path,
-            n_shared_users=dataset.n_sh_users,
-            save_dir_path=save_dir_path,
-            batch_size=2048,
-        )[:, : train_config.top_k_src]
+    src_model_weights_path = get_best_weights_path(
+        src_domain_name=src_dataset_name,
+        tgt_domain_name=tgt_dataset_name,
+        which_dataset="source",
+        src_sparsity=src_sparsity,
+        tgt_sparsity=tgt_sparsity,
+        model="mf",
+    )
+    if not src_model_weights_path or not src_model_weights_path.is_file():
+        logger.error(f"The source model weights path {src_model_weights_path} does not exist.")
+        exit(1)
 
-        processed_interactions = get_reg_axiom_data(
-            src_ui_matrix=dataset.src_ui_matrix,
-            tgt_ui_matrix=dataset.tgt_ui_matrix,
-            n_sh_users=dataset.n_sh_users,
-            sim_matrix=dataset.sim_matrix,
-            top_k_items=top_k_items,
-            save_dir_path=save_dir_path,
-            src_dataset_name=src_dataset_name,
-            tgt_dataset_name=tgt_dataset_name,
-            tgt_sparsity=tgt_sparsity,
-        )
+    top_k_items = generate_pre_trained_src_matrix(
+        mf_model=mf_model_src,
+        best_weights_path=src_model_weights_path,
+        n_shared_users=dataset.n_sh_users,
+        save_dir_path=save_dir_path,
+        batch_size=2048,
+    )[:, : train_config.top_k_src]
 
-        tr = LTNRegTrainer(
-            mf_model=mf_model_tgt,
-            optimizer=torch.optim.AdamW(
-                mf_model_tgt.parameters(), lr=train_config.learning_rate, weight_decay=train_config.weight_decay
-            ),
-            p_forall_ax1=train_config.p_forall,
-            p_forall_ax2=train_config.p_forall_ax2,
-            p_sat_agg=train_config.p_sat_agg,
-            neg_score_value=train_config.neg_score,
-            processed_interactions=processed_interactions,
-        )
-    else:
-        tr = LTNTrainer(
-            mf_model=mf_model_tgt,
-            optimizer=torch.optim.AdamW(
-                mf_model_tgt.parameters(), lr=train_config.learning_rate, weight_decay=train_config.weight_decay
-            ),
-            p_forall=train_config.p_forall,
-        )
+    processed_interactions = get_reg_axiom_data(
+        src_ui_matrix=dataset.src_ui_matrix,
+        tgt_ui_matrix=dataset.tgt_ui_matrix,
+        n_sh_users=dataset.n_sh_users,
+        sim_matrix=dataset.sim_matrix,
+        top_k_items=top_k_items,
+        save_dir_path=save_dir_path,
+        src_dataset_name=src_dataset_name,
+        tgt_dataset_name=tgt_dataset_name,
+        tgt_sparsity=tgt_sparsity,
+    )
+
+    tr = LTNRegTrainer(
+        mf_model=mf_model_tgt,
+        optimizer=torch.optim.AdamW(
+            mf_model_tgt.parameters(), lr=train_config.learning_rate, weight_decay=train_config.weight_decay
+        ),
+        p_forall_ax1=train_config.p_forall,
+        p_forall_ax2=train_config.p_forall_ax2,
+        p_sat_agg=train_config.p_sat_agg,
+        neg_score_value=train_config.neg_score,
+        processed_interactions=processed_interactions,
+    )
 
     tr.train(
         train_loader=tr_loader,
@@ -147,98 +103,70 @@ def train_target(
 
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
-    te_loader = ValDataLoader(
-        data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=train_config.batch_size
-    )
+    te_loader = ValDataLoader(data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=train_config.batch_size)
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
-def tune_target(
+def tune_ltn_reg(
     dataset: Dataset,
     config: ModelConfig,
-    src_model_path: Optional[Path],
     src_dataset_name: str,
     tgt_dataset_name: str,
     tgt_sparsity: float,
     sweep_id: Optional[str],
+    save_dir_path: Path,
 ):
-    kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
-    train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
-    tune_config = config.ltn_tune_config if kind == "ltn" else config.ltn_reg_tune_config
+    train_config = config.ltn_reg_train_config
+    tune_config = config.ltn_reg_tune_config
     if tune_config is None:
-        raise ValueError("Missing tuning configuration")
+        logger.error("Missing tuning configuration")
+        exit(1)
 
     # wandb login
     if not dotenv.load_dotenv():
         logger.error("No environment variables found")
         exit(1)
-    api_key = os.getenv("WANDB_API_KEY")
-    if api_key is None:
+    wandb_api_key = os.getenv("WANDB_API_KEY")
+    if wandb_api_key is None:
         logger.error("Missing Wandb API key in the environment file")
         exit(1)
-    wandb.login(key=api_key)
+    wandb.login(key=wandb_api_key)
 
-    if src_model_path is not None:
-        tune_config: TuneConfigLtnReg
-        mf_model_src = MatrixFactorization(
-            n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.src_train_config.n_factors
-        )
+    mf_model_src = MatrixFactorization(
+        n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.mf_train_config.n_factors
+    )
 
-        top_200_preds = generate_pre_trained_src_matrix(
-            mf_model=mf_model_src,
-            best_weights_path=src_model_path,
-            n_shared_users=dataset.n_sh_users,
-            batch_size=2048,
-            save_dir_path=save_dir_path,
-        )
+    top_200_preds = generate_pre_trained_src_matrix(
+        mf_model=mf_model_src,
+        best_weights_path=config.mf_train_config.final_model_save_path,
+        n_shared_users=dataset.n_sh_users,
+        batch_size=2048,
+        save_dir_path=save_dir_path,
+    )
 
-        ltn_tuning_reg(
-            seed=config.seed,
-            tune_config=config.get_wandb_dict_ltn_reg(),
-            train_set=dataset.tgt_tr,
-            val_set=dataset.tgt_val,
-            val_batch_size=train_config.batch_size,
-            n_users=dataset.tgt_n_users,
-            n_items=dataset.tgt_n_items,
-            src_ui_matrix=dataset.src_ui_matrix,
-            tgt_ui_matrix=dataset.tgt_ui_matrix,
-            val_metric=config.val_metric,
-            n_epochs=config.epochs,
-            early=config.early_stopping_patience,
-            early_stopping_criterion=config.early_stopping_criterion,
-            entity_name=tune_config.entity_name,
-            exp_name=tune_config.exp_name,
-            bayesian_run_count=tune_config.bayesian_run_count,
-            sweep_id=sweep_id or tune_config.sweep_id,
-            top_200_preds=top_200_preds,
-            sim_matrix=dataset.sim_matrix,
-            n_sh_users=dataset.n_sh_users,
-            save_dir_path=save_dir_path,
-            src_dataset_name=src_dataset_name,
-            tgt_dataset_name=tgt_dataset_name,
-            tgt_sparsity=tgt_sparsity,
-        )
-    else:
-        ltn_tuning(
-            seed=config.seed,
-            tune_config=config.get_wandb_dict_ltn(),
-            train_set=dataset.tgt_tr,
-            val_set=dataset.tgt_val,
-            val_batch_size=train_config.batch_size,
-            n_users=dataset.tgt_n_users,
-            n_items=dataset.tgt_n_items,
-            tgt_ui_matrix=dataset.tgt_ui_matrix,
-            val_metric=config.val_metric,
-            n_epochs=config.epochs,
-            early=config.early_stopping_patience,
-            early_stopping_criterion=config.early_stopping_criterion,
-            entity_name=tune_config.entity_name,
-            exp_name=tune_config.exp_name,
-            bayesian_run_count=tune_config.bayesian_run_count,
-            sweep_id=sweep_id or tune_config.sweep_id,
-        )
-
-
-if __name__ == "__main__":
-    main()
+    ltn_tuning_reg(
+        tune_config=config.get_wandb_dict_ltn_reg(),
+        train_set=dataset.tgt_tr,
+        val_set=dataset.tgt_val,
+        val_batch_size=train_config.batch_size,
+        n_users=dataset.tgt_n_users,
+        n_items=dataset.tgt_n_items,
+        src_ui_matrix=dataset.src_ui_matrix,
+        tgt_ui_matrix=dataset.tgt_ui_matrix,
+        val_metric=config.val_metric,
+        n_epochs=config.epochs,
+        early=config.early_stopping_patience,
+        early_stopping_criterion=config.early_stopping_criterion,
+        entity_name=tune_config.entity_name,
+        exp_name=tune_config.exp_name,
+        bayesian_run_count=tune_config.bayesian_run_count,
+        sweep_id=sweep_id or tune_config.sweep_id,
+        top_200_preds=top_200_preds,
+        sim_matrix=dataset.sim_matrix,
+        n_sh_users=dataset.n_sh_users,
+        save_dir_path=save_dir_path,
+        src_dataset_name=src_dataset_name,
+        tgt_dataset_name=tgt_dataset_name,
+        tgt_sparsity=tgt_sparsity,
+    )

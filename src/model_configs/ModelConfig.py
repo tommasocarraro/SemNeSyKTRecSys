@@ -65,6 +65,7 @@ class TuneConfigMf:
 class DatasetConfig:
     dataset_path: Path
     split_strategy: SplitStrategy
+    sparsity: float
 
 
 @dataclass(frozen=True)
@@ -110,19 +111,19 @@ class ModelConfig:
     paths_file_path: Path
     early_stopping_criterion: Literal["val_loss", "val_metric"]
     val_metric: Valid_Metrics_Type
-    src_train_config: TrainConfigMf
-    ltn_train_config: TrainConfigLtn
+    mf_train_config: TrainConfigMf
     ltn_reg_train_config: TrainConfigLtnReg
+    ltn_train_config: Optional[TrainConfigLtn] = None
     epochs: int = 1000
     early_stopping_patience: int = 5
     seed: Optional[int] = None
-    src_mf_tune_config: Optional[TuneConfigMf] = None
+    mf_tune_config: Optional[TuneConfigMf] = None
     ltn_tune_config: Optional[TuneConfigLtn] = None
     ltn_reg_tune_config: Optional[TuneConfigLtnReg] = None
 
-    def get_train_config_str(self, kind: Literal["source", "ltn", "ltn_reg"]) -> str:
-        if kind == "source":
-            config = self.src_train_config
+    def get_train_config_str(self, kind: Literal["mf", "ltn", "ltn_reg"]) -> str:
+        if kind == "mf":
+            config = self.mf_train_config
             config_str = (
                 f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
                 f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}"
@@ -146,21 +147,21 @@ class ModelConfig:
 
     def get_wandb_dict_mf(self):
         return {
-            "method": self.src_mf_tune_config.method,
-            "metric": {"goal": self.src_mf_tune_config.metric.goal, "name": self.src_mf_tune_config.metric.name},
+            "method": self.mf_tune_config.method,
+            "metric": {"goal": self.mf_tune_config.metric.goal, "name": self.mf_tune_config.metric.name},
             "parameters": {
-                "n_factors": {"values": self.src_mf_tune_config.parameters.n_factors_range},
+                "n_factors": {"values": self.mf_tune_config.parameters.n_factors_range},
                 "learning_rate": {
-                    "min": self.src_mf_tune_config.parameters.learning_rate_range.min,
-                    "max": self.src_mf_tune_config.parameters.learning_rate_range.max,
-                    "distribution": self.src_mf_tune_config.parameters.learning_rate_range.distribution,
+                    "min": self.mf_tune_config.parameters.learning_rate_range.min,
+                    "max": self.mf_tune_config.parameters.learning_rate_range.max,
+                    "distribution": self.mf_tune_config.parameters.learning_rate_range.distribution,
                 },
                 "weight_decay": {
-                    "min": self.src_mf_tune_config.parameters.weight_decay_range.min,
-                    "max": self.src_mf_tune_config.parameters.weight_decay_range.max,
-                    "distribution": self.src_mf_tune_config.parameters.weight_decay_range.distribution,
+                    "min": self.mf_tune_config.parameters.weight_decay_range.min,
+                    "max": self.mf_tune_config.parameters.weight_decay_range.max,
+                    "distribution": self.mf_tune_config.parameters.weight_decay_range.distribution,
                 },
-                "batch_size": {"values": self.src_mf_tune_config.parameters.batch_size_range},
+                "batch_size": {"values": self.mf_tune_config.parameters.batch_size_range},
             },
         }
 
