@@ -37,7 +37,6 @@ def main():
         paths_file_path=config.paths_file_path,
         save_dir_path=save_dir_path,
         clear_saved_dataset=clear_dataset,
-        seed=config.seed,
         src_sparsity=src_sparsity,
         tgt_sparsity=tgt_sparsity,
     )
