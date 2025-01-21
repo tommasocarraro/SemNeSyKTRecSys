@@ -110,7 +110,7 @@ def train_ltn_reg(
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
     te_loader = ValDataLoader(
-        data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
     )
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
