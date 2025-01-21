@@ -15,9 +15,7 @@ from src.pretrain_source.mf_trainer import MfTrainer
 from src.pretrain_source.tuning import mf_tuning
 
 
-def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
-    logger.info(f"Training the model with configuration: {config.get_train_config_str('mf')}")
-
+def _create_trainer(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
     if which_dataset == "source":
         tr = dataset.src_tr
         val = dataset.src_val
@@ -36,8 +34,8 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
     hyperparams = config.mf_train_config.mf_hyper_params
 
     tr_loader = DataLoader(data=tr, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
-
     val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
+    te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
 
     mf = MatrixFactorization(n_users=n_users, n_items=n_items, n_factors=hyperparams.n_factors)
 
@@ -48,6 +46,14 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
         ),
         loss=BPRLoss(),
     )
+
+    return tr, tr_loader, val_loader, te_loader
+
+
+def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
+    logger.info(f"Training the model with configuration: {config.get_train_config_str('mf')}")
+
+    tr, tr_loader, val_loader, te_loader = _create_trainer(dataset=dataset, config=config, which_dataset=which_dataset)
 
     tr.train(
         train_loader=tr_loader,
@@ -64,7 +70,6 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
 
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
-    te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
@@ -113,3 +118,9 @@ def tune_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sourc
         bayesian_run_count=config.mf_tune_config.bayesian_run_count,
         sweep_id=config.mf_tune_config.sweep_id,
     )
+
+
+def test_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
+    tr, _, _, te_loader = _create_trainer(dataset=dataset, config=config, which_dataset=which_dataset)
+    te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")

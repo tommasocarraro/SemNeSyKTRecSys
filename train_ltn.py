@@ -18,7 +18,7 @@ from src.model_configs.utils import Domains_Type, get_best_weights_path
 from src.pretrain_source.inference import generate_pre_trained_src_matrix
 
 
-def train_ltn_reg(
+def _create_trainer(
     dataset: Dataset,
     config: ModelConfig,
     src_dataset_name: Domains_Type,
@@ -27,19 +27,22 @@ def train_ltn_reg(
     tgt_sparsity: float,
     save_dir_path: Path,
 ):
-    train_config = config.ltn_reg_train_config
-    logger.info(f"Training the model with configuration: {config.get_train_config_str('ltn_reg')}")
-
     tr_loader = DataLoader(
-        data=dataset.tgt_tr, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+        data=dataset.tgt_tr,
+        ui_matrix=dataset.tgt_ui_matrix,
+        batch_size=config.ltn_reg_train_config.mf_hyper_params.batch_size,
     )
 
     val_loader = ValDataLoader(
-        data=dataset.tgt_val, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+        data=dataset.tgt_val,
+        ui_matrix=dataset.tgt_ui_matrix,
+        batch_size=config.ltn_reg_train_config.mf_hyper_params.batch_size,
     )
 
     mf_model_tgt = MatrixFactorization(
-        n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=train_config.mf_hyper_params.n_factors
+        n_users=dataset.tgt_n_users,
+        n_items=dataset.tgt_n_items,
+        n_factors=config.ltn_reg_train_config.mf_hyper_params.n_factors,
     )
 
     mf_model_src = MatrixFactorization(
@@ -66,7 +69,7 @@ def train_ltn_reg(
         n_shared_users=dataset.n_sh_users,
         save_dir_path=save_dir_path,
         batch_size=2048,
-    )[:, : train_config.top_k_src]
+    )[:, : config.ltn_reg_train_config.top_k_src]
 
     processed_interactions = get_reg_axiom_data(
         src_ui_matrix=dataset.src_ui_matrix,
@@ -84,14 +87,39 @@ def train_ltn_reg(
         mf_model=mf_model_tgt,
         optimizer=torch.optim.AdamW(
             mf_model_tgt.parameters(),
-            lr=train_config.mf_hyper_params.learning_rate,
-            weight_decay=train_config.mf_hyper_params.weight_decay,
+            lr=config.ltn_reg_train_config.mf_hyper_params.learning_rate,
+            weight_decay=config.ltn_reg_train_config.mf_hyper_params.weight_decay,
         ),
-        p_forall_ax1=train_config.p_forall_ax1,
-        p_forall_ax2=train_config.p_forall_ax2,
-        p_sat_agg=train_config.p_sat_agg,
-        neg_score_value=train_config.neg_score,
+        p_forall_ax1=config.ltn_reg_train_config.p_forall_ax1,
+        p_forall_ax2=config.ltn_reg_train_config.p_forall_ax2,
+        p_sat_agg=config.ltn_reg_train_config.p_sat_agg,
+        neg_score_value=config.ltn_reg_train_config.neg_score,
         processed_interactions=processed_interactions,
+    )
+
+    return tr, tr_loader, val_loader
+
+
+def train_ltn_reg(
+    dataset: Dataset,
+    config: ModelConfig,
+    src_dataset_name: Domains_Type,
+    tgt_dataset_name: Domains_Type,
+    src_sparsity: float,
+    tgt_sparsity: float,
+    save_dir_path: Path,
+):
+    train_config = config.ltn_reg_train_config
+    logger.info(f"Training the model with configuration: {config.get_train_config_str('ltn_reg')}")
+
+    tr, tr_loader, val_loader = _create_trainer(
+        dataset=dataset,
+        config=config,
+        src_dataset_name=src_dataset_name,
+        tgt_dataset_name=tgt_dataset_name,
+        src_sparsity=src_sparsity,
+        tgt_sparsity=tgt_sparsity,
+        save_dir_path=save_dir_path,
     )
 
     tr.train(
@@ -180,3 +208,31 @@ def tune_ltn_reg(
         tgt_dataset_name=tgt_dataset_name,
         tgt_sparsity=tgt_sparsity,
     )
+
+
+def test_ltn_reg(
+    dataset: Dataset,
+    config: ModelConfig,
+    src_dataset_name: Domains_Type,
+    tgt_dataset_name: Domains_Type,
+    src_sparsity: float,
+    tgt_sparsity: float,
+    save_dir_path: Path,
+):
+    train_config = config.ltn_reg_train_config
+
+    tr, _, _ = _create_trainer(
+        dataset=dataset,
+        config=config,
+        src_dataset_name=src_dataset_name,
+        tgt_dataset_name=tgt_dataset_name,
+        src_sparsity=src_sparsity,
+        tgt_sparsity=tgt_sparsity,
+        save_dir_path=save_dir_path,
+    )
+
+    te_loader = ValDataLoader(
+        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+    )
+    te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")

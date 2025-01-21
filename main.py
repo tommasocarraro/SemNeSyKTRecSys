@@ -7,8 +7,8 @@ from src.model_configs import get_config
 from src.model_configs.utils import Domains_Type
 from src.utils import set_seed
 from loguru import logger
-from train_mf import train_mf, tune_mf
-from train_ltn import train_ltn_reg, tune_ltn_reg
+from train_mf import test_mf, train_mf, tune_mf
+from train_ltn import test_ltn_reg, train_ltn_reg, tune_ltn_reg
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", type=str, help="model name", choices=["mf", "ltn_reg"])
@@ -17,6 +17,7 @@ group2 = parser.add_mutually_exclusive_group(required=True)
 parser.add_argument_group()
 group2.add_argument("--train", action="store_true")
 group2.add_argument("--tune", action="store_true")
+group2.add_argument("--test", action="store_true")
 parser.add_argument("datasets", type=str, help="Datasets to use", nargs=2, choices=["movies", "music", "books"])
 parser.add_argument("--clear_dataset", help="recompute dataset", action="store_true")
 parser.add_argument("--src_sparsity", help="sparsity factor of source dataset", type=float, required=False, default=1)
@@ -35,7 +36,13 @@ def main():
         logger.error("Cannot train the ltn model with source dataset")
         exit(1)
 
-    kind: Literal["train", "tune"] = "train" if args.train else "tune"
+    kind: Literal["train", "tune", "test"]
+    if args.train:
+        kind = "train"
+    elif args.tune:
+        kind = "tune"
+    else:
+        kind = "test"
     datasets: tuple[Domains_Type, Domains_Type] = args.datasets
     src_dataset_name, tgt_dataset_name = datasets
     clear_dataset: bool = args.clear_dataset
@@ -75,7 +82,7 @@ def main():
                 tgt_sparsity=tgt_sparsity,
                 save_dir_path=save_dir_path,
             )
-    else:
+    elif kind == "tune":
         if model_name == "mf":
             tune_mf(dataset=dataset, config=config, which_dataset=which_dataset)
         else:
@@ -86,6 +93,19 @@ def main():
                 tgt_dataset_name=tgt_dataset_name,
                 tgt_sparsity=tgt_sparsity,
                 sweep_id=sweep_id,
+                save_dir_path=save_dir_path,
+            )
+    elif kind == "test":
+        if model_name == "mf":
+            test_mf(dataset=dataset, config=config, which_dataset=which_dataset)
+        else:
+            test_ltn_reg(
+                dataset=dataset,
+                config=config,
+                src_dataset_name=src_dataset_name,
+                tgt_dataset_name=tgt_dataset_name,
+                src_sparsity=src_sparsity,
+                tgt_sparsity=tgt_sparsity,
                 save_dir_path=save_dir_path,
             )
 
