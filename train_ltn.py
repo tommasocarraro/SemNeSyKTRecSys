@@ -231,6 +231,9 @@ def test_ltn_reg(
         save_dir_path=save_dir_path,
     )
 
+    weights_path = train_config.final_model_save_path
+    tr.model.load_model(weights_path)
+
     te_loader = ValDataLoader(
         data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
     )

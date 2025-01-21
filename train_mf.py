@@ -122,5 +122,9 @@ def tune_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sourc
 
 def test_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
     tr, _, _, te_loader = _create_trainer(dataset=dataset, config=config, which_dataset=which_dataset)
+
+    weights_path = config.mf_train_config.final_model_save_path
+    tr.model.load_model(weights_path)
+
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
