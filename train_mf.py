@@ -33,16 +33,18 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
         n_users = dataset.tgt_n_users
         n_items = dataset.tgt_n_items
 
-    tr_loader = DataLoader(data=tr, ui_matrix=ui_matrix, batch_size=config.mf_train_config.batch_size)
+    hyperparams = config.mf_train_config.mf_hyper_params
 
-    val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=config.mf_train_config.batch_size)
+    tr_loader = DataLoader(data=tr, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
 
-    mf = MatrixFactorization(n_users=n_users, n_items=n_items, n_factors=config.mf_train_config.n_factors)
+    val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
+
+    mf = MatrixFactorization(n_users=n_users, n_items=n_items, n_factors=hyperparams.n_factors)
 
     tr = MfTrainer(
         model=mf,
         optimizer=torch.optim.AdamW(
-            mf.parameters(), lr=config.mf_train_config.learning_rate, weight_decay=config.mf_train_config.weight_decay
+            mf.parameters(), lr=hyperparams.learning_rate, weight_decay=hyperparams.weight_decay
         ),
         loss=BPRLoss(),
     )
@@ -62,7 +64,7 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
 
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
-    te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=config.mf_train_config.batch_size)
+    te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
@@ -98,7 +100,7 @@ def tune_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sourc
         tune_config=config.get_wandb_dict_mf(),
         train_set=tr,
         val_set=val,
-        val_batch_size=config.mf_train_config.batch_size,
+        val_batch_size=config.mf_train_config.mf_hyper_params.batch_size,
         n_users=n_users,
         n_items=n_items,
         ui_matrix=ui_matrix,

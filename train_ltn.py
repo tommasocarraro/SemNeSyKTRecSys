@@ -30,18 +30,22 @@ def train_ltn_reg(
     train_config = config.ltn_reg_train_config
     logger.info(f"Training the model with configuration: {config.get_train_config_str('ltn_reg')}")
 
-    tr_loader = DataLoader(data=dataset.tgt_tr, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.batch_size)
+    tr_loader = DataLoader(
+        data=dataset.tgt_tr, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+    )
 
     val_loader = ValDataLoader(
-        data=dataset.tgt_val, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.batch_size
+        data=dataset.tgt_val, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
     )
 
     mf_model_tgt = MatrixFactorization(
-        n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=train_config.n_factors
+        n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=train_config.mf_hyper_params.n_factors
     )
 
     mf_model_src = MatrixFactorization(
-        n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.mf_train_config.n_factors
+        n_users=dataset.src_n_users,
+        n_items=dataset.src_n_items,
+        n_factors=config.mf_train_config.mf_hyper_params.n_factors,
     )
 
     src_model_weights_path = get_best_weights_path(
@@ -79,9 +83,11 @@ def train_ltn_reg(
     tr = LTNRegTrainer(
         mf_model=mf_model_tgt,
         optimizer=torch.optim.AdamW(
-            mf_model_tgt.parameters(), lr=train_config.learning_rate, weight_decay=train_config.weight_decay
+            mf_model_tgt.parameters(),
+            lr=train_config.mf_hyper_params.learning_rate,
+            weight_decay=train_config.mf_hyper_params.weight_decay,
         ),
-        p_forall_ax1=train_config.p_forall,
+        p_forall_ax1=train_config.p_forall_ax1,
         p_forall_ax2=train_config.p_forall_ax2,
         p_sat_agg=train_config.p_sat_agg,
         neg_score_value=train_config.neg_score,
@@ -103,7 +109,9 @@ def train_ltn_reg(
 
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
-    te_loader = ValDataLoader(data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=train_config.batch_size)
+    te_loader = ValDataLoader(
+        data=dataset.src_te, ui_matrix=dataset.src_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+    )
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
@@ -134,7 +142,9 @@ def tune_ltn_reg(
     wandb.login(key=wandb_api_key)
 
     mf_model_src = MatrixFactorization(
-        n_users=dataset.src_n_users, n_items=dataset.src_n_items, n_factors=config.mf_train_config.n_factors
+        n_users=dataset.src_n_users,
+        n_items=dataset.src_n_items,
+        n_factors=config.mf_train_config.mf_hyper_params.n_factors,
     )
 
     top_200_preds = generate_pre_trained_src_matrix(
@@ -149,7 +159,7 @@ def tune_ltn_reg(
         tune_config=config.get_wandb_dict_ltn_reg(),
         train_set=dataset.tgt_tr,
         val_set=dataset.tgt_val,
-        val_batch_size=train_config.batch_size,
+        val_batch_size=train_config.mf_hyper_params.batch_size,
         n_users=dataset.tgt_n_users,
         n_items=dataset.tgt_n_items,
         src_ui_matrix=dataset.src_ui_matrix,

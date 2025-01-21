@@ -7,22 +7,27 @@ from src.metrics import Valid_Metrics_Type
 
 
 @dataclass(frozen=True)
-class TrainConfigMf:
+class MfHyperParams:
     n_factors: int
     learning_rate: float
     weight_decay: float
     batch_size: int
+
+
+@dataclass(frozen=True)
+class MfTrainConfig:
+    mf_hyper_params: MfHyperParams
     checkpoint_save_path: Optional[Path]
     final_model_save_path: Optional[Path]
 
 
 @dataclass(frozen=True)
-class TrainConfigLtn(TrainConfigMf):
-    p_forall: int
+class LtnTrainConfig(MfTrainConfig):
+    p_forall_ax1: int
 
 
 @dataclass(frozen=True)
-class TrainConfigLtnReg(TrainConfigLtn):
+class LtnRegTrainConfig(LtnTrainConfig):
     top_k_src: int
     p_sat_agg: int
     neg_score: float
@@ -51,7 +56,7 @@ class ParametersConfigMf:
 
 
 @dataclass(frozen=True)
-class TuneConfigMf:
+class MfTuneConfig:
     method: Literal["bayes"]
     metric: MetricConfig
     parameters: ParametersConfigMf
@@ -69,12 +74,12 @@ class DatasetConfig:
 
 
 @dataclass(frozen=True)
-class ParametersConfigLtn(ParametersConfigMf):
+class LtnParametersConfig(ParametersConfigMf):
     p_forall: list[int]
 
 
 @dataclass(frozen=True)
-class ParametersConfigLtnReg(ParametersConfigMf):
+class LtnRegParametersConfig(ParametersConfigMf):
     top_k_src_range: list[int]
     p_forall_ax1_range: list[int]
     p_forall_ax2_range: list[int]
@@ -83,10 +88,10 @@ class ParametersConfigLtnReg(ParametersConfigMf):
 
 
 @dataclass(frozen=True)
-class TuneConfigLtn:
+class LtnTuneConfig:
     method: Literal["bayes"]
     metric: MetricConfig
-    parameters: ParametersConfigLtn
+    parameters: LtnParametersConfig
     entity_name: str
     exp_name: str
     bayesian_run_count: int
@@ -94,10 +99,10 @@ class TuneConfigLtn:
 
 
 @dataclass(frozen=True)
-class TuneConfigLtnReg:
+class LtnRegTuneConfig:
     method: Literal["bayes"]
     metric: MetricConfig
-    parameters: ParametersConfigLtnReg
+    parameters: LtnRegParametersConfig
     entity_name: str
     exp_name: str
     bayesian_run_count: int
@@ -111,35 +116,38 @@ class ModelConfig:
     paths_file_path: Path
     early_stopping_criterion: Literal["val_loss", "val_metric"]
     val_metric: Valid_Metrics_Type
-    mf_train_config: TrainConfigMf
-    ltn_reg_train_config: TrainConfigLtnReg
-    ltn_train_config: Optional[TrainConfigLtn] = None
+    mf_train_config: MfTrainConfig
+    ltn_reg_train_config: LtnRegTrainConfig
+    ltn_train_config: Optional[LtnTrainConfig] = None
     epochs: int = 1000
     early_stopping_patience: int = 5
     seed: Optional[int] = None
-    mf_tune_config: Optional[TuneConfigMf] = None
-    ltn_tune_config: Optional[TuneConfigLtn] = None
-    ltn_reg_tune_config: Optional[TuneConfigLtnReg] = None
+    mf_tune_config: Optional[MfTuneConfig] = None
+    ltn_tune_config: Optional[LtnTuneConfig] = None
+    ltn_reg_tune_config: Optional[LtnRegTuneConfig] = None
 
     def get_train_config_str(self, kind: Literal["mf", "ltn", "ltn_reg"]) -> str:
         if kind == "mf":
             config = self.mf_train_config
+            hyper = config.mf_hyper_params
             config_str = (
-                f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
-                f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}"
+                f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
+                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}"
             )
         elif kind == "ltn":
             config = self.ltn_train_config
+            hyper = config.mf_hyper_params
             config_str = (
-                f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
-                f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}, p_forall: {config.p_forall}"
+                f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
+                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall: {config.p_forall_ax1}"
             )
         elif kind == "ltn_reg":
             config = self.ltn_reg_train_config
+            hyper = config.mf_hyper_params
             config_str = (
-                f"n_factors: {config.n_factors}, learning_rate: {config.learning_rate}, "
-                f"weight_decay: {config.weight_decay}, batch_size: {config.batch_size}, p_forall: {config.p_forall}, "
-                f"top_k_src: {config.top_k_src}, p_forall_ax1: {config.p_forall}, p_forall_ax2: {config.p_forall_ax2} "
+                f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
+                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall: {config.p_forall_ax1}, "
+                f"top_k_src: {config.top_k_src}, p_forall_ax1: {config.p_forall_ax1}, p_forall_ax2: {config.p_forall_ax2} "
             )
         else:
             raise ValueError(f"Unknown train kind {kind}")

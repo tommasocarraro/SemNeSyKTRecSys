@@ -2,15 +2,16 @@ from typing import Literal
 
 from src.data_preprocessing.Split_Strategy import LeaveOneOut
 from src.metrics import RankingMetricsType
-from .ModelConfig import DatasetConfig, ModelConfig
+from .ModelConfig import DatasetConfig, LtnRegTrainConfig, MfHyperParams, MfTrainConfig, ModelConfig
+from .single_domains_hyperparams import mf_books_hyperparams, mf_movies_hyperparams
 from .utils import (
     Domains_Type,
     dataset_name_to_path,
     dataset_pair_to_paths_file,
+    get_best_weights_path,
+    get_checkpoint_weights_path,
     get_default_tune_config_ltn_reg,
     get_default_tune_config_mf,
-    make_train_config_ltn_reg,
-    make_train_config_mf,
 )
 
 _seed = 0
@@ -36,32 +37,48 @@ def make_books_to_movies_config(
         early_stopping_criterion="val_metric",
         val_metric=RankingMetricsType.NDCG10,
         seed=_seed,
-        mf_train_config=make_train_config_mf(
-            src_domain_name=_src_domain,
-            tgt_domain_name=_tgt_domain,
-            n_factors=200,
-            learning_rate=0.0001810210202954595,
-            weight_decay=0.00026616161728996144,
-            batch_size=256,
-            src_sparsity=src_sparsity,
-            tgt_sparsity=tgt_sparsity,
-            which_dataset=which_dataset,
+        mf_train_config=MfTrainConfig(
+            mf_hyper_params=mf_books_hyperparams if which_dataset == "source" else mf_movies_hyperparams,
+            checkpoint_save_path=get_checkpoint_weights_path(
+                src_domain_name=_src_domain,
+                tgt_domain_name=_tgt_domain,
+                src_sparsity=src_sparsity,
+                tgt_sparsity=tgt_sparsity,
+                model="mf",
+                which_dataset=which_dataset,
+            ),
+            final_model_save_path=get_best_weights_path(
+                src_domain_name=_src_domain,
+                tgt_domain_name=_tgt_domain,
+                src_sparsity=src_sparsity,
+                tgt_sparsity=tgt_sparsity,
+                model="mf",
+                which_dataset=which_dataset,
+            ),
         ),
-        ltn_reg_train_config=make_train_config_ltn_reg(
-            src_domain_name=_src_domain,
-            tgt_domain_name=_tgt_domain,
-            n_factors=10,
-            learning_rate=0.001,
-            weight_decay=0.001,
-            batch_size=256,
-            top_k_src=10,
+        ltn_reg_train_config=LtnRegTrainConfig(
+            mf_hyper_params=MfHyperParams(n_factors=10, learning_rate=0.001, weight_decay=0.001, batch_size=256),
             p_forall_ax1=2,
             p_forall_ax2=2,
             p_sat_agg=2,
             neg_score=0.0,
-            src_sparsity=src_sparsity,
-            tgt_sparsity=tgt_sparsity,
-            which_dataset=which_dataset,
+            top_k_src=10,
+            checkpoint_save_path=get_checkpoint_weights_path(
+                src_domain_name=_src_domain,
+                tgt_domain_name=_tgt_domain,
+                src_sparsity=src_sparsity,
+                tgt_sparsity=tgt_sparsity,
+                model="ltn_reg",
+                which_dataset=which_dataset,
+            ),
+            final_model_save_path=get_best_weights_path(
+                src_domain_name=_src_domain,
+                tgt_domain_name=_tgt_domain,
+                src_sparsity=src_sparsity,
+                tgt_sparsity=tgt_sparsity,
+                model="ltn_reg",
+                which_dataset=which_dataset,
+            ),
         ),
         mf_tune_config=get_default_tune_config_mf(),
         ltn_reg_tune_config=get_default_tune_config_ltn_reg(),

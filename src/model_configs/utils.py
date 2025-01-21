@@ -2,17 +2,13 @@ from os.path import join
 from pathlib import Path
 from typing import Literal
 
-from loguru import logger
-
 from src.model_configs.ModelConfig import (
+    LtnRegParametersConfig,
+    LtnRegTuneConfig,
     MetricConfig,
+    MfTuneConfig,
     ParameterDistribution,
-    ParametersConfigLtnReg,
     ParametersConfigMf,
-    TrainConfigLtnReg,
-    TrainConfigMf,
-    TuneConfigLtnReg,
-    TuneConfigMf,
 )
 
 Domains_Type = Literal["books", "movies", "music"]
@@ -41,97 +37,13 @@ dataset_pair_to_paths_file = {
 }
 
 
-def make_train_config_mf(
-    src_domain_name: Domains_Type,
-    tgt_domain_name: Domains_Type,
-    n_factors: int,
-    learning_rate: float,
-    weight_decay: float,
-    batch_size: int,
-    src_sparsity: float,
-    tgt_sparsity: float,
-    which_dataset: Literal["source", "target"],
-) -> TrainConfigMf:
-    check_domains_unequal(src_domain_name, tgt_domain_name)
-
-    return TrainConfigMf(
-        n_factors=n_factors,
-        learning_rate=learning_rate,
-        weight_decay=weight_decay,
-        batch_size=batch_size,
-        checkpoint_save_path=get_checkpoint_weights_path(
-            src_domain_name=src_domain_name,
-            tgt_domain_name=tgt_domain_name,
-            src_sparsity=src_sparsity,
-            tgt_sparsity=tgt_sparsity,
-            model="mf",
-            which_dataset=which_dataset,
-        ),
-        final_model_save_path=get_best_weights_path(
-            src_domain_name=src_domain_name,
-            tgt_domain_name=tgt_domain_name,
-            src_sparsity=src_sparsity,
-            tgt_sparsity=tgt_sparsity,
-            model="mf",
-            which_dataset=which_dataset,
-        ),
-    )
-
-
-def make_train_config_ltn_reg(
-    src_domain_name: Domains_Type,
-    tgt_domain_name: Domains_Type,
-    n_factors: int,
-    learning_rate: float,
-    weight_decay: float,
-    batch_size: int,
-    p_forall_ax1: int,
-    p_forall_ax2: int,
-    p_sat_agg: int,
-    top_k_src: int,
-    neg_score: float,
-    src_sparsity: float,
-    tgt_sparsity: float,
-    which_dataset: Literal["source", "target"],
-) -> TrainConfigLtnReg:
-    check_domains_unequal(src_domain_name, tgt_domain_name)
-
-    return TrainConfigLtnReg(
-        n_factors=n_factors,
-        learning_rate=learning_rate,
-        weight_decay=weight_decay,
-        batch_size=batch_size,
-        p_forall=p_forall_ax1,
-        p_forall_ax2=p_forall_ax2,
-        p_sat_agg=p_sat_agg,
-        top_k_src=top_k_src,
-        neg_score=neg_score,
-        checkpoint_save_path=get_checkpoint_weights_path(
-            src_domain_name=src_domain_name,
-            tgt_domain_name=tgt_domain_name,
-            src_sparsity=src_sparsity,
-            tgt_sparsity=tgt_sparsity,
-            model="ltn_reg",
-            which_dataset=which_dataset,
-        ),
-        final_model_save_path=get_best_weights_path(
-            src_domain_name=src_domain_name,
-            tgt_domain_name=tgt_domain_name,
-            src_sparsity=src_sparsity,
-            tgt_sparsity=tgt_sparsity,
-            model="ltn_reg",
-            which_dataset=which_dataset,
-        ),
-    )
-
-
 def get_default_tune_config_mf(
     n_factors_range=(1, 5, 10, 25, 50, 100, 150, 200),
     batch_size_range=(128, 256, 512),
     learning_rate_range=(1e-5, 1e-1),
     weight_decay_range=(1e-6, 1e-1),
-) -> TuneConfigMf:
-    return TuneConfigMf(
+) -> MfTuneConfig:
+    return MfTuneConfig(
         method="bayes",
         metric=MetricConfig(goal="maximize", name="Best val metric"),
         parameters=ParametersConfigMf(
@@ -161,11 +73,11 @@ def get_default_tune_config_ltn_reg(
     p_sat_agg_range=(1, 2, 5, 10),
     neg_score_range=(0.1, 5.0),
     top_k_src_range=(10, 50, 100, 200),
-) -> TuneConfigLtnReg:
-    return TuneConfigLtnReg(
+) -> LtnRegTuneConfig:
+    return LtnRegTuneConfig(
         method="bayes",
         metric=MetricConfig(goal="maximize", name="Best val metric"),
-        parameters=ParametersConfigLtnReg(
+        parameters=LtnRegParametersConfig(
             n_factors_range=list(n_factors_range),
             learning_rate_range=ParameterDistribution(
                 min=learning_rate_range[0], max=learning_rate_range[1], distribution="log_uniform_values"
@@ -187,12 +99,6 @@ def get_default_tune_config_ltn_reg(
         bayesian_run_count=50,
         sweep_id=None,
     )
-
-
-def check_domains_unequal(src_domain_name: Domains_Type, tgt_domain_name: Domains_Type) -> None:
-    if src_domain_name == tgt_domain_name:
-        logger.error(f"Source domain {src_domain_name} and target domain {tgt_domain_name} are the same")
-        exit(1)
 
 
 def get_best_weights_path(
