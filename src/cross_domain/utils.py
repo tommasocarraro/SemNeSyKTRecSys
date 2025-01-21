@@ -10,6 +10,7 @@ from tqdm import tqdm
 def get_reg_axiom_data(
     src_ui_matrix: csr_matrix,
     tgt_ui_matrix: csr_matrix,
+    tgt_sparsity: float,
     n_sh_users: int,
     sim_matrix: csr_matrix,
     top_k_items: NDArray,
@@ -26,6 +27,7 @@ def get_reg_axiom_data(
     determine the cold-start users in the source domain. Knowledge cannot be transferred from these users as the model
     learned little information.
     :param tgt_ui_matrix: sparse user-item matrix containing positive interactions in the target domain
+    :param tgt_sparsity: sparsity factor of the target domain
     :param n_sh_users: number of shared users across domains
     :param sim_matrix: similarity matrix containing a 1 if there exists a path between the source and target item,
     0 otherwise
@@ -36,7 +38,8 @@ def get_reg_axiom_data(
     :param tgt_dataset_name: name of the target domain dataset to use
     """
     save_dir_file_path = (
-        save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_k={top_k_items.shape[1]}_reg_axiom.npy"
+        save_dir_path
+        / f"{src_dataset_name}_{tgt_dataset_name}_k={top_k_items.shape[1]}_sparsity={tgt_sparsity}_reg_axiom.npy"
     )
     if save_dir_file_path.is_file():
         return np.load(save_dir_file_path)

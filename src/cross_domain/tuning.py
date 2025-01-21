@@ -111,6 +111,7 @@ def ltn_tuning_reg(
     top_200_preds: NDArray,
     src_dataset_name: str,
     tgt_dataset_name: str,
+    tgt_sparsity: float,
     save_dir_path: Path,
     val_metric: Valid_Metrics_Type,
     early_stopping_criterion: Literal["val_loss", "val_metric"],
@@ -139,6 +140,7 @@ def ltn_tuning_reg(
     :param top_200_preds: the top 200 predictions for each user in the source domain
     :param src_dataset_name: label of the source domain, used for naming temporary files
     :param tgt_dataset_name: label of the target domain, used for naming temporary files
+    :param tgt_sparsity: the sparsity factor of the target domain
     :param save_dir_path: directory where to store temporary files
     :param val_metric: validation metric that has to be used
     :param n_epochs: number of epochs for hyperparameter tuning
@@ -182,6 +184,7 @@ def ltn_tuning_reg(
                 save_dir_path=save_dir_path,
                 src_dataset_name=src_dataset_name,
                 tgt_dataset_name=tgt_dataset_name,
+                tgt_sparsity=tgt_sparsity,
             )
             # set run name
             run.name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall_ax1={p_forall_ax1}_p_forall_ax2={p_forall_ax2}_p_sat_agg={p_sat_agg}_neg_score_value={neg_score_value}"

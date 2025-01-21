@@ -34,6 +34,7 @@ parser.add_argument(
 parser.add_argument("--src_model_path", type=str, help="Path to pretrained source model", required=False)
 parser.add_argument("--clear", help="recompute dataset", action="store_true")
 parser.add_argument("--sweep", help="wandb sweep id", type=str, required=False)
+parser.add_argument("--sparsity", help="sparsity factor", type=float, required=False, default=1)
 
 save_dir_path = Path("data/saved_data/")
 
@@ -49,6 +50,8 @@ def main():
     kind: Literal["train", "tune"] = "train" if args.train else "tune"
     sweep_id = args.sweep
 
+    tgt_sparsity = args.sparsity
+
     config = get_config(src_dataset_name=src_dataset_name, tgt_dataset_name=tgt_dataset_name, kind=kind)
     set_seed(config.seed)
 
@@ -58,6 +61,8 @@ def main():
         paths_file_path=config.paths_file_path,
         save_dir_path=save_dir_path,
         clear_saved_dataset=args.clear,
+        seed=config.seed,
+        target_sparsity=tgt_sparsity,
     )
 
     src_model_path = Path(src_model_path) if src_model_path is not None else None
@@ -69,6 +74,7 @@ def main():
             src_model_path=src_model_path,
             src_dataset_name=src_dataset_name,
             tgt_dataset_name=tgt_dataset_name,
+            tgt_sparsity=tgt_sparsity,
         )
     elif args.tune:
         tune_target(
@@ -78,6 +84,7 @@ def main():
             src_dataset_name=src_dataset_name,
             tgt_dataset_name=tgt_dataset_name,
             sweep_id=sweep_id,
+            tgt_sparsity=tgt_sparsity,
         )
 
 
@@ -87,6 +94,7 @@ def train_target(
     src_model_path: Optional[Path],
     src_dataset_name: str,
     tgt_dataset_name: str,
+    tgt_sparsity: float,
 ):
     kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
     train_config = config.ltn_train_config if kind == "ltn" else config.ltn_reg_train_config
@@ -125,6 +133,7 @@ def train_target(
             save_dir_path=save_dir_path,
             src_dataset_name=src_dataset_name,
             tgt_dataset_name=tgt_dataset_name,
+            tgt_sparsity=tgt_sparsity,
         )
 
         tr = LTNRegTrainer(
@@ -175,6 +184,7 @@ def tune_target(
     src_model_path: Optional[Path],
     src_dataset_name: str,
     tgt_dataset_name: str,
+    tgt_sparsity: float,
     sweep_id: Optional[str],
 ):
     kind: Literal["ltn", "ltn_reg"] = "ltn" if src_model_path is None else "ltn_reg"
@@ -231,6 +241,7 @@ def tune_target(
             save_dir_path=save_dir_path,
             src_dataset_name=src_dataset_name,
             tgt_dataset_name=tgt_dataset_name,
+            tgt_sparsity=tgt_sparsity,
         )
     else:
         ltn_tuning(
