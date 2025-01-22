@@ -19,8 +19,9 @@ ENV PATH="/opt/conda/bin:$PATH"
 WORKDIR /app
 
 COPY src /app/src
-COPY pretrain_source.py /app/pretrain_source.py
-COPY train_target.py /app/train_target.py
+COPY train_ltn.py /app/train_ltn.py
+COPY train_mf.py /app/train_mf.py
+COPY main.py /app/main.py
 COPY environment_gpu.yml /app/environment_gpu.yml
 COPY data/kg_paths /app/data/kg_paths
 COPY data/ratings /app/data/ratings
@@ -38,4 +39,4 @@ RUN chown -R $USER:$USER_GROUP /app
 # Switch to the non-root user
 USER $USER
 
-CMD ["python", "train_target.py", "--tune", "music", "movies", "--src_model_path", "./source_models/best_src_music_movies.pth"]
+CMD ["python", "main.py", "--tune", "music", "movies", "--which_dataset", "target", "--model", "ltn_reg", "--tgt_sparsity", "0.05", "--sweep_name", "LTNReg music -> movies @ 0.05 sparsity"]
