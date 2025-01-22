@@ -28,6 +28,7 @@ def mf_tuning(
     exp_name: Optional[str] = None,
     bayesian_run_count: Optional[int] = 10,
     sweep_id: Optional[str] = None,
+    sweep_name: Optional[str] = None,
 ):
     """
     It performs the hyperparameter tuning of the MF model using the given hyperparameter search configuration,
@@ -48,6 +49,7 @@ def mf_tuning(
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param bayesian_run_count: number of runs of Bayesian optimization
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
+    :param sweep_name: name to give to the sweep
     """
     # create loader for validation
     if metric in RankingMetricsType:
@@ -85,7 +87,10 @@ def mf_tuning(
                 early_stopping_criterion=early_stopping_criterion,
             )
 
+    if sweep_name is not None:
+        tune_config["name"] = sweep_name
+
     # launch the WandB sweep for 50 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(sweep_id, function=tune, count=bayesian_run_count)
+    wandb.agent(sweep_id, function=tune, entity=entity_name, project=exp_name, count=bayesian_run_count)

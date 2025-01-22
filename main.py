@@ -23,6 +23,7 @@ parser.add_argument("--clear_dataset", help="recompute dataset", action="store_t
 parser.add_argument("--src_sparsity", help="sparsity factor of source dataset", type=float, required=False, default=1)
 parser.add_argument("--tgt_sparsity", help="sparsity factor of target dataset", type=float, required=False, default=1)
 parser.add_argument("--sweep_id", help="wandb sweep id", type=str, required=False)
+parser.add_argument("--sweep_name", help="wandb sweep name", type=str, required=False)
 
 save_dir_path = Path("data/saved_data/")
 
@@ -49,6 +50,7 @@ def main():
     src_sparsity: float = args.src_sparsity
     tgt_sparsity: float = args.tgt_sparsity
     sweep_id: Optional[str] = args.sweep_id
+    sweep_name: Optional[str] = args.sweep_name
 
     config = get_config(
         src_dataset_name=src_dataset_name,
@@ -84,7 +86,9 @@ def main():
             )
     elif kind == "tune":
         if model_name == "mf":
-            tune_mf(dataset=dataset, config=config, which_dataset=which_dataset)
+            tune_mf(
+                dataset=dataset, config=config, which_dataset=which_dataset, sweep_id=sweep_id, sweep_name=sweep_name
+            )
         else:
             tune_ltn_reg(
                 dataset=dataset,
@@ -93,6 +97,7 @@ def main():
                 tgt_dataset_name=tgt_dataset_name,
                 tgt_sparsity=tgt_sparsity,
                 sweep_id=sweep_id,
+                sweep_name=sweep_name,
                 save_dir_path=save_dir_path,
             )
     elif kind == "test":

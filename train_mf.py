@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Literal, Optional
 
 import dotenv
 import torch
@@ -74,7 +74,13 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
-def tune_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
+def tune_mf(
+    dataset: Dataset,
+    config: ModelConfig,
+    which_dataset: Literal["source", "target"],
+    sweep_id: Optional[str],
+    sweep_name: Optional[str],
+):
     if config.mf_tune_config is None:
         raise ValueError("Missing tuning configuration")
 
@@ -116,7 +122,8 @@ def tune_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sourc
         entity_name=config.mf_tune_config.entity_name,
         exp_name=config.mf_tune_config.exp_name,
         bayesian_run_count=config.mf_tune_config.bayesian_run_count,
-        sweep_id=config.mf_tune_config.sweep_id,
+        sweep_id=sweep_id or config.mf_tune_config.sweep_id,
+        sweep_name=sweep_name,
     )
 
 

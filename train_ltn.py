@@ -151,6 +151,7 @@ def tune_ltn_reg(
     tgt_dataset_name: str,
     tgt_sparsity: float,
     sweep_id: Optional[str],
+    sweep_name: Optional[str],
     save_dir_path: Path,
 ):
     train_config = config.ltn_reg_train_config
@@ -207,6 +208,7 @@ def tune_ltn_reg(
         src_dataset_name=src_dataset_name,
         tgt_dataset_name=tgt_dataset_name,
         tgt_sparsity=tgt_sparsity,
+        sweep_name=sweep_name,
     )
 
 
