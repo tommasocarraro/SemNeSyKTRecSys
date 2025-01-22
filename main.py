@@ -20,12 +20,14 @@ group2.add_argument("--tune", action="store_true")
 group2.add_argument("--test", action="store_true")
 parser.add_argument("datasets", type=str, help="Datasets to use", nargs=2, choices=["movies", "music", "books"])
 parser.add_argument("--clear_dataset", help="recompute dataset", action="store_true")
-parser.add_argument("--src_sparsity", help="sparsity factor of source dataset", type=float, required=False, default=1)
-parser.add_argument("--tgt_sparsity", help="sparsity factor of target dataset", type=float, required=False, default=1)
+parser.add_argument("--src_sparsity", help="sparsity factor of source dataset", type=float, required=False, default=1.0)
+parser.add_argument("--tgt_sparsity", help="sparsity factor of target dataset", type=float, required=False, default=1.0)
 parser.add_argument("--sweep_id", help="wandb sweep id", type=str, required=False)
 parser.add_argument("--sweep_name", help="wandb sweep name", type=str, required=False)
 
 save_dir_path = Path("data/saved_data/")
+
+seed = 0
 
 
 def main():
@@ -44,6 +46,7 @@ def main():
         kind = "tune"
     else:
         kind = "test"
+
     datasets: tuple[Domains_Type, Domains_Type] = args.datasets
     src_dataset_name, tgt_dataset_name = datasets
     clear_dataset: bool = args.clear_dataset
@@ -52,14 +55,19 @@ def main():
     sweep_id: Optional[str] = args.sweep_id
     sweep_name: Optional[str] = args.sweep_name
 
+    if not args.tune and (sweep_id is not None or sweep_name is not None):
+        logger.error("Sweep ID and sweep name should only be set when tuning")
+        exit(1)
+
     config = get_config(
         src_dataset_name=src_dataset_name,
         tgt_dataset_name=tgt_dataset_name,
         src_sparsity=src_sparsity,
         tgt_sparsity=tgt_sparsity,
         which_dataset=which_dataset,
+        seed=seed,
     )
-    set_seed(config.seed)
+    set_seed(seed)
 
     dataset = process_source_target(
         src_dataset_config=config.src_dataset_config,

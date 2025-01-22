@@ -15,23 +15,28 @@ class MfHyperParams:
 
 
 @dataclass(frozen=True)
-class MfTrainConfig:
-    mf_hyper_params: MfHyperParams
+class LtnRegHyperParams(MfHyperParams):
+    p_forall_ax1: int
+    p_forall_ax2: int
+    p_sat_agg: int
+    top_k_src: int
+    neg_score: float
+
+
+@dataclass(frozen=True)
+class TrainConfig:
     checkpoint_save_path: Optional[Path]
     final_model_save_path: Optional[Path]
 
 
 @dataclass(frozen=True)
-class LtnTrainConfig(MfTrainConfig):
-    p_forall_ax1: int
+class MfTrainConfig(TrainConfig):
+    hyper_params: MfHyperParams
 
 
 @dataclass(frozen=True)
-class LtnRegTrainConfig(LtnTrainConfig):
-    top_k_src: int
-    p_sat_agg: int
-    neg_score: float
-    p_forall_ax2: int
+class LtnRegTrainConfig(TrainConfig):
+    hyper_params: LtnRegHyperParams
 
 
 @dataclass(frozen=True)
@@ -74,28 +79,12 @@ class DatasetConfig:
 
 
 @dataclass(frozen=True)
-class LtnParametersConfig(ParametersConfigMf):
-    p_forall: list[int]
-
-
-@dataclass(frozen=True)
 class LtnRegParametersConfig(ParametersConfigMf):
     top_k_src_range: list[int]
     p_forall_ax1_range: list[int]
     p_forall_ax2_range: list[int]
     p_sat_agg_range: list[int]
     neg_score_range: ParameterDistribution
-
-
-@dataclass(frozen=True)
-class LtnTuneConfig:
-    method: Literal["bayes"]
-    metric: MetricConfig
-    parameters: LtnParametersConfig
-    entity_name: str
-    exp_name: str
-    bayesian_run_count: int
-    sweep_id: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -118,36 +107,27 @@ class ModelConfig:
     val_metric: Valid_Metrics_Type
     mf_train_config: MfTrainConfig
     ltn_reg_train_config: LtnRegTrainConfig
-    ltn_train_config: Optional[LtnTrainConfig] = None
     epochs: int = 1000
     early_stopping_patience: int = 5
     seed: Optional[int] = None
     mf_tune_config: Optional[MfTuneConfig] = None
-    ltn_tune_config: Optional[LtnTuneConfig] = None
     ltn_reg_tune_config: Optional[LtnRegTuneConfig] = None
 
-    def get_train_config_str(self, kind: Literal["mf", "ltn", "ltn_reg"]) -> str:
+    def get_train_config_str(self, kind: Literal["mf", "ltn_reg"]) -> str:
         if kind == "mf":
             config = self.mf_train_config
-            hyper = config.mf_hyper_params
+            hyper = config.hyper_params
             config_str = (
                 f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
                 f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}"
             )
-        elif kind == "ltn":
-            config = self.ltn_train_config
-            hyper = config.mf_hyper_params
-            config_str = (
-                f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
-                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall: {config.p_forall_ax1}"
-            )
         elif kind == "ltn_reg":
             config = self.ltn_reg_train_config
-            hyper = config.mf_hyper_params
+            hyper = config.hyper_params
             config_str = (
                 f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
-                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall: {config.p_forall_ax1}, "
-                f"top_k_src: {config.top_k_src}, p_forall_ax1: {config.p_forall_ax1}, p_forall_ax2: {config.p_forall_ax2} "
+                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall: {hyper.p_forall_ax1}, "
+                f"top_k_src: {hyper.top_k_src}, p_forall_ax1: {hyper.p_forall_ax1}, p_forall_ax2: {hyper.p_forall_ax2} "
             )
         else:
             raise ValueError(f"Unknown train kind {kind}")
@@ -173,33 +153,11 @@ class ModelConfig:
             },
         }
 
-    def get_wandb_dict_ltn(self):
-        config = self.ltn_tune_config
-        return {
-            "method": "bayes",
-            "metric": {"goal": self.ltn_tune_config.metric.goal, "name": self.ltn_tune_config.metric.name},
-            "parameters": {
-                "n_factors": {"values": config.parameters.n_factors_range},
-                "learning_rate": {
-                    "min": config.parameters.learning_rate_range.min,
-                    "max": config.parameters.learning_rate_range.max,
-                    "distribution": config.parameters.learning_rate_range.distribution,
-                },
-                "weight_decay": {
-                    "min": config.parameters.weight_decay_range.min,
-                    "max": config.parameters.weight_decay_range.max,
-                    "distribution": config.parameters.weight_decay_range.distribution,
-                },
-                "batch_size": {"values": config.parameters.batch_size_range},
-                "p_forall": {"values": self.ltn_tune_config.parameters.p_forall},
-            },
-        }
-
     def get_wandb_dict_ltn_reg(self):
         config = self.ltn_reg_tune_config
         return {
             "method": "bayes",
-            "metric": {"goal": self.ltn_tune_config.metric.goal, "name": self.ltn_tune_config.metric.name},
+            "metric": {"goal": self.ltn_reg_tune_config.metric.goal, "name": self.ltn_reg_tune_config.metric.name},
             "parameters": {
                 "n_factors": {"values": config.parameters.n_factors_range},
                 "learning_rate": {
