@@ -75,6 +75,7 @@ class MfTuneConfig:
 class DatasetConfig:
     dataset_path: Path
     split_strategy: SplitStrategy
+    user_level: bool
     sparsity: float
 
 

@@ -5,6 +5,7 @@ from src.model_configs.utils import Domains_Type
 
 hyperparams_dict = {
     "books": {
+        0.01: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.05: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.2: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.5: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
@@ -13,6 +14,7 @@ hyperparams_dict = {
         ),
     },
     "movies": {
+        0.01: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.05: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.2: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.5: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
@@ -21,6 +23,7 @@ hyperparams_dict = {
         ),
     },
     "music": {
+        0.01: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.05: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.2: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),
         0.5: MfHyperParams(n_factors=10, learning_rate=0.01, weight_decay=0.01, batch_size=256),

@@ -22,18 +22,22 @@ def get_config(
     src_sparsity: float,
     tgt_sparsity: float,
     which_dataset: Literal["source", "target"],
-    seed: Optional[int],
+    user_level_src: bool,
+    user_level_tgt: bool,
+    seed: Optional[int] = None,
 ) -> ModelConfig:
     return ModelConfig(
         src_dataset_config=DatasetConfig(
             dataset_path=dataset_name_to_path[src_dataset_name],
             split_strategy=LeaveOneOut(seed=seed),
             sparsity=src_sparsity,
+            user_level=user_level_src,
         ),
         tgt_dataset_config=DatasetConfig(
             dataset_path=dataset_name_to_path[tgt_dataset_name],
             split_strategy=LeaveOneOut(seed=seed),
             sparsity=tgt_sparsity,
+            user_level=user_level_tgt,
         ),
         paths_file_path=dataset_pair_to_paths_file[src_dataset_name][tgt_dataset_name],
         early_stopping_criterion="val_metric",

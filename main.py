@@ -21,7 +21,13 @@ group2.add_argument("--test", action="store_true")
 parser.add_argument("datasets", type=str, help="Datasets to use", nargs=2, choices=["movies", "music", "books"])
 parser.add_argument("--clear_dataset", help="recompute dataset", action="store_true")
 parser.add_argument("--src_sparsity", help="sparsity factor of source dataset", type=float, required=False, default=1.0)
+parser.add_argument(
+    "--user-level-src", help="whether to split the source dataset at the user level or globally", action="store_true"
+)
 parser.add_argument("--tgt_sparsity", help="sparsity factor of target dataset", type=float, required=False, default=1.0)
+parser.add_argument(
+    "--user-level-tgt", help="whether to split the target dataset at the user level or globally", action="store_true"
+)
 parser.add_argument("--sweep_id", help="wandb sweep id", type=str, required=False)
 parser.add_argument("--sweep_name", help="wandb sweep name", type=str, required=False)
 
@@ -54,6 +60,16 @@ def main():
     tgt_sparsity: float = args.tgt_sparsity
     sweep_id: Optional[str] = args.sweep_id
     sweep_name: Optional[str] = args.sweep_name
+    user_level_src: bool = args.user_level_src
+    user_level_tgt: bool = args.user_level_tgt
+
+    if user_level_src and src_sparsity == 1.0:
+        logger.error("Can't use --user-level-src if the source dataset is not supposed to be split")
+        exit(1)
+
+    if user_level_tgt and tgt_sparsity == 1.0:
+        logger.error("Can't use --user-level-tgt if the target dataset is not supposed to be split")
+        exit(1)
 
     if not args.tune and (sweep_id is not None or sweep_name is not None):
         logger.error("Sweep ID and sweep name should only be set when tuning")
@@ -66,6 +82,8 @@ def main():
         tgt_sparsity=tgt_sparsity,
         which_dataset=which_dataset,
         seed=seed,
+        user_level_src=user_level_src,
+        user_level_tgt=user_level_tgt,
     )
     set_seed(seed)
 
@@ -77,6 +95,9 @@ def main():
         clear_saved_dataset=clear_dataset,
         src_sparsity=src_sparsity,
         tgt_sparsity=tgt_sparsity,
+        seed=seed,
+        user_level_src=user_level_src,
+        user_level_tgt=user_level_tgt,
     )
 
     if kind == "train":

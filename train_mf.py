@@ -31,7 +31,7 @@ def _create_trainer(dataset: Dataset, config: ModelConfig, which_dataset: Litera
         n_users = dataset.tgt_n_users
         n_items = dataset.tgt_n_items
 
-    hyperparams = config.mf_train_config.mf_hyper_params
+    hyperparams = config.mf_train_config.hyper_params
 
     tr_loader = DataLoader(data=tr, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
     val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
@@ -111,7 +111,7 @@ def tune_mf(
         tune_config=config.get_wandb_dict_mf(),
         train_set=tr,
         val_set=val,
-        val_batch_size=config.mf_train_config.mf_hyper_params.batch_size,
+        val_batch_size=config.mf_train_config.hyper_params.batch_size,
         n_users=n_users,
         n_items=n_items,
         ui_matrix=ui_matrix,

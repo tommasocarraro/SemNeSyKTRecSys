@@ -24,8 +24,11 @@ def process_source_target(
     paths_file_path: Path,
     src_sparsity: float,
     tgt_sparsity: float,
+    user_level_src: bool,
+    user_level_tgt: bool,
     save_dir_path: Optional[Path] = None,
     clear_saved_dataset: bool = False,
+    seed: Optional[int] = None,
 ) -> Dataset:
     """
     This function processes the cross-domain dataset and prepares it for the experiment. In particular, it executes
@@ -40,8 +43,11 @@ def process_source_target(
     :param paths_file_path: paths between entities in the two different domain
     :param src_sparsity: source domain sparsity factor
     :param tgt_sparsity: target domain sparsity factor
+    :param user_level_src: whether to sample sparsity% of each user's ratings or globally for the source domain
+    :param user_level_tgt: whether to sample sparsity% of each user's ratings or globally for the target domain
     :param save_dir_path: path where to save the dataset. None if the dataset should not be saved on disk.
     :param clear_saved_dataset: whether to clear the saved dataset if it exists
+    :param seed: seed for sampling the dataset when increasing sparsity
     """
     logger.info("Reading datasets from file system")
     # decompress source and target rating files, if needed
@@ -96,9 +102,13 @@ def process_source_target(
     sparse_tgt_matrix = create_ui_matrix(tgt_ratings)
 
     src_tr, src_val, src_te = src_dataset_config.split_strategy.split(src_ratings.to_numpy())
-    src_tr = increase_sparsity(ratings=src_tr, sparsity=src_sparsity, label="source")
+    src_tr = increase_sparsity(
+        ratings=src_tr, sparsity=src_sparsity, label="source", seed=seed, user_level=user_level_src
+    )
     tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
-    tgt_tr = increase_sparsity(ratings=tgt_tr, sparsity=tgt_sparsity, label="target")
+    tgt_tr = increase_sparsity(
+        ratings=tgt_tr, sparsity=tgt_sparsity, label="target", seed=seed, user_level=user_level_tgt
+    )
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
     sim_matrix = create_sim_matrix(
@@ -283,7 +293,9 @@ def create_sim_matrix(
     )
 
 
-def increase_sparsity(ratings: NDArray, sparsity: float, label: Literal["source", "target"]) -> NDArray:
+def increase_sparsity(
+    ratings: NDArray, sparsity: float, label: Literal["source", "target"], seed: int, user_level: bool
+) -> NDArray:
     """
     Artificially increases the sparsity of the ratings dataframe by the given sparsity factor. I.e., if sparsity is 0.4,
     then 40% of each user's ratings will be retained in the dataset. The ratings are sampled randomly.
@@ -291,38 +303,39 @@ def increase_sparsity(ratings: NDArray, sparsity: float, label: Literal["source"
     :param ratings: numpy array containing the quadruples of the ratings
     :param sparsity: the sparsity factor to use
     :param label: label representing either source or target domain, used for tqdm's description
+    :param seed: seed to use for sampling
+    :param user_level: whether to sample sparsity% of each user's ratings or globally
 
     :return: the new ratings array containing the sampled ratings
 
     """
-    if not (0 < sparsity <= 1):
+    if not (0.0 < sparsity <= 1.0):
         logger.error("sparsity must be between 0 and 1, excluding 0.")
         exit(1)
 
-    if sparsity == 1:
+    # if the sparsity is 1.0 then do nothing
+    if sparsity == 1.0:
         return ratings
 
-    # Get unique userIds
-    user_ids, counts = np.unique(ratings[:, 0], return_counts=True)
+    # reconvert the numpy array to a dataframe
+    df = DataFrame(ratings, columns=["userId", "itemId", "rating", "timestamp"])
 
-    # Calculate the total number of samples to take
-    num_samples_per_user = (counts * sparsity).astype(int)
+    # sample the required percentage of ratings for each user
+    # if after the sampling the user is left with no ratings, the original group of ratings is retained
+    def sample_ratings(x):
+        sampled = x.sample(frac=sparsity, random_state=seed)
+        if len(sampled) > 0:
+            return sampled
+        return x
 
-    # Preallocate a list for sampled quadruples
-    sampled_quadruples = []
-
-    for user_id, num_samples in tqdm(
-        zip(user_ids, num_samples_per_user),
-        f"Artificially increasing data sparsity for the {label} domain. Selecting {int(sparsity * 100)}% random ratings for each user",
-        dynamic_ncols=True,
-        total=len(user_ids),
-    ):
-        if num_samples > 0:
-            # Get all quadruples for the current user
-            user_quadruples = ratings[ratings[:, 0] == user_id]
-            # Sample the quadruples without replacement
-            sampled = user_quadruples[np.random.choice(user_quadruples.shape[0], num_samples, replace=False)]
-            sampled_quadruples.append(sampled)
-
-    # Concatenate all sampled quadruples into a single array
-    return np.vstack(sampled_quadruples) if sampled_quadruples else np.empty((0, ratings.shape[1]))
+    if user_level:
+        desc = (
+            f"Artificially increasing data sparsity for the {label} domain. Selecting {int(sparsity * 100)}% random "
+            f"ratings for each user"
+        )
+        # inject the tqdm methods to pandas
+        tqdm.pandas(desc=desc)
+        df = df.groupby("userId").progress_apply(sample_ratings).reset_index(drop=True)
+    else:
+        df = df.apply(sample_ratings).reset_index(drop=True)
+    return df.to_numpy()
