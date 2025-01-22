@@ -173,7 +173,7 @@ def tune_ltn_reg(
     mf_model_src = MatrixFactorization(
         n_users=dataset.src_n_users,
         n_items=dataset.src_n_items,
-        n_factors=config.mf_train_config.mf_hyper_params.n_factors,
+        n_factors=config.mf_train_config.hyper_params.n_factors,
     )
 
     top_200_preds = generate_pre_trained_src_matrix(
@@ -188,7 +188,7 @@ def tune_ltn_reg(
         tune_config=config.get_wandb_dict_ltn_reg(),
         train_set=dataset.tgt_tr,
         val_set=dataset.tgt_val,
-        val_batch_size=train_config.mf_hyper_params.batch_size,
+        val_batch_size=train_config.hyper_params.batch_size,
         n_users=dataset.tgt_n_users,
         n_items=dataset.tgt_n_items,
         src_ui_matrix=dataset.src_ui_matrix,
