@@ -112,6 +112,7 @@ def main():
                 src_sparsity=src_sparsity,
                 tgt_sparsity=tgt_sparsity,
                 save_dir_path=save_dir_path,
+                user_level_src=user_level_src,
             )
     elif kind == "tune":
         if model_name == "mf":
@@ -128,6 +129,8 @@ def main():
                 sweep_id=sweep_id,
                 sweep_name=sweep_name,
                 save_dir_path=save_dir_path,
+                user_level_src=user_level_src,
+                src_sparsity=src_sparsity,
             )
     elif kind == "test":
         if model_name == "mf":
@@ -141,6 +144,7 @@ def main():
                 src_sparsity=src_sparsity,
                 tgt_sparsity=tgt_sparsity,
                 save_dir_path=save_dir_path,
+                user_level_src=user_level_src,
             )
 
 

@@ -1,6 +1,9 @@
+import os
 from os.path import join
 from pathlib import Path
 from typing import Literal
+
+from loguru import logger
 
 from src.model_configs.ModelConfig import (
     LtnRegParametersConfig,
@@ -118,6 +121,24 @@ def get_best_weights_path(
             f"_ul={user_level_tgt}_{which_dataset}.pth",
         )
     )
+
+
+def get_best_weights_path_mf_source(src_domain_name: Domains_Type, src_sparsity: float, user_level_src: bool):
+    models_folder = Path("source_models")
+    for file_name in os.listdir(models_folder):
+        if (
+            file_name.startswith(f"best_mf_{src_domain_name}@{src_sparsity}_ul={user_level_src}")
+            and file_name.endswith("source.pth")
+        ) or (
+            file_name.startswith("best_mf_")
+            and file_name.endswith(f"{src_domain_name}@{src_sparsity}_ul={user_level_src}_target.pth")
+        ):
+            return models_folder / Path(file_name)
+    logger.error(
+        f"Could not find a MF model for source domain: {src_domain_name} with sparsity: {src_sparsity}"
+        + (" at user level" if user_level_src else "")
+    )
+    exit(1)
 
 
 def get_checkpoint_weights_path(

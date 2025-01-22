@@ -14,7 +14,7 @@ from src.data_loader import DataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
 from src.model import MatrixFactorization
 from src.model_configs import ModelConfig
-from src.model_configs.utils import Domains_Type, get_best_weights_path
+from src.model_configs.utils import Domains_Type, get_best_weights_path_mf_source
 from src.pretrain_source.inference import generate_pre_trained_src_matrix
 
 
@@ -24,40 +24,36 @@ def _create_trainer(
     src_dataset_name: Domains_Type,
     tgt_dataset_name: Domains_Type,
     src_sparsity: float,
+    user_level_src: bool,
     tgt_sparsity: float,
     save_dir_path: Path,
 ):
     tr_loader = DataLoader(
         data=dataset.tgt_tr,
         ui_matrix=dataset.tgt_ui_matrix,
-        batch_size=config.ltn_reg_train_config.mf_hyper_params.batch_size,
+        batch_size=config.ltn_reg_train_config.hyper_params.batch_size,
     )
 
     val_loader = ValDataLoader(
         data=dataset.tgt_val,
         ui_matrix=dataset.tgt_ui_matrix,
-        batch_size=config.ltn_reg_train_config.mf_hyper_params.batch_size,
+        batch_size=config.ltn_reg_train_config.hyper_params.batch_size,
     )
 
     mf_model_tgt = MatrixFactorization(
         n_users=dataset.tgt_n_users,
         n_items=dataset.tgt_n_items,
-        n_factors=config.ltn_reg_train_config.mf_hyper_params.n_factors,
+        n_factors=config.ltn_reg_train_config.hyper_params.n_factors,
     )
 
     mf_model_src = MatrixFactorization(
         n_users=dataset.src_n_users,
         n_items=dataset.src_n_items,
-        n_factors=config.mf_train_config.mf_hyper_params.n_factors,
+        n_factors=config.mf_train_config.hyper_params.n_factors,
     )
 
-    src_model_weights_path = get_best_weights_path(
-        src_domain_name=src_dataset_name,
-        tgt_domain_name=tgt_dataset_name,
-        which_dataset="source",
-        src_sparsity=src_sparsity,
-        tgt_sparsity=tgt_sparsity,
-        model="mf",
+    src_model_weights_path = get_best_weights_path_mf_source(
+        src_domain_name=src_dataset_name, src_sparsity=src_sparsity, user_level_src=user_level_src
     )
     if not src_model_weights_path or not src_model_weights_path.is_file():
         logger.error(f"The source model weights path {src_model_weights_path} does not exist.")
@@ -69,7 +65,7 @@ def _create_trainer(
         n_shared_users=dataset.n_sh_users,
         save_dir_path=save_dir_path,
         batch_size=2048,
-    )[:, : config.ltn_reg_train_config.top_k_src]
+    )[:, : config.ltn_reg_train_config.hyper_params.top_k_src]
 
     processed_interactions = get_reg_axiom_data(
         src_ui_matrix=dataset.src_ui_matrix,
@@ -87,13 +83,13 @@ def _create_trainer(
         mf_model=mf_model_tgt,
         optimizer=torch.optim.AdamW(
             mf_model_tgt.parameters(),
-            lr=config.ltn_reg_train_config.mf_hyper_params.learning_rate,
-            weight_decay=config.ltn_reg_train_config.mf_hyper_params.weight_decay,
+            lr=config.ltn_reg_train_config.hyper_params.learning_rate,
+            weight_decay=config.ltn_reg_train_config.hyper_params.weight_decay,
         ),
-        p_forall_ax1=config.ltn_reg_train_config.p_forall_ax1,
-        p_forall_ax2=config.ltn_reg_train_config.p_forall_ax2,
-        p_sat_agg=config.ltn_reg_train_config.p_sat_agg,
-        neg_score_value=config.ltn_reg_train_config.neg_score,
+        p_forall_ax1=config.ltn_reg_train_config.hyper_params.p_forall_ax1,
+        p_forall_ax2=config.ltn_reg_train_config.hyper_params.p_forall_ax2,
+        p_sat_agg=config.ltn_reg_train_config.hyper_params.p_sat_agg,
+        neg_score_value=config.ltn_reg_train_config.hyper_params.neg_score,
         processed_interactions=processed_interactions,
     )
 
@@ -106,6 +102,7 @@ def train_ltn_reg(
     src_dataset_name: Domains_Type,
     tgt_dataset_name: Domains_Type,
     src_sparsity: float,
+    user_level_src: bool,
     tgt_sparsity: float,
     save_dir_path: Path,
 ):
@@ -120,6 +117,7 @@ def train_ltn_reg(
         src_sparsity=src_sparsity,
         tgt_sparsity=tgt_sparsity,
         save_dir_path=save_dir_path,
+        user_level_src=user_level_src,
     )
 
     tr.train(
@@ -138,7 +136,7 @@ def train_ltn_reg(
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
     te_loader = ValDataLoader(
-        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.hyper_params.batch_size
     )
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
@@ -147,8 +145,10 @@ def train_ltn_reg(
 def tune_ltn_reg(
     dataset: Dataset,
     config: ModelConfig,
-    src_dataset_name: str,
-    tgt_dataset_name: str,
+    src_dataset_name: Domains_Type,
+    tgt_dataset_name: Domains_Type,
+    src_sparsity: float,
+    user_level_src: bool,
     tgt_sparsity: float,
     sweep_id: Optional[str],
     sweep_name: Optional[str],
@@ -176,9 +176,16 @@ def tune_ltn_reg(
         n_factors=config.mf_train_config.hyper_params.n_factors,
     )
 
+    src_model_weights_path = get_best_weights_path_mf_source(
+        src_domain_name=src_dataset_name, src_sparsity=src_sparsity, user_level_src=user_level_src
+    )
+    if not src_model_weights_path or not src_model_weights_path.is_file():
+        logger.error(f"The source model weights path {src_model_weights_path} does not exist.")
+        exit(1)
+
     top_200_preds = generate_pre_trained_src_matrix(
         mf_model=mf_model_src,
-        best_weights_path=config.mf_train_config.final_model_save_path,
+        best_weights_path=src_model_weights_path,
         n_shared_users=dataset.n_sh_users,
         batch_size=2048,
         save_dir_path=save_dir_path,
@@ -218,6 +225,7 @@ def test_ltn_reg(
     src_dataset_name: Domains_Type,
     tgt_dataset_name: Domains_Type,
     src_sparsity: float,
+    user_level_src: bool,
     tgt_sparsity: float,
     save_dir_path: Path,
 ):
@@ -231,13 +239,14 @@ def test_ltn_reg(
         src_sparsity=src_sparsity,
         tgt_sparsity=tgt_sparsity,
         save_dir_path=save_dir_path,
+        user_level_src=user_level_src,
     )
 
     weights_path = train_config.final_model_save_path
     tr.model.load_model(weights_path)
 
     te_loader = ValDataLoader(
-        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.mf_hyper_params.batch_size
+        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.hyper_params.batch_size
     )
     te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
