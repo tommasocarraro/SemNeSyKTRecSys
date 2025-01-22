@@ -55,6 +55,8 @@ def get_config(
                 tgt_sparsity=tgt_sparsity,
                 model="mf",
                 which_dataset=which_dataset,
+                user_level_src=user_level_src,
+                user_level_tgt=user_level_tgt,
             ),
             final_model_save_path=get_best_weights_path(
                 src_domain_name=src_dataset_name,
@@ -63,6 +65,8 @@ def get_config(
                 tgt_sparsity=tgt_sparsity,
                 model="mf",
                 which_dataset=which_dataset,
+                user_level_src=user_level_src,
+                user_level_tgt=user_level_tgt,
             ),
         ),
         ltn_reg_train_config=LtnRegTrainConfig(
@@ -76,6 +80,8 @@ def get_config(
                 tgt_sparsity=tgt_sparsity,
                 model="ltn_reg",
                 which_dataset=which_dataset,
+                user_level_src=user_level_src,
+                user_level_tgt=user_level_tgt,
             ),
             final_model_save_path=get_best_weights_path(
                 src_domain_name=src_dataset_name,
@@ -84,6 +90,8 @@ def get_config(
                 tgt_sparsity=tgt_sparsity,
                 model="ltn_reg",
                 which_dataset=which_dataset,
+                user_level_src=user_level_src,
+                user_level_tgt=user_level_tgt,
             ),
         ),
         mf_tune_config=get_default_tune_config_mf(),

@@ -63,6 +63,8 @@ def process_source_target(
             tgt_split_strategy=src_dataset_config.split_strategy,
             src_sparsity=src_sparsity,
             tgt_sparsity=tgt_sparsity,
+            user_level_src=user_level_src,
+            user_level_tgt=user_level_tgt,
         )
 
         maybe_dataset = load_or_clear_dataset(save_file_path=save_file_path, clear_saved_dataset=clear_saved_dataset)
@@ -201,7 +203,9 @@ def make_save_file_path(
     src_sparsity: float,
     tgt_sparsity: float,
     src_split_strategy: SplitStrategy,
+    user_level_src: bool,
     tgt_split_strategy: SplitStrategy,
+    user_level_tgt: bool,
 ) -> Path:
     """
     Constructs the path where the dataset should be stored on file system by numpy
@@ -212,12 +216,17 @@ def make_save_file_path(
     :param src_sparsity: the sparsity of the source dataset
     :param tgt_sparsity: the sparsity of the target dataset
     :param src_split_strategy: strategy used to split the source dataset
+    :param user_level_src: whether to sample sparsity% of each user's ratings or globally for the source domain
     :param tgt_split_strategy: strategy used to split the target dataset
+    :param user_level_tgt: whether to sample sparsity% of each user's ratings or globally for the target domain
     :return: Location of the processed dataset
     """
     makedirs(save_dir_path, exist_ok=True)
 
-    source_file_name = f"{src_dataset_path.stem}_{tgt_dataset_path.stem}_src_sparsity={src_sparsity}_tgt_sparsity={tgt_sparsity}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
+    source_file_name = (
+        f"{src_dataset_path.stem}_{tgt_dataset_path.stem}_src_sparsity={src_sparsity}_ul={user_level_src}_"
+        f"tgt_sparsity={tgt_sparsity}_ul={user_level_tgt}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
+    )
     return save_dir_path / source_file_name
 
 

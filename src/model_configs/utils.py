@@ -105,14 +105,17 @@ def get_best_weights_path(
     src_domain_name: Domains_Type,
     tgt_domain_name: Domains_Type,
     src_sparsity: float,
+    user_level_src: bool,
     tgt_sparsity: float,
+    user_level_tgt: bool,
     model: Literal["mf", "ltn_reg"],
     which_dataset: Literal["source", "target"],
 ) -> Path:
     return Path(
         join(
             "source_models",
-            f"best_{model}_{src_domain_name}@{src_sparsity}_{tgt_domain_name}@{tgt_sparsity}_{which_dataset}.pth",
+            f"best_{model}_{src_domain_name}@{src_sparsity}_ul={user_level_src}_{tgt_domain_name}@{tgt_sparsity}"
+            f"_ul={user_level_tgt}_{which_dataset}.pth",
         )
     )
 
@@ -121,13 +124,16 @@ def get_checkpoint_weights_path(
     src_domain_name: Domains_Type,
     tgt_domain_name: Domains_Type,
     src_sparsity: float,
+    user_level_src: bool,
     tgt_sparsity: float,
+    user_level_tgt: bool,
     model: Literal["mf", "ltn_reg"],
     which_dataset: Literal["source", "target"],
 ) -> Path:
     return Path(
         join(
             "source_models",
-            f"checkpoint_{model}_{src_domain_name}@{src_sparsity}_{tgt_domain_name}@{tgt_sparsity}_{which_dataset}.pth",
+            f"checkpoint_{model}_{src_domain_name}@{src_sparsity}_ul={user_level_src}_{tgt_domain_name}@{tgt_sparsity}"
+            f"_ul={user_level_tgt}_{which_dataset}.pth",
         )
     )
