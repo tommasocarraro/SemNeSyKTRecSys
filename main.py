@@ -84,6 +84,7 @@ def main():
         seed=seed,
         user_level_src=user_level_src,
         user_level_tgt=user_level_tgt,
+        which_model=model_name,
     )
     set_seed(seed)
 

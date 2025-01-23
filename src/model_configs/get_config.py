@@ -22,6 +22,7 @@ def get_config(
     src_sparsity: float,
     tgt_sparsity: float,
     which_dataset: Literal["source", "target"],
+    which_model: Literal["ltn_reg", "mf"],
     user_level_src: bool,
     user_level_tgt: bool,
     seed: Optional[int] = None,
@@ -45,7 +46,7 @@ def get_config(
         mf_train_config=MfTrainConfig(
             hyper_params=(
                 get_mf_hyperparams(domain=src_dataset_name, sparsity=src_sparsity)
-                if which_dataset == "source"
+                if which_dataset == "source" or which_model == "ltn_reg"
                 else get_mf_hyperparams(domain=tgt_dataset_name, sparsity=tgt_sparsity)
             ),
             checkpoint_save_path=get_checkpoint_weights_path(
