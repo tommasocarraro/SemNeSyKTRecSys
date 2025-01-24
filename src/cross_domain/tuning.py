@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional
 import wandb
 from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
+from torch import Tensor
 from torch.optim import AdamW
 
 from src.cross_domain.ltn_trainer import LTNRegTrainer, LTNTrainer
@@ -108,7 +109,7 @@ def ltn_tuning_reg(
     sim_matrix: csr_matrix,
     src_ui_matrix: csr_matrix,
     tgt_ui_matrix: csr_matrix,
-    top_200_preds: NDArray,
+    top_200_preds: Tensor,
     src_dataset_name: str,
     tgt_dataset_name: str,
     tgt_sparsity: float,

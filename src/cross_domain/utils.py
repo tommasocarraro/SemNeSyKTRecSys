@@ -2,8 +2,8 @@ from pathlib import Path
 
 import numpy as np
 from loguru import logger
-from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
+from torch import Tensor
 from tqdm import tqdm
 
 
@@ -13,7 +13,7 @@ def get_reg_axiom_data(
     tgt_sparsity: float,
     n_sh_users: int,
     sim_matrix: csr_matrix,
-    top_k_items: NDArray,
+    top_k_items: Tensor,
     save_dir_path: Path,
     src_dataset_name: str,
     tgt_dataset_name: str,
@@ -59,7 +59,7 @@ def get_reg_axiom_data(
             # take the top k items recommended for this user in the source domain (assuming k to be low and the
             # recommender to be accurate, these should be items for which we have very accurate predictions in the
             # source domain)
-            user_src_top_k = top_k_items[user]
+            user_src_top_k = top_k_items[user].cpu().numpy()
             # check which of these items are connected to at least one item in the target domain. Note also that the
             # resulting items will be items with more than 300 ratings in the source domain (warm start items) cause the
             # sim matrix only contains paths for items with more than 300 ratings in the source domain
