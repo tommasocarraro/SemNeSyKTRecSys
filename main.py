@@ -7,8 +7,8 @@ from src.model_configs import get_config
 from src.model_configs.utils import Domains_Type
 from src.utils import set_seed
 from loguru import logger
-from train_mf import test_mf, train_mf, tune_mf
-from train_ltn import test_ltn_reg, train_ltn_reg, tune_ltn_reg
+from mf_usage import test_mf, train_mf, tune_mf
+from ltn_usage import test_ltn_reg, train_ltn_reg, tune_ltn_reg
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", type=str, help="model name", choices=["mf", "ltn_reg"])

@@ -65,7 +65,8 @@ def _create_trainer(
         n_shared_users=dataset.n_sh_users,
         save_dir_path=save_dir_path,
         batch_size=2048,
-    )[:, : config.ltn_reg_train_config.hyper_params.top_k_src]
+        k=config.ltn_reg_train_config.hyper_params.top_k_src,
+    )
 
     processed_interactions = get_reg_axiom_data(
         src_ui_matrix=dataset.src_ui_matrix,
@@ -183,14 +184,6 @@ def tune_ltn_reg(
         logger.error(f"The source model weights path {src_model_weights_path} does not exist.")
         exit(1)
 
-    top_200_preds = generate_pre_trained_src_matrix(
-        mf_model=mf_model_src,
-        best_weights_path=src_model_weights_path,
-        n_shared_users=dataset.n_sh_users,
-        batch_size=2048,
-        save_dir_path=save_dir_path,
-    )
-
     ltn_tuning_reg(
         tune_config=config.get_wandb_dict_ltn_reg(),
         train_set=dataset.tgt_tr,
@@ -208,7 +201,8 @@ def tune_ltn_reg(
         exp_name=tune_config.exp_name,
         bayesian_run_count=tune_config.bayesian_run_count,
         sweep_id=sweep_id or tune_config.sweep_id,
-        top_200_preds=top_200_preds,
+        mf_model_src=mf_model_src,
+        src_model_weights_path=src_model_weights_path,
         sim_matrix=dataset.sim_matrix,
         n_sh_users=dataset.n_sh_users,
         save_dir_path=save_dir_path,
