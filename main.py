@@ -28,13 +28,13 @@ parser.add_argument("--tgt_sparsity", help="sparsity factor of target dataset", 
 parser.add_argument(
     "--user-level-tgt", help="whether to split the target dataset at the user level or globally", action="store_true"
 )
+parser.add_argument("--max_path_length", type=int, help="maximum path length")
 parser.add_argument("--sweep_id", help="wandb sweep id", type=str, required=False)
 parser.add_argument("--sweep_name", help="wandb sweep name", type=str, required=False)
 
 save_dir_path = Path("data/saved_data/")
 
 seed = 0
-MAX_PATH_LENGTH = 4
 
 
 def main():
@@ -63,6 +63,11 @@ def main():
     sweep_name: Optional[str] = args.sweep_name
     user_level_src: bool = args.user_level_src
     user_level_tgt: bool = args.user_level_tgt
+    max_path_length: int = args.max_path_length
+
+    if max_path_length < 0:
+        logger.error("Max path length cannot be negative")
+        exit(1)
 
     if user_level_src and src_sparsity == 1.0:
         logger.error("Can't use --user-level-src if the source dataset is not supposed to be split")
@@ -100,7 +105,7 @@ def main():
         seed=seed,
         user_level_src=user_level_src,
         user_level_tgt=user_level_tgt,
-        max_path_length=MAX_PATH_LENGTH,
+        max_path_length=max_path_length,
     )
 
     if kind == "train":
