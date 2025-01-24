@@ -1,4 +1,4 @@
-import json
+import orjson
 import os
 from os import makedirs
 from pathlib import Path
@@ -26,6 +26,7 @@ def process_source_target(
     tgt_sparsity: float,
     user_level_src: bool,
     user_level_tgt: bool,
+    max_path_length: int,
     save_dir_path: Optional[Path] = None,
     clear_saved_dataset: bool = False,
     seed: Optional[int] = None,
@@ -45,6 +46,7 @@ def process_source_target(
     :param tgt_sparsity: target domain sparsity factor
     :param user_level_src: whether to sample sparsity% of each user's ratings or globally for the source domain
     :param user_level_tgt: whether to sample sparsity% of each user's ratings or globally for the target domain
+    :param max_path_length: maximum path length to consider from the paths file
     :param save_dir_path: path where to save the dataset. None if the dataset should not be saved on disk.
     :param clear_saved_dataset: whether to clear the saved dataset if it exists
     :param seed: seed for sampling the dataset when increasing sparsity
@@ -54,6 +56,7 @@ def process_source_target(
     src_dataset_path = decompress_7z(src_dataset_config.dataset_path)
     tgt_dataset_path = decompress_7z(tgt_dataset_config.dataset_path)
 
+    save_file_path = None
     if save_dir_path is not None:
         save_file_path = make_save_file_path(
             save_dir_path=save_dir_path,
@@ -65,6 +68,7 @@ def process_source_target(
             tgt_sparsity=tgt_sparsity,
             user_level_src=user_level_src,
             user_level_tgt=user_level_tgt,
+            max_path_length=max_path_length,
         )
 
         maybe_dataset = load_or_clear_dataset(save_file_path=save_file_path, clear_saved_dataset=clear_saved_dataset)
@@ -119,6 +123,7 @@ def process_source_target(
         tgt_i_string_to_id=tgt_i_string_to_id,
         src_n_items=src_n_items,
         tgt_n_items=tgt_n_items,
+        max_path_length=max_path_length,
     )
 
     dataset = Dataset(
@@ -138,7 +143,7 @@ def process_source_target(
         sim_matrix=sim_matrix,
     )
 
-    if save_dir_path is not None:
+    if save_dir_path is not None and save_file_path is not None:
         save_dataset(dataset, save_file_path)
 
     return dataset
@@ -206,6 +211,7 @@ def make_save_file_path(
     user_level_src: bool,
     tgt_split_strategy: SplitStrategy,
     user_level_tgt: bool,
+    max_path_length: int,
 ) -> Path:
     """
     Constructs the path where the dataset should be stored on file system by numpy
@@ -219,13 +225,15 @@ def make_save_file_path(
     :param user_level_src: whether to sample sparsity% of each user's ratings or globally for the source domain
     :param tgt_split_strategy: strategy used to split the target dataset
     :param user_level_tgt: whether to sample sparsity% of each user's ratings or globally for the target domain
+    :param max_path_length: maximum path length to consider from the paths file
     :return: Location of the processed dataset
     """
     makedirs(save_dir_path, exist_ok=True)
 
     source_file_name = (
-        f"{src_dataset_path.stem}_{tgt_dataset_path.stem}_src_sparsity={src_sparsity}_ul={user_level_src}_"
-        f"tgt_sparsity={tgt_sparsity}_ul={user_level_tgt}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
+        f"src_dataset={src_dataset_path.stem}_sparsity={src_sparsity}_ul={user_level_src}_"
+        f"tgt_dataset={tgt_dataset_path.stem}_sparsity={tgt_sparsity}_ul={user_level_tgt}_"
+        f"max_path_length={max_path_length}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
     )
     return save_dir_path / source_file_name
 
@@ -269,6 +277,7 @@ def create_sim_matrix(
     tgt_i_string_to_id: dict[str, int],
     src_n_items: int,
     tgt_n_items: int,
+    max_path_length: int,
 ) -> csr_matrix:
     """
     Creates the similarity matrix between source items and target items based on the paths file.
@@ -278,22 +287,24 @@ def create_sim_matrix(
     :param tgt_i_string_to_id: mapping from item id to integer identifier for the target domain
     :param src_n_items: number of source items
     :param tgt_n_items: number of target items
+    :param max_path_length: maximum path length to consider from the paths file
     :return: the sparse similarity matrix
     """
     # create source_items X target_items matrix (used for the Sim predicate in the model)
+    logger.debug("Creating similarity matrix between source and target items, using available paths")
 
     # decompress the file containing the paths from source to target domain
     paths_file_path = decompress_7z(paths_file_path)
 
-    with open(paths_file_path, "r") as json_paths:
-        paths_file_path = json.load(json_paths)
-    available_path_pairs = np.array(
-        [
-            (src_i_string_to_id[src_asin], tgt_i_string_to_id[tgt_asin])
-            for src_asin, tgt_asins in paths_file_path.items()
-            for tgt_asin, _ in tgt_asins.items()
-        ]
-    )
+    with open(paths_file_path, "rb") as json_paths:
+        paths_file = orjson.loads(json_paths.read())
+
+    available_path_pairs = []
+    for src_asin, tgt_asins in paths_file.items():
+        for tgt_asin, paths in tgt_asins.items():
+            if paths[0]["path_length"] <= max_path_length:
+                available_path_pairs.append((src_i_string_to_id[src_asin], tgt_i_string_to_id[tgt_asin]))
+    available_path_pairs = np.array(available_path_pairs)
 
     # create sparse sim matrix
     return csr_matrix(

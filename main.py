@@ -34,6 +34,7 @@ parser.add_argument("--sweep_name", help="wandb sweep name", type=str, required=
 save_dir_path = Path("data/saved_data/")
 
 seed = 0
+MAX_PATH_LENGTH = 4
 
 
 def main():
@@ -99,6 +100,7 @@ def main():
         seed=seed,
         user_level_src=user_level_src,
         user_level_tgt=user_level_tgt,
+        max_path_length=MAX_PATH_LENGTH,
     )
 
     if kind == "train":
