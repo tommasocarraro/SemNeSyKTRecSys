@@ -10,7 +10,7 @@ from loguru import logger
 from src.cross_domain.ltn_trainer import LTNRegTrainer
 from src.cross_domain.tuning import ltn_tuning_reg
 from src.cross_domain.utils import get_reg_axiom_data
-from src.data_loader import DataLoader, ValDataLoader
+from src.data_loader import TrDataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
 from src.model import MatrixFactorization
 from src.model_configs import ModelConfig
@@ -28,7 +28,7 @@ def _create_trainer(
     tgt_sparsity: float,
     save_dir_path: Path,
 ):
-    tr_loader = DataLoader(
+    tr_loader = TrDataLoader(
         data=dataset.tgt_tr,
         ui_matrix=dataset.tgt_ui_matrix,
         batch_size=config.ltn_reg_train_config.hyper_params.batch_size,

@@ -1,7 +1,0 @@
-services:
-  amazon:
-    container_name: semnesy_fbk
-    build:
-      context: .
-      dockerfile: SemNeSyKTRecSys.Dockerfile
-    image: semnesy/amazon:latest

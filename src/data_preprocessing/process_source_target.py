@@ -93,6 +93,8 @@ def process_source_target(
     )
     tgt_i_string_to_id = reindex_items(ratings=tgt_ratings)
 
+    tgt_true_negatives = get_true_negatives(tgt_ratings)
+
     # convert ratings to implicit feedback
     src_ratings["rating"] = (src_ratings["rating"] >= 4).astype(int)
     tgt_ratings["rating"] = (tgt_ratings["rating"] >= 4).astype(int)
@@ -141,6 +143,7 @@ def process_source_target(
         tgt_val=tgt_val,
         tgt_te=tgt_te,
         sim_matrix=sim_matrix,
+        tgt_true_negatives=tgt_true_negatives,
     )
 
     if save_dir_path is not None and save_file_path is not None:
@@ -359,3 +362,8 @@ def increase_sparsity(
     else:
         df = df.apply(sample_ratings).reset_index(drop=True)
     return df.to_numpy()
+
+
+def get_true_negatives(ratings: DataFrame) -> NDArray:
+    true_negatives = ratings[ratings["rating"] < 4.0]
+    return true_negatives.to_numpy()
