@@ -11,15 +11,17 @@ from mf_usage import test_mf, train_mf, tune_mf
 from ltn_usage import test_ltn_reg, train_ltn_reg, tune_ltn_reg
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str, help="model name", choices=["mf", "ltn_reg"])
-parser.add_argument("--which_dataset", type=str, help="which dataset to use", choices=["source", "target"])
-group2 = parser.add_mutually_exclusive_group(required=True)
+parser.add_argument("--model", type=str, help="model name", choices=["mf", "ltn_reg"], required=True)
+parser.add_argument(
+    "--which_dataset", type=str, help="which dataset to use", choices=["source", "target"], required=True
+)
+group = parser.add_mutually_exclusive_group(required=True)
 parser.add_argument_group()
-group2.add_argument("--train", action="store_true")
-group2.add_argument("--tune", action="store_true")
-group2.add_argument("--test", action="store_true")
+group.add_argument("--train", action="store_true")
+group.add_argument("--tune", action="store_true")
+group.add_argument("--test", action="store_true")
 parser.add_argument("datasets", type=str, help="Datasets to use", nargs=2, choices=["movies", "music", "books"])
-parser.add_argument("--clear_dataset", help="recompute dataset", action="store_true")
+parser.add_argument("--clear_dataset", help="recompute dataset", action="store_true", required=False)
 parser.add_argument("--src_sparsity", help="sparsity factor of source dataset", type=float, required=False, default=1.0)
 parser.add_argument(
     "--user-level-src", help="whether to split the source dataset at the user level or globally", action="store_true"
@@ -28,7 +30,7 @@ parser.add_argument("--tgt_sparsity", help="sparsity factor of target dataset", 
 parser.add_argument(
     "--user-level-tgt", help="whether to split the target dataset at the user level or globally", action="store_true"
 )
-parser.add_argument("--max_path_length", type=int, help="maximum path length")
+parser.add_argument("--max_path_length", type=int, help="maximum path length", required=True)
 parser.add_argument("--sweep_id", help="wandb sweep id", type=str, required=False)
 parser.add_argument("--sweep_name", help="wandb sweep name", type=str, required=False)
 
@@ -65,7 +67,7 @@ def main():
     user_level_tgt: bool = args.user_level_tgt
     max_path_length: int = args.max_path_length
 
-    if max_path_length < 0:
+    if max_path_length and max_path_length < 0:
         logger.error("Max path length cannot be negative")
         exit(1)
 
