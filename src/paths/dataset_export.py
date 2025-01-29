@@ -38,6 +38,7 @@ def dataset_export(
     postprocess_neo4j_dump(
         dump_output_paths=dump_output_paths,
         mappings_file_paths=mappings_file_paths,
+        export_dir_path=export_dir_path,
     )
 
 
@@ -90,10 +91,7 @@ def dump_from_neo4j(
                         f"Dumping precomputed paths for {source_domain}->{target_domain}"
                     )
 
-                    output_file_path = join(
-                        export_dir_path,
-                        source_domain + "->" + target_domain + ".jsonl",
-                    )
+                    output_file_path = source_domain + "->" + target_domain + ".jsonl"
                     dump_output_paths.append(
                         {
                             "file_path": output_file_path,
@@ -105,7 +103,7 @@ def dump_from_neo4j(
                     # the query doesn't actually return anything, I'm consuming the result in order to force the query
                     # to be run eagerly instead of lazily
                     res = session.run(
-                        create_query(source_domain, target_domain, abspath(output_file_path))  # type: ignore
+                        create_query(source_domain, target_domain, output_file_path)  # type: ignore
                     )
                     res.consume()
         except (DriverError, Neo4jError) as e:
@@ -115,7 +113,9 @@ def dump_from_neo4j(
 
 
 def postprocess_neo4j_dump(
-    dump_output_paths: list[dict[str, str]], mappings_file_paths: dict[str, Any]
+    dump_output_paths: list[dict[str, str]],
+    mappings_file_paths: dict[str, Any],
+    export_dir_path: str,
 ) -> None:
     """
     Postprocesses the jsonl files into json files for easier handling in the model's pipeline.
@@ -126,7 +126,7 @@ def postprocess_neo4j_dump(
     logger.info("Reading all mappings into memory")
     mappings = defaultdict(dict)
     for domain_name, obj in mappings_file_paths.items():
-        mapping_file_path = obj["mapping_file_path"]
+        mapping_file_path = join(export_dir_path, obj["mapping_file_path"])
         with open(mapping_file_path, "rb") as mapping_file:
             mappings[domain_name] = {
                 obj["wiki_id"]: asin
