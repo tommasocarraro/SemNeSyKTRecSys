@@ -6,7 +6,7 @@ from loguru import logger
 
 if __name__ == "__main__":
     database_name = "wikidata"
-    should_import = True
+    should_import = False
     if should_import:
         dataset_import(
             database_name=database_name,
