@@ -106,4 +106,3 @@ dependencies:
       - requests==2.32.3
       - typing-extensions==4.12.2
       - wayback==0.4.5
-      - tqdm-loggable
