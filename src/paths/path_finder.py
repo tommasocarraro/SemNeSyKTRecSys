@@ -104,6 +104,7 @@ def neo4j_path_finder(
                         query, first_item=first_item, second_item=second_item
                     )
                 )
+                print("ciao")
 
         try:
             ParallelTqdm(
