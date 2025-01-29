@@ -38,19 +38,19 @@ if __name__ == "__main__":
             "source": "movies",
             "target": "music",
             "pop_threshold": 200,
-            "cs_threshold": 10,
+            "cs_threshold": None,
         },
         {
             "source": "books",
             "target": "movies",
             "pop_threshold": 200,
-            "cs_threshold": 10,
+            "cs_threshold": None,
         },
         {
             "source": "music",
             "target": "movies",
             "pop_threshold": 200,
-            "cs_threshold": 10,
+            "cs_threshold": None,
         },
     ]
 

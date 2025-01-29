@@ -112,7 +112,7 @@ def neo4j_path_finder(
                 prefer="threads",
                 total_tasks=len(source_mapping) * len(target_mapping),
                 desc=f"Computing paths from {file_paths.source_domain_name} to {file_paths.target_domain_name}",
-                file=sys.stdout
+                file=sys.stdout,
             )(
                 delayed(find_path)(first_item, second_item)
                 for (first_item, second_item) in pairs_generator
@@ -149,36 +149,26 @@ def load_mappings(
     with open(file_paths.mapping_target_domain, "rb") as mapping_target_file:
         target_mapping_json = orjson.loads(mapping_target_file.read())
 
-    if pop_threshold is not None and cs_threshold is not None:
-        # if both pop and cs thresholds are set, filter the mappings so they only include the items within the parameters
+    if pop_threshold is not None:
         source_stats = get_rating_stats(file_paths.reviews_source_domain, "item")
-
-        # retrieve the list of mappings to compute
         pop_list = get_popular_items(source_stats, pop_threshold)
         source_mapping = refine_popular_items(pop_list, source_mapping_json)
-
-        # get the filtered mapping for the target domain
-        target_stats = get_rating_stats(file_paths.reviews_target_domain, "item")
-        cs_list = get_cold_start_items(target_stats, cs_threshold)
-        target_mapping = refine_cold_start_items(cs_list, target_mapping_json)
-
-    elif pop_threshold is None and cs_threshold is None:
-        # if the thresholds aren't set simply convert the dicts to lists of wikidata ids
+    else:
         source_mapping = [
             obj["wiki_id"]
             for obj in source_mapping_json.values()
             if isinstance(obj, dict)
         ]
+
+    if cs_threshold is not None:
+        target_stats = get_rating_stats(file_paths.reviews_target_domain, "item")
+        cs_list = get_cold_start_items(target_stats, cs_threshold)
+        target_mapping = refine_cold_start_items(cs_list, target_mapping_json)
+    else:
         target_mapping = [
             obj["wiki_id"]
             for obj in target_mapping_json.values()
             if isinstance(obj, dict)
         ]
-
-    else:
-        logger.error(
-            "Params cs_threshold and pop_threshold must be either both set or both None"
-        )
-        exit(1)
 
     return source_mapping, target_mapping
