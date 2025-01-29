@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 from typing import Any, Literal, Optional
 
 import pandas as pd
@@ -147,6 +148,7 @@ class ParallelTqdm(Parallel):
         desc: Optional[str] = None,
         disable_progressbar=False,
         show_joblib_header=False,
+        file=sys.stderr,
         **kwargs
     ):
         if "verbose" in kwargs:
@@ -159,6 +161,7 @@ class ParallelTqdm(Parallel):
         self.desc = desc
         self.disable_progressbar = disable_progressbar
         self.progress_bar: Optional[tqdm.tqdm] = None
+        self.file = file
 
     def __call__(self, iterable):
         try:
@@ -186,6 +189,7 @@ class ParallelTqdm(Parallel):
                 disable=self.disable_progressbar,
                 unit="tasks",
                 dynamic_ncols=True,
+                file=self.file
             )
         # call parent function
         return super().dispatch_one_batch(iterator)

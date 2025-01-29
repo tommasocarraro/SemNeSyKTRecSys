@@ -1,3 +1,4 @@
+import sys
 import threading
 from itertools import product, takewhile
 from typing import Optional
@@ -103,6 +104,7 @@ def neo4j_path_finder(
                         query, first_item=first_item, second_item=second_item
                     )
                 )
+                print("ciao")
 
         try:
             ParallelTqdm(
@@ -110,6 +112,7 @@ def neo4j_path_finder(
                 prefer="threads",
                 total_tasks=len(source_mapping) * len(target_mapping),
                 desc=f"Computing paths from {file_paths.source_domain_name} to {file_paths.target_domain_name}",
+                file=sys.stdout
             )(
                 delayed(find_path)(first_item, second_item)
                 for (first_item, second_item) in pairs_generator
