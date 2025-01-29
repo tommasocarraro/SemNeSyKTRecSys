@@ -85,6 +85,7 @@ dependencies:
   - sqlite=3.45.3
   - tbb=2021.8.0
   - tk=8.6.14
+  - tqdm=4.63.0
   - trio=0.26.2
   - trio-websocket=0.11.1
   - typing_extensions=4.11.0

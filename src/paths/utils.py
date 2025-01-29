@@ -4,7 +4,7 @@ import sys
 from typing import Any, Literal, Optional
 
 import pandas as pd
-import tqdm_loggable
+from tqdm_loggable import tqdm
 from joblib import Parallel
 from loguru import logger
 
@@ -160,7 +160,7 @@ class ParallelTqdm(Parallel):
         self.total_tasks = total_tasks
         self.desc = desc
         self.disable_progressbar = disable_progressbar
-        self.progress_bar: Optional[tqdm.tqdm] = None
+        self.progress_bar: Optional[tqdm] = None
         self.file = file
 
     def __call__(self, iterable):
@@ -183,7 +183,7 @@ class ParallelTqdm(Parallel):
     def dispatch_one_batch(self, iterator):
         # start progress_bar, if not started yet.
         if self.progress_bar is None:
-            self.progress_bar = tqdm.tqdm(
+            self.progress_bar = tqdm(
                 desc=self.desc,
                 total=self.total_tasks,
                 disable=self.disable_progressbar,
