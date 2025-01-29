@@ -12,12 +12,12 @@ from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
 from .FilePaths import FilePaths
 from .neo4j_make_query import make_query
 from .utils import (
+    ParallelTqdm,
     get_cold_start_items,
     get_popular_items,
     get_rating_stats,
     refine_cold_start_items,
     refine_popular_items,
-    ParallelTqdm,
 )
 
 
@@ -28,8 +28,7 @@ def neo4j_path_finder(
     shortest_path: bool = True,
     cs_threshold: Optional[int] = 5,
     pop_threshold: Optional[int] = 50,
-    pop_threshold_exclude: Optional[int] = None,
-    n_threads: int = 1,
+    n_threads: int = -1,
 ) -> None:
     """
     This function computes all the available Wikidata's paths between matched entities in mapping_file_1 and
@@ -41,20 +40,15 @@ def neo4j_path_finder(
     :param shortest_path: whether to find just the shortest path or all the paths connecting the two entities
     :param cs_threshold: threshold to select cold-start items,
     :param pop_threshold: threshold to select popular items
-    :param pop_threshold_exclude: useful to compute paths with lower threshold than the last used, set this value to
     the pop_threshold last used and all the items from the source domain of >= pop will be excluded
     :param n_threads: number of processors to be used to execute this function
     """
-    if pop_threshold_exclude is not None and pop_threshold_exclude <= pop_threshold:
-        logger.warning(
-            "Parameter pop_threshold_exclude should be greater than pop_threshold"
-        )
 
+    logger.debug("Loading mappings")
     source_mapping, target_mapping = load_mappings(
         file_paths=file_paths,
         cs_threshold=cs_threshold,
         pop_threshold=pop_threshold,
-        pop_threshold_exclude=pop_threshold_exclude,
     )
 
     with GraphDatabase.driver(
@@ -64,11 +58,14 @@ def neo4j_path_finder(
         database=database_name,
     ) as driver:
         try:
+            logger.debug("Trying to connect to Neo4j")
             driver.verify_connectivity()
+            logger.debug("Connected to Neo4j")
         except DriverError as e:
             logger.error(e)
             exit(1)
 
+        logger.debug("Retrieving source-item pairs")
         # get pairs for which the paths have to be generated
         pairs = product(source_mapping, target_mapping)
 
@@ -133,7 +130,6 @@ def load_mappings(
     file_paths: FilePaths,
     pop_threshold: Optional[int] = None,
     cs_threshold: Optional[int] = None,
-    pop_threshold_exclude: Optional[int] = None,
 ) -> tuple[list[str], list[str]]:
     """
     Loads source and target mappings. If both pop_threshold and cs_threshold are set, restrict the items based on said
@@ -142,8 +138,6 @@ def load_mappings(
     :param file_paths: data class which contains the file paths needed for path finding
     :param pop_threshold: threshold to select popular items
     :param cs_threshold: threshold to select cold-start items
-    :param pop_threshold_exclude: useful to compute paths with lower threshold than the last used, set this value to
-    the pop_threshold last used and all the items from the source domain of >= pop will be excluded
     :return: source and target mappings
     """
     # load both domains' full mappings from the json files
@@ -156,21 +150,9 @@ def load_mappings(
         # if both pop and cs thresholds are set, filter the mappings so they only include the items within the parameters
         source_stats = get_rating_stats(file_paths.reviews_source_domain, "item")
 
-        # if pop_threshold_exclude is set, retrieve the list of mappings already computed
-        if pop_threshold_exclude is not None:
-            pop_list_old = get_popular_items(source_stats, pop_threshold_exclude)
-            source_mapping_prev = refine_popular_items(
-                pop_list_old, source_mapping_json
-            )
-        else:
-            source_mapping_prev = []
-
         # retrieve the list of mappings to compute
         pop_list = get_popular_items(source_stats, pop_threshold)
-        source_mapping_new = refine_popular_items(pop_list, source_mapping_json)
-
-        # perform set difference to filter the items already computed
-        source_mapping = list(set(source_mapping_new) - set(source_mapping_prev))
+        source_mapping = refine_popular_items(pop_list, source_mapping_json)
 
         # get the filtered mapping for the target domain
         target_stats = get_rating_stats(file_paths.reviews_target_domain, "item")

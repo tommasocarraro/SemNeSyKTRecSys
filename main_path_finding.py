@@ -2,6 +2,7 @@ from src.paths.FilePaths import FilePaths
 from src.paths.dataset_export import dataset_export
 from src.paths.dataset_import import dataset_import
 from src.paths.path_finder import neo4j_path_finder
+from loguru import logger
 
 if __name__ == "__main__":
     database_name = "wikidata"
@@ -36,44 +37,27 @@ if __name__ == "__main__":
         {
             "source": "movies",
             "target": "music",
-            "pop_threshold": 300,
-            "cs_threshold": 5,
-        },
-        {
-            "source": "movies",
-            "target": "books",
-            "pop_threshold": 300,
-            "cs_threshold": 5,
+            "pop_threshold": 200,
+            "cs_threshold": 10,
         },
         {
             "source": "books",
             "target": "movies",
-            "pop_threshold": 300,
-            "cs_threshold": 5,
-        },
-        {
-            "source": "books",
-            "target": "music",
-            "pop_threshold": 300,
-            "cs_threshold": 5,
-        },
-        {
-            "source": "music",
-            "target": "books",
             "pop_threshold": 200,
-            "cs_threshold": 5,
+            "cs_threshold": 10,
         },
         {
             "source": "music",
             "target": "movies",
             "pop_threshold": 200,
-            "cs_threshold": 5,
+            "cs_threshold": 10,
         },
     ]
 
     for pair_dict in domain_pairs:
         source_name = pair_dict["source"]
         target_name = pair_dict["target"]
+        logger.info(f"Looking for paths from {source_name} to {target_name}")
         file_paths = FilePaths(
             source_domain_name=source_name,
             mapping_source_domain=domains[source_name]["mapping_file_path"],
@@ -85,11 +69,9 @@ if __name__ == "__main__":
         neo4j_path_finder(
             database_name=database_name,
             file_paths=file_paths,
-            max_hops=10,
-            n_threads=12,
+            max_hops=4,
             cs_threshold=pair_dict["cs_threshold"],
             pop_threshold=pair_dict["pop_threshold"],
-            pop_threshold_exclude=pair_dict.get("pop_threshold_exclude"),
         )
 
     should_export = True
