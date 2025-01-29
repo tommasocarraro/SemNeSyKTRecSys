@@ -9,7 +9,6 @@ from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
 from src.paths.utils import run_shell_command
 
 
-# WIP, TODO crea indici
 def dataset_import(
     database_name: str, nodes_file_path: str, rels_file_path: str, use_sudo=False
 ):

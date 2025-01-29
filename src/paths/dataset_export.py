@@ -1,7 +1,7 @@
 from collections import defaultdict
 from os import makedirs, remove
 from os.path import abspath, join, splitext
-from typing import Any, LiteralString
+from typing import Any
 
 import orjson
 from loguru import logger
@@ -70,7 +70,7 @@ def dump_from_neo4j(
             exit(1)
 
         # query literals used for the creation of indexes
-        index_queries: list[LiteralString] = [
+        index_queries: list[str] = [
             "CREATE LOOKUP INDEX rel_label_lookup_index IF NOT EXISTS FOR ()-[r]-()             ON EACH type(r)",
             "CREATE TEXT   INDEX rel_text_index_source  IF NOT EXISTS FOR ()-[r:precomputed]-() ON (r.source_domain)",
             "CREATE TEXT   INDEX rel_text_index_target  IF NOT EXISTS FOR ()-[r:precomputed]-() ON (r.target_domain)",
@@ -80,7 +80,7 @@ def dump_from_neo4j(
             with driver.session(database=database_name) as session:
                 logger.info("Creating the indexes if they don't exist")
                 for index_query in index_queries:
-                    session.run(index_query)
+                    session.run(index_query)  # type: ignore
 
                 dump_output_paths = []
                 for pair_dict in domain_pairs:
