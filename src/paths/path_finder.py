@@ -97,7 +97,6 @@ def neo4j_path_finder(
             if not isinstance(first_item, str) or not isinstance(second_item, str):
                 logger.error(f"Function find_path only accepts strings as parameters")
                 exit(1)
-            logger.debug(f"Finding a path from {first_item} to {second_item}")
             with driver.session(database=database_name) as session:
                 session.execute_write(
                     lambda tx: tx.run(

@@ -70,6 +70,7 @@ if __name__ == "__main__":
             database_name=database_name,
             file_paths=file_paths,
             max_hops=4,
+            n_threads=12,
             cs_threshold=pair_dict["cs_threshold"],
             pop_threshold=pair_dict["pop_threshold"],
         )
