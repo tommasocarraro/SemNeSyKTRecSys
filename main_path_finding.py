@@ -71,16 +71,16 @@ if __name__ == "__main__":
             mapping_target_domain=domains[target_name]["mapping_file_path"],
             reviews_target_domain=domains[target_name]["reviews_file_path"],
         )
-        # neo4j_path_finder(
-        #     database_name=database_name,
-        #     file_paths=file_paths,
-        #     max_hops=4,
-        #     n_threads=60,
-        #     cs_threshold=pair_dict["cs_threshold"],
-        #     pop_threshold=pair_dict["pop_threshold"],
-        # )
+        neo4j_path_finder(
+            database_name=database_name,
+            file_paths=file_paths,
+            max_hops=4,
+            n_threads=60,
+            cs_threshold=pair_dict["cs_threshold"],
+            pop_threshold=pair_dict["pop_threshold"],
+        )
 
-    should_export = True
+    should_export = False
     if should_export:
         dataset_export(
             database_name=database_name,
