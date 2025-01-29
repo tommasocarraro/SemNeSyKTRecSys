@@ -4,7 +4,7 @@ import sys
 from typing import Any, Literal, Optional
 
 import pandas as pd
-from tqdm_loggable import tqdm
+from tqdm_loggable.auto import tqdm
 from joblib import Parallel
 from loguru import logger
 
