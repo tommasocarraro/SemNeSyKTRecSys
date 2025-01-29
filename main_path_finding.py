@@ -1,8 +1,11 @@
+import os
+
+from loguru import logger
+
 from src.paths.FilePaths import FilePaths
 from src.paths.dataset_export import dataset_export
 from src.paths.dataset_import import dataset_import
 from src.paths.path_finder import neo4j_path_finder
-from loguru import logger
 
 if __name__ == "__main__":
     database_name = "wikidata"
@@ -14,6 +17,8 @@ if __name__ == "__main__":
             rels_file_path="data/wikidata/relationships.csv",
             use_sudo=True,
         )
+
+    export_dir_path = os.getenv(key="EXPORT_PATH", default="data/kg_paths/")
 
     # dictionary containing the file paths for both mappings and reviews for each domain, also the popularity threshold
     # to be used when selecting the items from which paths should start
@@ -79,7 +84,7 @@ if __name__ == "__main__":
     if should_export:
         dataset_export(
             database_name=database_name,
-            export_dir_path="data/kg_paths/",
+            export_dir_path=export_dir_path,
             domain_pairs=domain_pairs,
             mappings_file_paths=domains,
         )
