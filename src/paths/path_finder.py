@@ -47,16 +47,11 @@ def neo4j_path_finder(
 
     logger.debug("Loading mappings")
     source_mapping, target_mapping = load_mappings(
-        file_paths=file_paths,
-        cs_threshold=cs_threshold,
-        pop_threshold=pop_threshold,
+        file_paths=file_paths, cs_threshold=cs_threshold, pop_threshold=pop_threshold
     )
 
     with GraphDatabase.driver(
-        uri=NEO4J_URI,
-        max_connection_pool_size=n_threads,
-        auth=(NEO4J_USER, NEO4J_PASS),
-        database=database_name,
+        uri=NEO4J_URI, max_connection_pool_size=n_threads, auth=(NEO4J_USER, NEO4J_PASS), database=database_name
     ) as driver:
         try:
             logger.debug("Trying to connect to Neo4j")
@@ -74,9 +69,7 @@ def neo4j_path_finder(
         stop_flag = threading.Event()
 
         # create a generator which stops when keyboard interrupts are detected
-        pairs_generator = (
-            item for item in takewhile(lambda _: not stop_flag.is_set(), pairs)
-        )
+        pairs_generator = (item for item in takewhile(lambda _: not stop_flag.is_set(), pairs))
 
         # create query template given the maximum number of hops
         query = make_query(
@@ -98,12 +91,11 @@ def neo4j_path_finder(
             if not isinstance(first_item, str) or not isinstance(second_item, str):
                 logger.error(f"Function find_path only accepts strings as parameters")
                 exit(1)
+            # if it happens that the two endpoints are the same, just ignore the pair
+            if first_item == second_item:
+                return
             with driver.session(database=database_name) as session:
-                session.execute_write(
-                    lambda tx: tx.run(
-                        query, first_item=first_item, second_item=second_item
-                    )
-                )
+                session.execute_write(lambda tx: tx.run(query, first_item=first_item, second_item=second_item))
 
         try:
             ParallelTqdm(
@@ -112,10 +104,7 @@ def neo4j_path_finder(
                 total_tasks=len(source_mapping) * len(target_mapping),
                 desc=f"Computing paths from {file_paths.source_domain_name} to {file_paths.target_domain_name}",
                 file=sys.stdout,
-            )(
-                delayed(find_path)(first_item, second_item)
-                for (first_item, second_item) in pairs_generator
-            )
+            )(delayed(find_path)(first_item, second_item) for (first_item, second_item) in pairs_generator)
         except KeyboardInterrupt:
             logger.info("Manual interrupt detected. Gracefully quitting")
             stop_flag.set()
@@ -129,9 +118,7 @@ def neo4j_path_finder(
 
 
 def load_mappings(
-    file_paths: FilePaths,
-    pop_threshold: Optional[int] = None,
-    cs_threshold: Optional[int] = None,
+    file_paths: FilePaths, pop_threshold: Optional[int] = None, cs_threshold: Optional[int] = None
 ) -> tuple[list[str], list[str]]:
     """
     Loads source and target mappings. If both pop_threshold and cs_threshold are set, restrict the items based on said
@@ -153,21 +140,13 @@ def load_mappings(
         pop_list = get_popular_items(source_stats, pop_threshold)
         source_mapping = refine_popular_items(pop_list, source_mapping_json)
     else:
-        source_mapping = [
-            obj["wiki_id"]
-            for obj in source_mapping_json.values()
-            if isinstance(obj, dict)
-        ]
+        source_mapping = [obj["wiki_id"] for obj in source_mapping_json.values() if isinstance(obj, dict)]
 
     if cs_threshold is not None:
         target_stats = get_rating_stats(file_paths.reviews_target_domain, "item")
         cs_list = get_cold_start_items(target_stats, cs_threshold)
         target_mapping = refine_cold_start_items(cs_list, target_mapping_json)
     else:
-        target_mapping = [
-            obj["wiki_id"]
-            for obj in target_mapping_json.values()
-            if isinstance(obj, dict)
-        ]
+        target_mapping = [obj["wiki_id"] for obj in target_mapping_json.values() if isinstance(obj, dict)]
 
     return source_mapping, target_mapping

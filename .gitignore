@@ -172,3 +172,6 @@ chromedriver
 data/**/**.jsonl
 data/**/**.json
 **/extracted_metadata_*.json
+wandb
+source_models
+target_models
