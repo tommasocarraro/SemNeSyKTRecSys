@@ -2,13 +2,17 @@ import os
 
 from loguru import logger
 
+from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
+from neo4j import GraphDatabase
+
 from src.paths.FilePaths import FilePaths
 from src.paths.dataset_export import dataset_export
 from src.paths.dataset_import import dataset_import
 from src.paths.path_finder import neo4j_path_finder
 
 if __name__ == "__main__":
-    database_name = "wikidata"
+    database_name = os.getenv(key="NEO4J_DATABASE", default="wikidata")
+
     should_import = False
     if should_import:
         dataset_import(
@@ -17,8 +21,6 @@ if __name__ == "__main__":
             rels_file_path="data/wikidata/relationships.csv",
             use_sudo=True,
         )
-
-    export_dir_path = os.getenv(key="EXPORT_PATH", default="data/kg_paths/")
 
     # dictionary containing the file paths for both mappings and reviews for each domain, also the popularity threshold
     # to be used when selecting the items from which paths should start
@@ -39,25 +41,14 @@ if __name__ == "__main__":
 
     # list of domain pairs for which we want to find paths
     domain_pairs = [
-        {
-            "source": "movies",
-            "target": "music",
-            "pop_threshold": 200,
-            "cs_threshold": None,
-        },
-        {
-            "source": "books",
-            "target": "movies",
-            "pop_threshold": 200,
-            "cs_threshold": None,
-        },
-        {
-            "source": "music",
-            "target": "movies",
-            "pop_threshold": 200,
-            "cs_threshold": None,
-        },
+        {"source": "movies", "target": "music", "pop_threshold": 200},
+        {"source": "books", "target": "movies", "pop_threshold": 200},
+        {"source": "music", "target": "movies", "pop_threshold": 200},
     ]
+
+    # make sure the database is initialized after the import
+    with GraphDatabase.driver(uri=NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS)) as driver:
+        driver.execute_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")  # type: ignore
 
     for pair_dict in domain_pairs:
         source_name = pair_dict["source"]
@@ -76,11 +67,11 @@ if __name__ == "__main__":
             file_paths=file_paths,
             max_hops=4,
             n_threads=60,
-            cs_threshold=pair_dict["cs_threshold"],
             pop_threshold=pair_dict["pop_threshold"],
         )
 
-    should_export = False
+    should_export = True
+    export_dir_path = os.getenv(key="EXPORT_PATH", default="data/kg_paths/")
     if should_export:
         dataset_export(
             database_name=database_name,

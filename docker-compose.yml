@@ -1,0 +1,30 @@
+services:
+  neo4j:
+    build:
+      dockerfile: Neo4j.Dockerfile
+    volumes:
+      - ./neo4j/logs:/logs
+      - ./neo4j/data:/data
+      - ./data/wikidata:/import
+    environment:
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+      - NEO4J_AUTH=neo4j/your_password
+      - NEO4J_server_memory_heap_initial__size=31G
+      - NEO4J_server_memory_heap_max__size=31G
+      - NEO4J_server_memory_pagecache_size=154400M
+      - NEO4J_server_jvm_additional='-XX:+ExitOnOutOfMemoryError'
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+    ports:
+      - "7687:7687"
+
+  python-app:
+    build:
+     dockerfile: PythonApp.Dockerfile
+    depends_on:
+     - neo4j
+    volumes:
+     - ./data/wikidata:/import
+    environment:
+     - EXPORT_PATH=/import

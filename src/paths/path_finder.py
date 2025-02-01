@@ -25,9 +25,9 @@ from .utils import (
 def neo4j_path_finder(
     database_name: str,
     file_paths: FilePaths,
-    max_hops: int = 2,
+    max_hops: int = 4,
     shortest_path: bool = True,
-    cs_threshold: Optional[int] = 5,
+    cs_threshold: Optional[int] = None,
     pop_threshold: Optional[int] = 50,
     n_threads: int = -1,
 ) -> None:

@@ -175,3 +175,5 @@ data/**/**.json
 wandb
 source_models
 target_models
+**/import_done
+neo4j
