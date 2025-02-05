@@ -7,20 +7,10 @@ from neo4j import GraphDatabase
 
 from src.paths.FilePaths import FilePaths
 from src.paths.dataset_export import dataset_export
-from src.paths.dataset_import import dataset_import
 from src.paths.path_finder import neo4j_path_finder
 
 if __name__ == "__main__":
     database_name = os.getenv(key="NEO4J_DATABASE", default="wikidata")
-
-    should_import = False
-    if should_import:
-        dataset_import(
-            database_name=database_name,
-            nodes_file_path="data/wikidata/nodes.csv",
-            rels_file_path="data/wikidata/relationships.csv",
-            use_sudo=True,
-        )
 
     # dictionary containing the file paths for both mappings and reviews for each domain, also the popularity threshold
     # to be used when selecting the items from which paths should start
