@@ -61,7 +61,7 @@ if __name__ == "__main__":
         )
 
     should_export = True
-    export_dir_path = os.getenv(key="EXPORT_PATH", default="data/kg_paths/")
+    export_dir_path = os.getenv(key="EXPORT_PATH")
     if should_export:
         dataset_export(
             database_name=database_name,
