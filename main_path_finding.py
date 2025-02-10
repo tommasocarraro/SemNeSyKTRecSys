@@ -31,9 +31,9 @@ if __name__ == "__main__":
 
     # list of domain pairs for which we want to find paths
     domain_pairs = [
-        {"source": "movies", "target": "music", "pop_threshold": 200},
-        {"source": "books", "target": "movies", "pop_threshold": 200},
-        {"source": "music", "target": "movies", "pop_threshold": 200},
+        # {"source": "movies", "target": "music", "pop_threshold": 200},
+        # {"source": "books", "target": "movies", "pop_threshold": 200},
+        {"source": "music", "target": "movies", "pop_threshold": 200}
     ]
 
     # make sure the database is initialized after the import
