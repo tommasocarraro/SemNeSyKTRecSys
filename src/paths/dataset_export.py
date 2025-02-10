@@ -26,16 +26,17 @@ def dataset_export(
     :param domain_pairs: pairs of domains to export
     :param mappings_file_paths: dictionary containing file paths pointing to the domains' mappings
     """
-    dump_output_paths = dump_from_neo4j(
-        database_name=database_name, export_dir_path=export_dir_path, domain_pairs=domain_pairs
-    )
+    # make sure that the export dir exists, if not create it
+    makedirs(export_dir_path, exist_ok=True)
+
+    dump_output_paths = make_output_file_paths(export_dir_path=export_dir_path, domain_pairs=domain_pairs)
+
+    dump_from_neo4j(database_name=database_name, dump_output_paths=dump_output_paths)
 
     postprocess_neo4j_dump(dump_output_paths=dump_output_paths, mappings_file_paths=mappings_file_paths)
 
 
-def dump_from_neo4j(
-    database_name: str, export_dir_path: str, domain_pairs: list[dict[str, Any]]
-) -> list[dict[str, str]]:
+def dump_from_neo4j(database_name: str, dump_output_paths: list[dict[str, str]]) -> list[dict[str, str]]:
     """
     Dumps the precomputed shortest paths from the neo4j database for all the given pairs of domains in jsonl format.
     Requires the following settings in apoc.conf:
@@ -43,14 +44,11 @@ def dump_from_neo4j(
     apoc.import.file.use_neo4j_config=false
 
     :param database_name: name of the neo4j database
-    :param export_dir_path: directory to export to
-    :param domain_pairs: pairs of domains to export
+    :param dump_output_paths: TODO
 
     :return: the list of jsonl files to which the database export to
     """
     with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS), database=database_name) as driver:
-        # make sure that the export dir exists, if not create it
-        makedirs(export_dir_path, exist_ok=True)
 
         # test connectivity to neo4j
         try:
@@ -72,16 +70,12 @@ def dump_from_neo4j(
                 for index_query in index_queries:
                     session.run(index_query)  # type: ignore
 
-                dump_output_paths = []
-                for pair_dict in domain_pairs:
-                    source_domain = pair_dict["source"]
-                    target_domain = pair_dict["target"]
+                for output_path in dump_output_paths:
+                    source_domain = output_path["source"]
+                    target_domain = output_path["target"]
                     logger.info(f"Dumping precomputed paths for {source_domain}->{target_domain}")
 
-                    output_file_path = join(export_dir_path, source_domain + "->" + target_domain + ".jsonl")
-                    dump_output_paths.append(
-                        {"file_path": output_file_path, "source_domain": source_domain, "target_domain": target_domain}
-                    )
+                    output_file_path = output_path["dump_file_path"]
 
                     # the query doesn't actually return anything, I'm consuming the result in order to force the query
                     # to be run eagerly instead of lazily
@@ -112,9 +106,9 @@ def postprocess_neo4j_dump(dump_output_paths: list[dict[str, str]], mappings_fil
 
     logger.info("Postprocessing the dumps")
     for output_dict in tqdm(dump_output_paths, dynamic_ncols=True, desc="Postprocessing the dumps...", leave=False):
-        jsonl_file_path = output_dict["file_path"]
-        source_domain = output_dict["source_domain"]
-        target_domain = output_dict["target_domain"]
+        jsonl_file_path = output_dict["dump_file_path"]
+        source_domain = output_dict["source"]
+        target_domain = output_dict["target"]
 
         output_file_path = splitext(jsonl_file_path)[0] + ".json"
 
@@ -156,3 +150,9 @@ def create_query(source_domain: str, target_domain: str, output_file_path: str) 
            {{}}
         )
     """
+
+
+def make_output_file_paths(export_dir_path: str, domain_pairs: list[dict[str, Any]]):
+    for pair_dict in domain_pairs:
+        pair_dict["dump_file_path"] = join(export_dir_path, pair_dict["source"] + "->" + pair_dict["target"] + ".jsonl")
+    return domain_pairs

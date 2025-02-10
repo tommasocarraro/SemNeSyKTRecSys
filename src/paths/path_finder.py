@@ -57,6 +57,8 @@ def neo4j_path_finder(
             logger.debug("Trying to connect to Neo4j")
             driver.verify_connectivity()
             logger.debug("Connected to Neo4j")
+            # make sure the database is initialized
+            driver.execute_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")  # type: ignore
         except DriverError as e:
             logger.error(e)
             exit(1)

@@ -1,9 +1,7 @@
 import os
+from os.path import abspath
 
 from loguru import logger
-
-from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
-from neo4j import GraphDatabase
 
 from src.paths.FilePaths import FilePaths
 from src.paths.dataset_export import dataset_export
@@ -31,14 +29,10 @@ if __name__ == "__main__":
 
     # list of domain pairs for which we want to find paths
     domain_pairs = [
-        # {"source": "movies", "target": "music", "pop_threshold": 200},
-        # {"source": "books", "target": "movies", "pop_threshold": 200},
-        {"source": "music", "target": "movies", "pop_threshold": 200}
+        {"source": "movies", "target": "music", "pop_threshold": 200},
+        {"source": "books", "target": "movies", "pop_threshold": 200},
+        {"source": "music", "target": "movies", "pop_threshold": 200},
     ]
-
-    # make sure the database is initialized after the import
-    with GraphDatabase.driver(uri=NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS)) as driver:
-        driver.execute_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")  # type: ignore
 
     for pair_dict in domain_pairs:
         source_name = pair_dict["source"]
@@ -61,7 +55,7 @@ if __name__ == "__main__":
         )
 
     should_export = True
-    export_dir_path = os.getenv(key="EXPORT_PATH")
+    export_dir_path = os.getenv(key="EXPORT_PATH", default=abspath("data/wikidata"))
     if should_export:
         dataset_export(
             database_name=database_name,
