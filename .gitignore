@@ -175,3 +175,6 @@ data/**/**.json
 
 wandb/
 saved_data/
+
+*.slurm
+*.out

@@ -1,4 +1,10 @@
+import os
+from pathlib import Path
+
 import torch
+
+from src.device import device
+from loguru import logger
 
 
 class MatrixFactorization(torch.nn.Module):
@@ -13,9 +19,7 @@ class MatrixFactorization(torch.nn.Module):
     of the items of the system.
     """
 
-    def __init__(
-        self, n_users: int, n_items: int, n_factors: int, normalize: bool = False
-    ):
+    def __init__(self, n_users: int, n_items: int, n_factors: int, normalize: bool = False):
         """
         Constructor of the matrix factorization model.
 
@@ -32,8 +36,18 @@ class MatrixFactorization(torch.nn.Module):
         self.i_emb = torch.nn.Embedding(n_items, n_factors)
         self.u_bias = torch.nn.Embedding(n_users, 1)
         self.i_bias = torch.nn.Embedding(n_items, 1)
+        self.global_bias = torch.nn.Parameter(torch.rand(1))
         self.normalize = normalize
         # initialization with Glorot
+        torch.nn.init.xavier_normal_(self.u_emb.weight)
+        torch.nn.init.xavier_normal_(self.i_emb.weight)
+        torch.nn.init.xavier_normal_(self.u_bias.weight)
+        torch.nn.init.xavier_normal_(self.i_bias.weight)
+
+    def re_init_weights(self):
+        """
+        Reinitialize the weights of the model
+        """
         torch.nn.init.xavier_normal_(self.u_emb.weight)
         torch.nn.init.xavier_normal_(self.i_emb.weight)
         torch.nn.init.xavier_normal_(self.u_bias.weight)
@@ -50,8 +64,29 @@ class MatrixFactorization(torch.nn.Module):
         """
         pred = torch.sum(self.u_emb(u_idx) * self.i_emb(i_idx), dim=dim, keepdim=True)
         # add user and item biases to the prediction
-        pred = pred + self.u_bias(u_idx) + self.i_bias(i_idx)
+        pred = pred + self.u_bias(u_idx) + self.i_bias(i_idx) + self.global_bias
         pred = pred.squeeze()
         if self.normalize:
             pred = torch.sigmoid(pred)
         return pred
+
+    def save_model(self, path: Path):
+        """
+        Method for saving the final model.
+
+        :param path: path where to save the model
+        """
+        os.makedirs(path.parent, exist_ok=True)
+        torch.save(self.state_dict(), path)
+
+    def load_model(self, path: Path):
+        """
+        Method for loading the final model.
+
+        :param path: path from which the final model has to be loaded.
+        """
+        if not path.is_file():
+            logger.error(f"Model file '{path}' does not exist.")
+            exit(1)
+        final_model = torch.load(path, map_location=device, weights_only=True)
+        self.load_state_dict(final_model)

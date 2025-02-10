@@ -5,16 +5,14 @@ from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from torch.optim import AdamW
 
-from .data_loader import DataLoader
-from .loss import BPRLoss
-from .metrics import Valid_Metrics_Type
-from .model import MatrixFactorization
-from .trainer import MfTrainer
-from src.utils import set_seed
+from src.data_loader import DataLoader, ValDataLoader
+from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
+from src.model import MatrixFactorization
+from src.pretrain_source.loss import BPRLoss
+from src.pretrain_source.mf_trainer import MfTrainer
 
 
 def mf_tuning(
-    seed: int,
     tune_config: dict[str, Any],
     train_set: NDArray,
     val_set: NDArray,
@@ -23,19 +21,19 @@ def mf_tuning(
     n_items: int,
     ui_matrix: csr_matrix,
     metric: Valid_Metrics_Type,
+    early_stopping_criterion: Literal["val_loss", "val_metric"],
     n_epochs: Optional[int] = 1000,
     early: Optional[int] = 5,
-    early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
     bayesian_run_count: Optional[int] = 10,
     sweep_id: Optional[str] = None,
+    sweep_name: Optional[str] = None,
 ):
     """
     It performs the hyperparameter tuning of the MF model using the given hyperparameter search configuration,
     training and validation set. It can be used for both the MF model trained on the source domain and the baseline MF.
 
-    :param seed: seed for reproducibility
     :param tune_config: configuration for the tuning of hyperparameters
     :param train_set: train set on which the tuning is performed
     :param val_set: validation set on which the tuning is evaluated
@@ -51,15 +49,20 @@ def mf_tuning(
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param bayesian_run_count: number of runs of Bayesian optimization
     :param sweep_id: sweep id if ones wants to continue a WandB that got blocked
+    :param sweep_name: name to give to the sweep
     """
-    set_seed(seed)
     # create loader for validation
-    val_loader = DataLoader(val_set, ui_matrix, val_batch_size)
+    if metric in RankingMetricsType:
+        val_loader = ValDataLoader(data=val_set, ui_matrix=ui_matrix, batch_size=val_batch_size)
+    elif metric in PredictionMetricsType:
+        val_loader = DataLoader(data=val_set, ui_matrix=ui_matrix, batch_size=val_batch_size)
+    else:
+        raise ValueError(f"{metric} is not a valid metric")
 
     # define function to call for performing one run of the hyperparameter search
 
     def tune():
-        with wandb.init(project=exp_name, entity=entity_name) as run:
+        with wandb.init() as run:
             # get one random configuration
             k = wandb.config.n_factors
             lr = wandb.config.learning_rate
@@ -84,13 +87,10 @@ def mf_tuning(
                 early_stopping_criterion=early_stopping_criterion,
             )
 
-    # launch the WandB sweep for 150 runs
+    if sweep_name is not None:
+        tune_config["name"] = sweep_name
+
+    # launch the WandB sweep for 50 runs
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep=tune_config, entity=entity_name, project=exp_name)
-    wandb.agent(
-        sweep_id,
-        entity=entity_name,
-        function=tune,
-        count=bayesian_run_count,
-        project=exp_name,
-    )
+    wandb.agent(sweep_id, function=tune, entity=entity_name, project=exp_name, count=bayesian_run_count)
