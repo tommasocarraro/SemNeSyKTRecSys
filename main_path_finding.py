@@ -29,30 +29,30 @@ if __name__ == "__main__":
 
     # list of domain pairs for which we want to find paths
     domain_pairs = [
-        {"source": "movies", "target": "music", "pop_threshold": 200},
-        {"source": "books", "target": "movies", "pop_threshold": 200},
+        # {"source": "movies", "target": "music", "pop_threshold": 200},
+        # {"source": "books", "target": "movies", "pop_threshold": 200},
         {"source": "music", "target": "movies", "pop_threshold": 200},
     ]
 
-    for pair_dict in domain_pairs:
-        source_name = pair_dict["source"]
-        target_name = pair_dict["target"]
-        logger.info(f"Looking for paths from {source_name} to {target_name}")
-        file_paths = FilePaths(
-            source_domain_name=source_name,
-            mapping_source_domain=domains[source_name]["mapping_file_path"],
-            reviews_source_domain=domains[source_name]["reviews_file_path"],
-            target_domain_name=target_name,
-            mapping_target_domain=domains[target_name]["mapping_file_path"],
-            reviews_target_domain=domains[target_name]["reviews_file_path"],
-        )
-        neo4j_path_finder(
-            database_name=database_name,
-            file_paths=file_paths,
-            max_hops=4,
-            n_threads=60,
-            pop_threshold=pair_dict["pop_threshold"],
-        )
+    # for pair_dict in domain_pairs:
+    #     source_name = pair_dict["source"]
+    #     target_name = pair_dict["target"]
+    #     logger.info(f"Looking for paths from {source_name} to {target_name}")
+    #     file_paths = FilePaths(
+    #         source_domain_name=source_name,
+    #         mapping_source_domain=domains[source_name]["mapping_file_path"],
+    #         reviews_source_domain=domains[source_name]["reviews_file_path"],
+    #         target_domain_name=target_name,
+    #         mapping_target_domain=domains[target_name]["mapping_file_path"],
+    #         reviews_target_domain=domains[target_name]["reviews_file_path"],
+    #     )
+    #     neo4j_path_finder(
+    #         database_name=database_name,
+    #         file_paths=file_paths,
+    #         max_hops=4,
+    #         n_threads=60,
+    #         pop_threshold=pair_dict["pop_threshold"],
+    #     )
 
     should_export = True
     export_dir_path = os.getenv(key="EXPORT_PATH", default=abspath("data/wikidata"))
