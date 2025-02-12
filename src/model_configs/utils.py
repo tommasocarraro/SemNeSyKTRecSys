@@ -26,16 +26,13 @@ dataset_path_to_name = {path: name for name, path in dataset_name_to_path.items(
 
 dataset_pair_to_paths_file = {
     "books": {
-        "movies": Path("./data/kg_paths/books(pop:300)->movies(cs:5).json.7z"),
-        "music": Path("./data/kg_paths/books(pop:300)->music(cs:5).json.7z"),
+        "movies": Path("./data/kg_paths/books-movies.json.7z.001"),
     },
     "movies": {
-        "books": Path("./data/kg_paths/movies(pop:300)->books(cs:5).json.7z"),
-        "music": Path("./data/kg_paths/movies(pop:300)->music(cs:5).json.7z"),
+        "music": Path("./data/kg_paths/movies-music.json.7z.001"),
     },
     "music": {
-        "books": Path("./data/kg_paths/music(pop:200)->books(cs:5).json.7z"),
-        "movies": Path("./data/kg_paths/music(pop:200)->movies(cs:5).json.7z"),
+        "movies": Path("./data/kg_paths/music-movies.json.7z.001"),
     },
 }
 

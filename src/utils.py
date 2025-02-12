@@ -22,7 +22,7 @@ def set_seed(seed: int):
 
 def decompress_7z(compressed_file_path: Path):
     """
-    It decompressed a given compressed file. If the file has no .7z extension, nothing is done by the function
+    It decompresses a given compressed file.
 
     :param compressed_file_path: path to the compressed file
     :return: the path without the compression extension
@@ -31,9 +31,12 @@ def decompress_7z(compressed_file_path: Path):
     if compressed_file_path.exists():
         # check if path is indeed pointing to a file
         if compressed_file_path.is_file():
-            # splitting file the extension
             dirname = compressed_file_path.parent
-            filename = compressed_file_path.stem
+            if compressed_file_path.suffix == ".001":
+                filename = Path(compressed_file_path.stem).stem
+            else:
+                filename = compressed_file_path.stem
+            # splitting file the extension
             extension = compressed_file_path.suffix
             output_path = dirname / filename
             if extension == ".7z":
