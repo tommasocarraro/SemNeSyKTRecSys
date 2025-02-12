@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from torch.optim import AdamW
 
-from src.data_loader import DataLoader, ValDataLoader
+from src.data_loader import TrDataLoader, ValDataLoader
 from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
 from src.model import MatrixFactorization
 from src.pretrain_source.loss import BPRLoss
@@ -55,7 +55,7 @@ def mf_tuning(
     if metric in RankingMetricsType:
         val_loader = ValDataLoader(data=val_set, ui_matrix=ui_matrix, batch_size=val_batch_size)
     elif metric in PredictionMetricsType:
-        val_loader = DataLoader(data=val_set, ui_matrix=ui_matrix, batch_size=val_batch_size)
+        val_loader = TrDataLoader(data=val_set, ui_matrix=ui_matrix, batch_size=val_batch_size)
     else:
         raise ValueError(f"{metric} is not a valid metric")
 
@@ -72,7 +72,7 @@ def mf_tuning(
             run_name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}"
             run.name = run_name
             # define loader, model, optimizer and trainer
-            train_loader = DataLoader(train_set, ui_matrix, tr_batch_size)
+            train_loader = TrDataLoader(data=train_set, ui_matrix=ui_matrix, batch_size=tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
             trainer = MfTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)

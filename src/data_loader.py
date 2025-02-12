@@ -23,24 +23,6 @@ class DataLoader(ABC):
     num_items: int
     n_negs: int
 
-    def __init__(self, data: NDArray, shuffle: bool, batch_size: int, ui_matrix: csr_matrix, n_negs: int):
-        """
-        Constructor of the data loader.
-
-        :param data: list of training/evaluation triples (user, item, rating)
-        :param ui_matrix: sparse user-item matrix of user interactions
-        :param batch_size: batch size for the training/evaluation of the model
-        :param n_negs: number of negative items that are sampled for each user. The more the number the more chances
-        to do not sample positive items.
-        :param shuffle: whether to shuffle data during training/evaluation or not
-        """
-
-        self.data = data
-        self.shuffle = shuffle
-        self.batch_size = batch_size
-        self.ui_matrix = ui_matrix
-        self.num_items = ui_matrix.shape[1]
-        self.n_negs = n_negs
 
     @abstractmethod
     def compute_neg_items(self, batch_data: NDArray, batch_ui_matrix: csr_matrix) -> Tensor:
@@ -115,7 +97,13 @@ class TrDataLoader(DataLoader):
         compute ranking metrics.
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        super().__init__(data=data, ui_matrix=ui_matrix, batch_size=batch_size, n_negs=n_negs, shuffle=shuffle)
+        self.data = data
+        self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.ui_matrix = ui_matrix
+        self.num_items = ui_matrix.shape[1]
+        self.n_negs = n_negs
+        self.shuffle = shuffle
 
     def compute_neg_items(self, batch_data: NDArray, batch_ui_matrix: csr_matrix) -> Tensor:
         # sample n_negs negative items for each user in the batch
@@ -144,7 +132,13 @@ class ValDataLoader(DataLoader):
         compute ranking metrics.
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        super().__init__(data=data, ui_matrix=ui_matrix, batch_size=batch_size, n_negs=n_negs, shuffle=shuffle)
+        self.data = data
+        self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.ui_matrix = ui_matrix
+        self.num_items = ui_matrix.shape[1]
+        self.n_negs = n_negs
+        self.shuffle = shuffle
         self.sampled_n_negs = sampled_n_negs
 
     def compute_neg_items(self, batch_data: NDArray, batch_ui_matrix: csr_matrix) -> Tensor:

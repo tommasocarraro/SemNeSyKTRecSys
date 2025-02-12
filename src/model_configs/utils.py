@@ -71,7 +71,7 @@ def get_default_tune_config_ltn_reg(
     p_forall_ax1_range=(1, 2, 5, 10),
     p_forall_ax2_range=(1, 2, 5, 10),
     p_sat_agg_range=(1, 2, 5, 10),
-    neg_score_range=(0.1, 5.0),
+    neg_score_range=(0.1, 0.8),
     top_k_src_range=(10, 50, 100, 200),
 ) -> LtnRegTuneConfig:
     return LtnRegTuneConfig(

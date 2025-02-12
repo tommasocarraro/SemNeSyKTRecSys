@@ -120,9 +120,9 @@ class LTNRegTrainer(Trainer):
             proc_int_indices = np.random.randint(0, len(self.processed_interactions), u.shape[0])
             batch_proc_int = self.processed_interactions[proc_int_indices]
             # this is a negative score that is fixed during training. Every time the model transfer knowledge, it has to
-            # maximize the distance of the positive item score from this score. This might be a hyper-parameter
+            # maximize the distance of the positive item score from this score. This might be a hyperparameter
             neg_score = ltn.Variable(
-                "neg_score", torch.tensor([self.neg_score_value] * u.shape[0]), add_batch_dim=False
+                "neg_score", torch.tensor([self.neg_score_value + np.random.uniform(-0.01, 0.01)] * u.shape[0]), add_batch_dim=False
             )
             # define variables
             reg_user = ltn.Variable("reg_user", torch.tensor(batch_proc_int[:, 0]), add_batch_dim=False)

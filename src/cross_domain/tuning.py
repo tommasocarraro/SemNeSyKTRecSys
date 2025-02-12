@@ -8,7 +8,7 @@ from torch.optim import AdamW
 
 from src.cross_domain.ltn_trainer import LTNRegTrainer
 from src.cross_domain.utils import get_reg_axiom_data
-from src.data_loader import DataLoader, ValDataLoader
+from src.data_loader import TrDataLoader, ValDataLoader
 from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
 from src.model import MatrixFactorization
 from src.pretrain_source.inference import generate_pre_trained_src_matrix
@@ -157,7 +157,7 @@ def ltn_tuning_reg(
     if val_metric in RankingMetricsType:
         val_loader = ValDataLoader(data=val_set, ui_matrix=tgt_ui_matrix, batch_size=val_batch_size)
     elif val_metric in PredictionMetricsType:
-        val_loader = DataLoader(data=val_set, ui_matrix=tgt_ui_matrix, batch_size=val_batch_size)
+        val_loader = TrDataLoader(data=val_set, ui_matrix=tgt_ui_matrix, batch_size=val_batch_size)
     else:
         raise ValueError(f"{val_metric} is not a valid metric")
 
@@ -173,7 +173,7 @@ def ltn_tuning_reg(
             p_forall_ax1 = wandb.config.p_forall_ax1
             p_forall_ax2 = wandb.config.p_forall_ax2
             p_sat_agg = wandb.config.p_sat_agg
-            neg_score_value = -wandb.config.neg_score_value
+            neg_score_value = wandb.config.neg_score_value
             top_k_src = wandb.config.top_k_src
 
             top_k_preds = generate_pre_trained_src_matrix(
@@ -198,7 +198,7 @@ def ltn_tuning_reg(
             # set run name
             run.name = f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall_ax1={p_forall_ax1}_p_forall_ax2={p_forall_ax2}_p_sat_agg={p_sat_agg}_neg_score_value={neg_score_value}"
             # define loader, model, optimizer and trainer
-            train_loader = DataLoader(train_set, tgt_ui_matrix, tr_batch_size)
+            train_loader = TrDataLoader(data=train_set, ui_matrix=tgt_ui_matrix, batch_size=tr_batch_size)
             mf = MatrixFactorization(n_users, n_items, k)
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
 
