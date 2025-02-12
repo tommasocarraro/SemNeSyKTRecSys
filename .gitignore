@@ -177,3 +177,5 @@ source_models
 target_models
 **/import_done
 neo4j
+**/*.out
+**/*.slurm
