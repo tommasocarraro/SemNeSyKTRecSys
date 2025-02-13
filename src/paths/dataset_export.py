@@ -1,9 +1,10 @@
 from collections import defaultdict
-from os import makedirs
+from os import makedirs, remove
 from pathlib import Path
 from typing import Union
 
 import orjson
+import orjsonl
 from loguru import logger
 from neo4j import GraphDatabase
 from neo4j.exceptions import DriverError, Neo4jError
@@ -34,7 +35,7 @@ def dataset_export(
 
     dump_output_paths = make_output_file_paths(export_dir_path=export_dir_path, domain_pairs=domain_pairs)
 
-    # dump_from_neo4j(database_name=database_name, dump_output_paths=dump_output_paths)
+    dump_from_neo4j(database_name=database_name, dump_output_paths=dump_output_paths)
 
     postprocess_neo4j_dump(dump_output_paths=dump_output_paths, mappings_file_paths=mappings_file_paths)
 
@@ -107,7 +108,7 @@ def postprocess_neo4j_dump(dump_output_paths: list[dict[str, Path]], mappings_fi
             }
 
     logger.info("Postprocessing the dumps")
-    for output_dict in tqdm(dump_output_paths, dynamic_ncols=True, desc="Postprocessing the dumps...", leave=False):
+    for output_dict in tqdm(dump_output_paths, dynamic_ncols=True, desc="Postprocessing the dumps..."):
         dump_file_path = output_dict["dump_file_path"]
         source_domain = output_dict["source"]
         target_domain = output_dict["target"]
@@ -116,18 +117,16 @@ def postprocess_neo4j_dump(dump_output_paths: list[dict[str, Path]], mappings_fi
 
         output_file_path = dump_file_path.parent / Path(file_name + ".jsonl")
 
-        with open(dump_file_path, "rb") as input_file, open(output_file_path, "wb") as output_file:
-            for line in input_file:
-                item = orjson.loads(line)
-                obj = {
-                    "n1_asin": mappings[source_domain][item["n1_wiki_id"]],
-                    "n2_asin": mappings[target_domain][item["n2_wiki_id"]],
-                    "path_length": item["path_length"],
-                    "path": item["path"],
-                }
-                output_file.write(orjson.dumps(obj))
-            # delete the jsonl file as it's no longer required
-            remove(jsonl_file_path)
+        for item in orjsonl.stream(dump_file_path):
+            obj = {
+                "n1_asin": mappings[source_domain][item["n1_wiki_id"]],
+                "n2_asin": mappings[target_domain][item["n2_wiki_id"]],
+                "path_length": item["path_length"],
+                "path": item["path"],
+            }
+            orjsonl.append(output_file_path, obj)
+        # delete the jsonl file as it's no longer required
+        remove(dump_file_path)
 
 
 def create_query(source_domain: str, target_domain: str, output_file_path: str) -> str:

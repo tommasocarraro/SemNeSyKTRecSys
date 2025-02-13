@@ -13,3 +13,4 @@ dependencies:
       - neo4j-rust-ext==5.27.0.0
       - tqdm-loggable==0.2
       - python-dotenv==1.0.1
+      - orjsonl==1.0.0
