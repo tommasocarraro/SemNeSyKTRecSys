@@ -1,7 +1,7 @@
 from collections import defaultdict
-from os import makedirs, remove
-from os.path import join, splitext
-from typing import Any
+from os import makedirs
+from pathlib import Path
+from typing import Union
 
 import orjson
 from loguru import logger
@@ -13,7 +13,10 @@ from config import NEO4J_PASS, NEO4J_URI, NEO4J_USER
 
 
 def dataset_export(
-    database_name: str, export_dir_path: str, domain_pairs: list[dict[str, Any]], mappings_file_paths: dict[str, Any]
+    database_name: str,
+    export_dir_path: Path,
+    domain_pairs: list[dict[str, Union[str, int]]],
+    mappings_file_paths: dict[str, dict[str, Path]],
 ) -> None:
     """
     Dumps the precomputed shortest paths from the neo4j database for all the given pairs of domains in json format.
@@ -31,12 +34,12 @@ def dataset_export(
 
     dump_output_paths = make_output_file_paths(export_dir_path=export_dir_path, domain_pairs=domain_pairs)
 
-    dump_from_neo4j(database_name=database_name, dump_output_paths=dump_output_paths)
+    # dump_from_neo4j(database_name=database_name, dump_output_paths=dump_output_paths)
 
     postprocess_neo4j_dump(dump_output_paths=dump_output_paths, mappings_file_paths=mappings_file_paths)
 
 
-def dump_from_neo4j(database_name: str, dump_output_paths: list[dict[str, str]]) -> list[dict[str, str]]:
+def dump_from_neo4j(database_name: str, dump_output_paths: list[dict[str, Union[str, int, Path]]]) -> None:
     """
     Dumps the precomputed shortest paths from the neo4j database for all the given pairs of domains in jsonl format.
     Requires the following settings in apoc.conf:
@@ -84,10 +87,9 @@ def dump_from_neo4j(database_name: str, dump_output_paths: list[dict[str, str]])
         except (DriverError, Neo4jError) as e:
             logger.error(e)
             exit(1)
-        return dump_output_paths
 
 
-def postprocess_neo4j_dump(dump_output_paths: list[dict[str, str]], mappings_file_paths: dict[str, Any]) -> None:
+def postprocess_neo4j_dump(dump_output_paths: list[dict[str, Path]], mappings_file_paths: dict[str, dict[str, Path]]):
     """
     Postprocesses the jsonl files into json files for easier handling in the model's pipeline.
 
@@ -106,29 +108,25 @@ def postprocess_neo4j_dump(dump_output_paths: list[dict[str, str]], mappings_fil
 
     logger.info("Postprocessing the dumps")
     for output_dict in tqdm(dump_output_paths, dynamic_ncols=True, desc="Postprocessing the dumps...", leave=False):
-        jsonl_file_path = output_dict["dump_file_path"]
+        dump_file_path = output_dict["dump_file_path"]
         source_domain = output_dict["source"]
         target_domain = output_dict["target"]
 
-        output_file_path = splitext(jsonl_file_path)[0] + ".json"
+        file_name = dump_file_path.stem.removesuffix("_neo4j")
 
-        with open(jsonl_file_path, "rb") as jsonl_file, open(output_file_path, "wb") as output_file:
-            final_dict = defaultdict(lambda: defaultdict(list))
+        output_file_path = dump_file_path.parent / Path(file_name + ".jsonl")
 
-            for line in jsonl_file:
+        with open(dump_file_path, "rb") as input_file, open(output_file_path, "wb") as output_file:
+            for line in input_file:
                 item = orjson.loads(line)
-                path = item["path"]
-                path_length = item["path_length"]
-                n1_wiki_id = item["n1_wiki_id"]
-                n1_asin = mappings[source_domain][n1_wiki_id]
-                n2_wiki_id = item["n2_wiki_id"]
-                n2_asin = mappings[target_domain][n2_wiki_id]
-
-                final_dict[n1_asin][n2_asin].append({"path_str": path, "path_length": path_length})
-
-            # write the final json file to file system
-            output_file.write(orjson.dumps(final_dict, option=orjson.OPT_INDENT_2))
-            # delete the jsonl file as it's no longer needed
+                obj = {
+                    "n1_asin": mappings[source_domain][item["n1_wiki_id"]],
+                    "n2_asin": mappings[target_domain][item["n2_wiki_id"]],
+                    "path_length": item["path_length"],
+                    "path": item["path"],
+                }
+                output_file.write(orjson.dumps(obj))
+            # delete the jsonl file as it's no longer required
             remove(jsonl_file_path)
 
 
@@ -152,7 +150,14 @@ def create_query(source_domain: str, target_domain: str, output_file_path: str) 
     """
 
 
-def make_output_file_paths(export_dir_path: str, domain_pairs: list[dict[str, Any]]):
-    for pair_dict in domain_pairs:
-        pair_dict["dump_file_path"] = join(export_dir_path, pair_dict["source"] + "->" + pair_dict["target"] + ".jsonl")
-    return domain_pairs
+def make_output_file_paths(
+    export_dir_path: Path, domain_pairs: list[dict[str, Union[str, int]]]
+) -> list[dict[str, Union[str, Path]]]:
+    return [
+        {
+            "source": pair["source"],
+            "target": pair["target"],
+            "dump_file_path": Path(export_dir_path / (pair["source"] + "-" + pair["target"] + "_neo4j.jsonl")),
+        }
+        for pair in domain_pairs
+    ]

@@ -2,7 +2,7 @@ import os
 from os.path import abspath
 
 from loguru import logger
-
+from pathlib import Path
 from src.paths.FilePaths import FilePaths
 from src.paths.dataset_export import dataset_export
 from src.paths.path_finder import neo4j_path_finder
@@ -14,16 +14,16 @@ if __name__ == "__main__":
     # to be used when selecting the items from which paths should start
     domains = {
         "movies": {
-            "mapping_file_path": "data/processed/mappings/mapping-movies.json",
-            "reviews_file_path": "data/ratings/reviews_Movies_and_TV_5.csv",
+            "mapping_file_path": Path("data/processed/mappings/mapping-movies.json"),
+            "reviews_file_path": Path("data/ratings/reviews_Movies_and_TV_5.csv"),
         },
         "music": {
-            "mapping_file_path": "data/processed/mappings/mapping-music.json",
-            "reviews_file_path": "data/ratings/reviews_CDs_and_Vinyl_5.csv",
+            "mapping_file_path": Path("data/processed/mappings/mapping-music.json"),
+            "reviews_file_path": Path("data/ratings/reviews_CDs_and_Vinyl_5.csv"),
         },
         "books": {
-            "mapping_file_path": "data/processed/mappings/mapping-books.json",
-            "reviews_file_path": "data/ratings/reviews_Books_5.csv",
+            "mapping_file_path": Path("data/processed/mappings/mapping-books.json"),
+            "reviews_file_path": Path("data/ratings/reviews_Books_5.csv"),
         },
     }
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         )
 
     should_export = True
-    export_dir_path = os.getenv(key="EXPORT_PATH", default=abspath("data/wikidata"))
+    export_dir_path = Path(os.getenv(key="EXPORT_PATH", default=abspath("data/wikidata")))
     if should_export:
         dataset_export(
             database_name=database_name,
