@@ -5,10 +5,10 @@ import torch
 from loguru import logger
 from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
+from torch import Tensor
 from tqdm import tqdm
 
 from src.device import device
-from src.metrics import ndcg_at_k
 from src.model import MatrixFactorization
 
 
@@ -56,7 +56,7 @@ def generate_pre_trained_src_matrix(
         items = torch.arange(mf_model.n_items, dtype=torch.int32, device=device)
         # compute the ranking predictions through the model
         with torch.no_grad():
-            preds = mf_model(users, items)
+            preds: Tensor = mf_model(users, items)
         # obtain the sparse row of ratings for the user
         sparse_ratings = src_ui_matrix[u]
         # compute how many positive interactions the user provided
@@ -69,7 +69,7 @@ def generate_pre_trained_src_matrix(
         # obtain the whole list of ratings provided by the user
         ground_truth = sparse_ratings.toarray()
         # compute the value of k within the given range such that it maximizes NDCG@k for the user
-        best_k = compute_best_k(ground_truth=ground_truth, preds=np.asarray([preds]), k_range=k_range)
+        best_k = compute_best_k(ground_truth=ground_truth, preds=np.asarray([preds.detach().cpu()]), k_range=k_range)
         # compute the top k rankings for the user
         top_preds = torch.topk(preds, best_k).indices
         top_preds_all_users.append(top_preds.detach().cpu().numpy())
