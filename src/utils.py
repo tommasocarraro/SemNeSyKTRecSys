@@ -43,12 +43,14 @@ def decompress_7z(compressed_file_path: Path):
             if output_path.is_file():
                 return output_path
 
-            logger.debug(f"Decompressing {compressed_file_path}")
             if extension == ".7z":
+                logger.debug(f"Decompressing {compressed_file_path}")
                 with py7zr.SevenZipFile(compressed_file_path, mode="r") as archive:
                     archive.extractall(path=compressed_file_path.parent)
             elif extension == ".001":
-                with multivolumefile.open(compressed_file_path, mode="rb") as target_archive:
+                non_part_file_path = compressed_file_path.parent / compressed_file_path.stem
+                logger.debug(f"Decompressing {non_part_file_path}")
+                with multivolumefile.open(non_part_file_path, mode="rb") as target_archive:
                     with py7zr.SevenZipFile(target_archive, mode="r") as archive:  # type: ignore
                         archive.extractall(path=compressed_file_path.parent)
             else:
