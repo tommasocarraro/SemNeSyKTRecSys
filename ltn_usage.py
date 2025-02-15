@@ -90,7 +90,6 @@ def _create_trainer(
         p_forall_ax1=config.ltn_reg_train_config.hyper_params.p_forall_ax1,
         p_forall_ax2=config.ltn_reg_train_config.hyper_params.p_forall_ax2,
         p_sat_agg=config.ltn_reg_train_config.hyper_params.p_sat_agg,
-        neg_score_value=config.ltn_reg_train_config.hyper_params.neg_score,
         processed_interactions=processed_interactions,
         tgt_ui_matrix=dataset.tgt_ui_matrix,
     )

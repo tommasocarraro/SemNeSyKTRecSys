@@ -63,8 +63,8 @@ def get_reg_axiom_data(
             # source domain)
             user_src_top_k = top_k_items[user]
             # check which of these items are connected to at least one item in the target domain. Note also that the
-            # resulting items will be items with more than 300 ratings in the source domain (warm start items) cause the
-            # sim matrix only contains paths for items with more than 300 ratings in the source domain
+            # resulting items will be items with more than 200 ratings in the source domain (warm start items) cause the
+            # sim matrix only contains paths for items with more than 200 ratings in the source domain
             filtered_user_src_top_k = [j for j in user_src_top_k if j in src_exist_path_items]
             # check if this list is not empty, namely if there exists at least a source domain item that this user likes
             # and is connected to at least one target domain item

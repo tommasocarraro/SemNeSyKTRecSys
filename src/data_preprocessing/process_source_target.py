@@ -108,12 +108,22 @@ def process_source_target(
     sparse_tgt_matrix = create_ui_matrix(tgt_ratings)
 
     src_tr, src_val, src_te = src_dataset_config.split_strategy.split(src_ratings.to_numpy())
-    src_tr = increase_sparsity(
-        ratings=src_tr, sparsity=src_sparsity, label="source", seed=seed, user_level=user_level_src
+    src_tr, sparse_src_matrix = increase_sparsity(
+        ratings=src_tr,
+        ui_matrix=sparse_src_matrix,
+        sparsity=src_sparsity,
+        label="source",
+        seed=seed,
+        user_level=user_level_src,
     )
     tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
-    tgt_tr = increase_sparsity(
-        ratings=tgt_tr, sparsity=tgt_sparsity, label="target", seed=seed, user_level=user_level_tgt
+    tgt_tr, sparse_tgt_matrix = increase_sparsity(
+        ratings=tgt_tr,
+        ui_matrix=sparse_tgt_matrix,
+        sparsity=tgt_sparsity,
+        label="target",
+        seed=seed,
+        user_level=user_level_tgt,
     )
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
@@ -306,19 +316,25 @@ def create_sim_matrix(
 
 
 def increase_sparsity(
-    ratings: NDArray, sparsity: float, label: Literal["source", "target"], seed: int, user_level: bool
-) -> NDArray:
+    ratings: NDArray,
+    ui_matrix: csr_matrix,
+    sparsity: float,
+    label: Literal["source", "target"],
+    seed: int,
+    user_level: bool,
+) -> tuple[NDArray, csr_matrix]:
     """
     Artificially increases the sparsity of the ratings dataframe by the given sparsity factor. I.e., if sparsity is 0.4,
     then 40% of each user's ratings will be retained in the dataset. The ratings are sampled randomly.
 
     :param ratings: numpy array containing the quadruples of the ratings
+    :param ui_matrix: sparse user-item interactions matrix
     :param sparsity: the sparsity factor to use
     :param label: label representing either source or target domain, used for tqdm's description
     :param seed: seed to use for sampling
     :param user_level: whether to sample sparsity% of each user's ratings or globally
 
-    :return: the new ratings array containing the sampled ratings
+    :return: the new ratings array and ui_matrix containing the sampled ratings
 
     """
     if not (0.0 < sparsity <= 1.0):
@@ -327,7 +343,7 @@ def increase_sparsity(
 
     # if the sparsity is 1.0 then do nothing
     if sparsity == 1.0:
-        return ratings
+        return ratings, ui_matrix
 
     # reconvert the numpy array to a dataframe
     df = DataFrame(ratings, columns=["userId", "itemId", "rating"])
@@ -336,9 +352,7 @@ def increase_sparsity(
     # if after the sampling the user is left with no ratings, the original group of ratings is retained
     def sample_ratings(x):
         sampled = x.sample(frac=sparsity, random_state=seed)
-        if len(sampled) > 0:
-            return sampled
-        return x
+        return sampled if len(sampled) > 0 else x
 
     if user_level:
         desc = (
@@ -349,5 +363,9 @@ def increase_sparsity(
         tqdm.pandas(desc=desc)
         df = df.groupby("userId").progress_apply(sample_ratings).reset_index(drop=True)
     else:
-        df = df.apply(sample_ratings).reset_index(drop=True)
-    return df.to_numpy()
+        df = df.sample(frac=sparsity, random_state=seed).reset_index(drop=True)
+
+    mask = np.zeros(ui_matrix.shape, dtype=bool)
+    mask[df["userId"].to_numpy(), df["itemId"].to_numpy()] = True
+    new_ui_matrix = ui_matrix.multiply(mask).tocsr()
+    return df.to_numpy(), new_ui_matrix
