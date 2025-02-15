@@ -69,7 +69,9 @@ def generate_pre_trained_src_matrix(
         # obtain the whole list of ratings provided by the user
         ground_truth = sparse_ratings.toarray()
         # compute the value of k within the given range such that it maximizes NDCG@k for the user
-        best_k = compute_best_k(ground_truth=ground_truth, preds=np.asarray([preds.detach().cpu()]), k_range=k_range)
+        best_k = compute_best_k(
+            ground_truth=ground_truth, preds=np.asarray([preds.detach().cpu().numpy()]), k_range=k_range
+        )
         # compute the top k rankings for the user
         top_preds = torch.topk(preds, best_k).indices
         top_preds_all_users.append(top_preds.detach().cpu().numpy())
