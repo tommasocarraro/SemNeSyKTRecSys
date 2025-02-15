@@ -1,15 +1,15 @@
-import orjson
 import os
 from os import makedirs
 from pathlib import Path
 from typing import Literal, Optional
 
 import numpy as np
+import orjsonl
 import pandas as pd
 from loguru import logger
 from numpy.typing import NDArray
 from pandas import DataFrame
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, lil_matrix
 from tqdm import tqdm
 
 from src.model_configs.ModelConfig import DatasetConfig
@@ -93,8 +93,6 @@ def process_source_target(
     )
     tgt_i_string_to_id = reindex_items(ratings=tgt_ratings)
 
-    tgt_true_negatives = get_true_negatives(tgt_ratings)
-
     # convert ratings to implicit feedback
     src_ratings["rating"] = (src_ratings["rating"] >= 4).astype(int)
     tgt_ratings["rating"] = (tgt_ratings["rating"] >= 4).astype(int)
@@ -143,7 +141,6 @@ def process_source_target(
         tgt_val=tgt_val,
         tgt_te=tgt_te,
         sim_matrix=sim_matrix,
-        tgt_true_negatives=tgt_true_negatives,
     )
 
     if save_dir_path is not None and save_file_path is not None:
@@ -174,8 +171,8 @@ def load_or_clear_dataset(save_file_path: Path, clear_saved_dataset: bool) -> Op
 def load_dataframes(src_dataset_path: Path, tgt_dataset_path: Path) -> tuple[DataFrame, DataFrame]:
     # get source and target ratings
     logger.debug("Reading the datasets' csv files with pandas")
-    src_ratings = pd.read_csv(src_dataset_path, usecols=["userId", "itemId", "rating", "timestamp"])
-    tgt_ratings = pd.read_csv(tgt_dataset_path, usecols=["userId", "itemId", "rating", "timestamp"])
+    src_ratings = pd.read_csv(src_dataset_path, usecols=["userId", "itemId", "rating"])
+    tgt_ratings = pd.read_csv(tgt_dataset_path, usecols=["userId", "itemId", "rating"])
     return src_ratings, tgt_ratings
 
 
@@ -294,26 +291,18 @@ def create_sim_matrix(
     :return: the sparse similarity matrix
     """
     # create source_items X target_items matrix (used for the Sim predicate in the model)
-    logger.debug("Creating similarity matrix between source and target items, using available paths")
+    logger.debug("Creating similarity matrix between source and target items using available paths")
 
     # decompress the file containing the paths from source to target domain
     paths_file_path = decompress_7z(paths_file_path)
 
-    with open(paths_file_path, "rb") as json_paths:
-        paths_file = orjson.loads(json_paths.read())
-
-    available_path_pairs = []
-    for src_asin, tgt_asins in paths_file.items():
-        for tgt_asin, paths in tgt_asins.items():
-            if paths[0]["path_length"] <= max_path_length:
-                available_path_pairs.append((src_i_string_to_id[src_asin], tgt_i_string_to_id[tgt_asin]))
-    available_path_pairs = np.array(available_path_pairs)
-
-    # create sparse sim matrix
-    return csr_matrix(
-        (np.ones(available_path_pairs.shape[0]), (available_path_pairs[:, 0], available_path_pairs[:, 1])),
-        shape=(src_n_items, tgt_n_items),
-    )
+    sparse_matrix = lil_matrix((src_n_items, tgt_n_items))
+    for obj in orjsonl.stream(paths_file_path):
+        n1_id = src_i_string_to_id[obj["n1_asin"]]
+        n2_id = tgt_i_string_to_id[obj["n2_asin"]]
+        if obj["path_length"] <= max_path_length:
+            sparse_matrix[n1_id, n2_id] = 1
+    return sparse_matrix.tocsr()
 
 
 def increase_sparsity(
@@ -341,7 +330,7 @@ def increase_sparsity(
         return ratings
 
     # reconvert the numpy array to a dataframe
-    df = DataFrame(ratings, columns=["userId", "itemId", "rating", "timestamp"])
+    df = DataFrame(ratings, columns=["userId", "itemId", "rating"])
 
     # sample the required percentage of ratings for each user
     # if after the sampling the user is left with no ratings, the original group of ratings is retained
@@ -362,8 +351,3 @@ def increase_sparsity(
     else:
         df = df.apply(sample_ratings).reset_index(drop=True)
     return df.to_numpy()
-
-
-def get_true_negatives(ratings: DataFrame) -> NDArray:
-    true_negatives = ratings[ratings["rating"] < 4.0]
-    return true_negatives.to_numpy()

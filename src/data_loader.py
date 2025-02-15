@@ -21,8 +21,6 @@ class DataLoader(ABC):
     batch_size: int
     ui_matrix: csr_matrix
     num_items: int
-    n_negs: int
-
 
     @abstractmethod
     def compute_neg_items(self, batch_data: NDArray, batch_ui_matrix: csr_matrix) -> Tensor:
@@ -97,7 +95,7 @@ class TrDataLoader(DataLoader):
         compute ranking metrics.
         :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        self.data = data
+        self.data = data[data[:, 2] > 0]
         self.shuffle = shuffle
         self.batch_size = batch_size
         self.ui_matrix = ui_matrix
@@ -123,23 +121,18 @@ class ValDataLoader(DataLoader):
         """
         Constructor of the data loader.
 
-        :param data: list of training/evaluation triples (user, item, rating)
-        :param ui_matrix: sparse user-item matrix of user interactions
-        :param batch_size: batch size for the training/evaluation of the model
         :param sampled_n_negs: number of negative items that are sampled for each user. The more the number the more
         chances to do not sample positive items.
         :param n_negs: number of negative items that are keep from the sampled ones to construct the negative set to
         compute ranking metrics.
-        :param shuffle: whether to shuffle data during training/evaluation or not
         """
-        self.data = data
-        self.shuffle = shuffle
-        self.batch_size = batch_size
+        self.data = data[data[:, 2] > 0]
         self.ui_matrix = ui_matrix
-        self.num_items = ui_matrix.shape[1]
-        self.n_negs = n_negs
+        self.batch_size = batch_size
         self.shuffle = shuffle
+        self.n_negs = n_negs
         self.sampled_n_negs = sampled_n_negs
+        self.num_items = ui_matrix.shape[1]
 
     def compute_neg_items(self, batch_data: NDArray, batch_ui_matrix: csr_matrix) -> Tensor:
         # sample sampled_n_negs negative items for each user in the batch

@@ -6,7 +6,7 @@ import torch
 import wandb
 from loguru import logger
 
-from src.data_loader import DataLoader, ValDataLoader
+from src.data_loader import TrDataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
 from src.model import MatrixFactorization
 from src.model_configs import ModelConfig
@@ -33,7 +33,7 @@ def _create_trainer(dataset: Dataset, config: ModelConfig, which_dataset: Litera
 
     hyperparams = config.mf_train_config.hyper_params
 
-    tr_loader = DataLoader(data=tr, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
+    tr_loader = TrDataLoader(data=tr, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
     val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
     te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
 

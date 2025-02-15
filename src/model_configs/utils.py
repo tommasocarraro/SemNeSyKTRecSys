@@ -25,15 +25,9 @@ dataset_name_to_path = {
 dataset_path_to_name = {path: name for name, path in dataset_name_to_path.items()}
 
 dataset_pair_to_paths_file = {
-    "books": {
-        "movies": Path("./data/kg_paths/books-movies.json.7z.001"),
-    },
-    "movies": {
-        "music": Path("./data/kg_paths/movies-music.json.7z.001"),
-    },
-    "music": {
-        "movies": Path("./data/kg_paths/music-movies.json.7z.001"),
-    },
+    "books": {"movies": Path("./data/kg_paths/books-movies.jsonl.7z.001")},
+    "movies": {"music": Path("./data/kg_paths/movies-music.jsonl.7z.001")},
+    "music": {"movies": Path("./data/kg_paths/music-movies.jsonl.7z.001")},
 }
 
 
@@ -71,8 +65,6 @@ def get_default_tune_config_ltn_reg(
     p_forall_ax1_range=(1, 2, 5, 10),
     p_forall_ax2_range=(1, 2, 5, 10),
     p_sat_agg_range=(1, 2, 5, 10),
-    neg_score_range=(0.01, 6),
-    top_k_src_range=(10, 50, 100, 200),
 ) -> LtnRegTuneConfig:
     return LtnRegTuneConfig(
         method="bayes",
@@ -89,10 +81,6 @@ def get_default_tune_config_ltn_reg(
             p_forall_ax1_range=list(p_forall_ax1_range),
             p_forall_ax2_range=list(p_forall_ax2_range),
             p_sat_agg_range=list(p_sat_agg_range),
-            top_k_src_range=list(top_k_src_range),
-            neg_score_range=ParameterDistribution(
-                min=neg_score_range[0], max=neg_score_range[1], distribution="log_uniform_values"
-            ),
         ),
         entity_name="bmxitalia",
         exp_name="amazon",

@@ -75,9 +75,7 @@ class Trainer(ABC):
             log_dict.update(val_loss_dict)
             # print epoch data
             if (epoch + 1) % verbose == 0:
-                log_record = (
-                    f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric.value} {val_score:.3f}"
-                )
+                log_record = f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric.value} {val_score:.3f}"
                 # add log_dict to log_record
                 log_record += " - " + " - ".join([f"{k} {v:.3f}" for k, v in log_dict.items() if k != "train_loss"])
                 # print epoch report
@@ -106,13 +104,13 @@ class Trainer(ABC):
                 early_counter = 0
                 if checkpoint_save_path is not None:
                     logger.info(f"Saving checkpoint")
-                    self.save_checkpoint(checkpoint_save_path)
+                    self.model.save_model(checkpoint_save_path)
             else:
                 early_counter += 1
                 if early is not None and early_counter > early:
                     logger.info("Training interrupted due to early stopping")
                     if final_model_save_path is not None and checkpoint_save_path is not None:
-                        self.load_checkpoint(checkpoint_save_path)
+                        self.model.load_model(checkpoint_save_path)
                         self.model.save_model(final_model_save_path)
                         os.remove(checkpoint_save_path)
                     break
@@ -176,10 +174,7 @@ class Trainer(ABC):
         return self.loss(pos_preds, neg_preds)
 
     def validate(
-        self,
-        val_loader: Union[DataLoader, ValDataLoader],
-        val_metric: Valid_Metrics_Type,
-        use_val_loss: bool = False,
+        self, val_loader: Union[DataLoader, ValDataLoader], val_metric: Valid_Metrics_Type, use_val_loss: bool = False
     ):
         """
         Method for validating the model.
@@ -226,7 +221,7 @@ class Trainer(ABC):
         # prepare predictions and targets for evaluation
         preds = self.prepare_for_evaluation_ranking(val_loader)
         # compute validation metric
-        val_score = compute_metric(val_metric, preds)
+        val_score = compute_metric(metric=val_metric, preds=preds)
 
         return np.mean(val_score), {}
 
@@ -283,31 +278,6 @@ class Trainer(ABC):
             val_score, _ = self.validate(val_loader, val_metric, use_val_loss=True)
             val_results.append(val_score)
         return np.mean(val_results)
-
-    def save_checkpoint(self, path: Path):
-        """
-        Method for saving a model checkpoint.
-
-        :param path: path where to save the model
-        """
-        os.makedirs(path.parent, exist_ok=True)
-        torch.save(
-            {"model_state_dict": self.model.state_dict(), "optimizer_state_dict": self.optimizer.state_dict()}, path
-        )
-
-    def load_checkpoint(self, path: Path):
-        """
-        Method for loading a model checkpoint.
-
-        :param path: path from which the model has to be loaded.
-        """
-        if not path.is_file():
-            logger.error(f"Model file '{path}' does not exist.")
-            exit(1)
-
-        checkpoint = torch.load(path, map_location=device, weights_only=True)
-        self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     @abstractmethod
     def train_epoch(self, train_loader: DataLoader, epoch: int):

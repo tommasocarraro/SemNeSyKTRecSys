@@ -28,6 +28,36 @@ def _create_trainer(
     tgt_sparsity: float,
     save_dir_path: Path,
 ):
+    mf_model_src = MatrixFactorization(
+        n_users=dataset.src_n_users,
+        n_items=dataset.src_n_items,
+        n_factors=config.mf_train_config.hyper_params.n_factors,
+    )
+
+    src_model_weights_path = get_best_weights_path_mf_source(
+        src_domain_name=src_dataset_name, src_sparsity=src_sparsity, user_level_src=user_level_src
+    )
+
+    top_k_items = generate_pre_trained_src_matrix(
+        mf_model=mf_model_src,
+        best_weights_path=src_model_weights_path,
+        n_shared_users=dataset.n_sh_users,
+        save_dir_path=save_dir_path,
+        src_ui_matrix=dataset.src_ui_matrix,
+    )
+
+    processed_interactions = get_reg_axiom_data(
+        src_ui_matrix=dataset.src_ui_matrix,
+        tgt_ui_matrix=dataset.tgt_ui_matrix,
+        n_sh_users=dataset.n_sh_users,
+        sim_matrix=dataset.sim_matrix,
+        top_k_items=top_k_items,
+        save_dir_path=save_dir_path,
+        src_dataset_name=src_dataset_name,
+        tgt_dataset_name=tgt_dataset_name,
+        tgt_sparsity=tgt_sparsity,
+    )
+
     tr_loader = TrDataLoader(
         data=dataset.tgt_tr,
         ui_matrix=dataset.tgt_ui_matrix,
@@ -46,39 +76,9 @@ def _create_trainer(
         n_factors=config.ltn_reg_train_config.hyper_params.n_factors,
     )
 
-    mf_model_src = MatrixFactorization(
-        n_users=dataset.src_n_users,
-        n_items=dataset.src_n_items,
-        n_factors=config.mf_train_config.hyper_params.n_factors,
-    )
-
-    src_model_weights_path = get_best_weights_path_mf_source(
-        src_domain_name=src_dataset_name, src_sparsity=src_sparsity, user_level_src=user_level_src
-    )
     if not src_model_weights_path or not src_model_weights_path.is_file():
         logger.error(f"The source model weights path {src_model_weights_path} does not exist.")
         exit(1)
-
-    top_k_items = generate_pre_trained_src_matrix(
-        mf_model=mf_model_src,
-        best_weights_path=src_model_weights_path,
-        n_shared_users=dataset.n_sh_users,
-        save_dir_path=save_dir_path,
-        batch_size=2048,
-        k=config.ltn_reg_train_config.hyper_params.top_k_src,
-    )
-
-    processed_interactions = get_reg_axiom_data(
-        src_ui_matrix=dataset.src_ui_matrix,
-        tgt_ui_matrix=dataset.tgt_ui_matrix,
-        n_sh_users=dataset.n_sh_users,
-        sim_matrix=dataset.sim_matrix,
-        top_k_items=top_k_items,
-        save_dir_path=save_dir_path,
-        src_dataset_name=src_dataset_name,
-        tgt_dataset_name=tgt_dataset_name,
-        tgt_sparsity=tgt_sparsity,
-    )
 
     tr = LTNRegTrainer(
         mf_model=mf_model_tgt,
@@ -92,6 +92,7 @@ def _create_trainer(
         p_sat_agg=config.ltn_reg_train_config.hyper_params.p_sat_agg,
         neg_score_value=config.ltn_reg_train_config.hyper_params.neg_score,
         processed_interactions=processed_interactions,
+        tgt_ui_matrix=dataset.tgt_ui_matrix,
     )
 
     return tr, tr_loader, val_loader

@@ -72,7 +72,7 @@ class MatrixFactorization(torch.nn.Module):
 
     def save_model(self, path: Path):
         """
-        Method for saving the final model.
+        Method for saving the model.
 
         :param path: path where to save the model
         """
@@ -81,7 +81,7 @@ class MatrixFactorization(torch.nn.Module):
 
     def load_model(self, path: Path):
         """
-        Method for loading the final model.
+        Method for loading the model.
 
         :param path: path from which the final model has to be loaded.
         """

@@ -2,6 +2,7 @@ import os
 import random
 from pathlib import Path
 
+import multivolumefile
 import numpy as np
 import py7zr
 import torch
@@ -32,18 +33,28 @@ def decompress_7z(compressed_file_path: Path):
         # check if path is indeed pointing to a file
         if compressed_file_path.is_file():
             dirname = compressed_file_path.parent
+            # splitting file the extension
+            extension = compressed_file_path.suffix
             if compressed_file_path.suffix == ".001":
                 filename = Path(compressed_file_path.stem).stem
             else:
                 filename = compressed_file_path.stem
-            # splitting file the extension
-            extension = compressed_file_path.suffix
             output_path = dirname / filename
+            if output_path.is_file():
+                return output_path
+
+            logger.debug(f"Decompressing {compressed_file_path}")
             if extension == ".7z":
-                if not output_path.exists() or not output_path.is_file():
-                    logger.debug(f"Decompressing {compressed_file_path}")
-                    with py7zr.SevenZipFile(compressed_file_path, mode="r") as archive:
+                with py7zr.SevenZipFile(compressed_file_path, mode="r") as archive:
+                    archive.extractall(path=compressed_file_path.parent)
+            elif extension == ".001":
+                with multivolumefile.open(compressed_file_path, mode="rb") as target_archive:
+                    with py7zr.SevenZipFile(target_archive, mode="r") as archive:  # type: ignore
                         archive.extractall(path=compressed_file_path.parent)
+            else:
+                logger.error("Provided file is not a .7z or .7z.00x archive")
+                exit(1)
+
             return output_path
 
         else:

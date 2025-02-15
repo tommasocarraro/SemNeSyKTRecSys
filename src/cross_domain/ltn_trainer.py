@@ -2,14 +2,16 @@ import ltn
 import numpy as np
 import torch
 from numpy.typing import NDArray
+from scipy.sparse import csr_matrix
 from torch.optim import Optimizer
 from tqdm import tqdm
 
-from src.data_loader import DataLoader
-from src.model import MatrixFactorization
 from src.cross_domain.loss import LTNLoss
-from src.trainer import Trainer
+from src.cross_domain.utils import sample_neg_items
+from src.data_loader import DataLoader
 from src.device import device
+from src.model import MatrixFactorization
+from src.trainer import Trainer
 
 
 class LTNTrainer(Trainer):
@@ -68,11 +70,11 @@ class LTNRegTrainer(Trainer):
         self,
         mf_model: MatrixFactorization,
         optimizer: Optimizer,
-        processed_interactions: NDArray,
+        processed_interactions: dict[int, NDArray],
+        tgt_ui_matrix: csr_matrix,
         p_sat_agg: int,
         p_forall_ax1: int,
         p_forall_ax2: int,
-        neg_score_value: float,
         wandb_train=False,
     ):
         """
@@ -82,6 +84,7 @@ class LTNRegTrainer(Trainer):
         :param optimizer: optimizer used for the training of the model
         :param processed_interactions: user-item interactions for which the sampling for the regularization axiom has
         to be performed
+        :param tgt_ui_matrix: target domain user-item interactions
         :param p_sat_agg: hyperparameter p for sat aggregator
         :param p_forall_ax1: hyperparameter p for universal quantifier aggregator of axiom 1
         :param p_forall_ax2: hyperparameter p for universal quantifier aggregator of axiom 2
@@ -97,7 +100,9 @@ class LTNRegTrainer(Trainer):
         self.SatAgg = ltn.fuzzy_ops.SatAgg(agg_op=ltn.fuzzy_ops.AggregPMeanError(p=p_sat_agg))
         self.p_forall_ax1 = p_forall_ax1
         self.p_forall_ax2 = p_forall_ax2
-        self.neg_score_value = neg_score_value
+        self.tgt_ui_matrix = tgt_ui_matrix
+        # array containing all users shared with at least one path found between the two domains
+        self.sh_users = np.array(list(self.processed_interactions))
 
     def train_epoch(self, train_loader: DataLoader, epoch: int):
         train_loss, train_sat_agg, ax1_sat, ax2_sat = 0.0, 0.0, [], []
@@ -105,6 +110,7 @@ class LTNRegTrainer(Trainer):
             tqdm(train_loader, desc=f"Training epoch {epoch}", dynamic_ncols=True)
         ):
             self.optimizer.zero_grad()
+
             # axiom 1
             user = ltn.Variable("user", u, add_batch_dim=False)
             item_pos = ltn.Variable("item_pos", i_pos, add_batch_dim=False)
@@ -115,30 +121,36 @@ class LTNRegTrainer(Trainer):
                 p=self.p_forall_ax1,
             )
             ax1_sat.append(axiom1.value.item())
+
             # axiom 2
-            # sample interactions from the list of processed interactions
-            proc_int_indices = np.random.randint(0, len(self.processed_interactions), u.shape[0])
-            batch_proc_int = self.processed_interactions[proc_int_indices]
-            # this is a negative score that is fixed during training. Every time the model transfer knowledge, it has to
-            # maximize the distance of the positive item score from this score. This might be a hyperparameter
-            neg_score = ltn.Variable(
-                "neg_score", torch.tensor([self.neg_score_value + np.random.uniform(-0.01, 0.01)] * u.shape[0]), add_batch_dim=False
+            # sample a number of shared users equal to the batch size
+            sampled_sh_users = np.random.choice(self.sh_users, size=u.shape[0], replace=False)
+            # sample positive interactions for all users among the connected items
+            sampled_pos_items = [np.random.choice(self.processed_interactions[user]) for user in sampled_sh_users]
+            # sample negative interactions for all users
+            sampled_neg_items = sample_neg_items(
+                sampled_sh_users=sampled_sh_users,
+                tgt_ui_matrix=self.tgt_ui_matrix,
+                processed_interactions=self.processed_interactions,
             )
-            # define variables
-            reg_user = ltn.Variable("reg_user", torch.tensor(batch_proc_int[:, 0]), add_batch_dim=False)
-            reg_item = ltn.Variable("reg_item", torch.tensor(batch_proc_int[:, 2]), add_batch_dim=False)
-            # define axiom 2
+            reg_user = ltn.Variable("reg_user", torch.tensor(sampled_sh_users), add_batch_dim=False)
+            reg_pos_item = ltn.Variable("reg_pos_item", torch.tensor(sampled_pos_items), add_batch_dim=False)
+            reg_neg_item = ltn.Variable("reg_neg_item", torch.tensor(sampled_neg_items), add_batch_dim=False)
             axiom2 = self.Forall(
-                ltn.diag(reg_user, reg_item, neg_score),
-                self.loss(self.Score(reg_user, reg_item), neg_score),
+                ltn.diag(reg_user, reg_pos_item, reg_neg_item),
+                self.loss(self.Score(reg_user, reg_pos_item), self.Score(reg_user, reg_neg_item)),
                 p=self.p_forall_ax2,
             )
             ax2_sat.append(axiom2.value.item())
+
             train_sat = self.SatAgg(axiom1, axiom2)
             train_sat_agg += train_sat.item()
+
             loss = 1.0 - train_sat
             loss.backward()
+
             self.optimizer.step()
+
             train_loss += loss.item()
         return train_loss / len(train_loader), {
             "training_overall_sat": train_sat_agg / len(train_loader),

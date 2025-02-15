@@ -24,4 +24,3 @@ class Dataset:
     tgt_val: NDArray
     tgt_te: NDArray
     sim_matrix: csr_matrix
-    tgt_true_negatives: NDArray

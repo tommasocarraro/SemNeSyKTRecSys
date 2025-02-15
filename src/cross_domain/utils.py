@@ -1,9 +1,11 @@
+from collections import defaultdict
 from pathlib import Path
 
+import h5py
 import numpy as np
 from loguru import logger
+from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
-from torch import Tensor
 from tqdm import tqdm
 
 
@@ -13,11 +15,11 @@ def get_reg_axiom_data(
     tgt_sparsity: float,
     n_sh_users: int,
     sim_matrix: csr_matrix,
-    top_k_items: Tensor,
+    top_k_items: NDArray,
     save_dir_path: Path,
     src_dataset_name: str,
     tgt_dataset_name: str,
-):
+) -> dict[int, NDArray]:
     """
     This function generates user-item pairs that will be given in input to the second axiom of the LTN model, namely the
     axiom that perform logical regularization based on information transferred from the source domain to the target
@@ -38,13 +40,13 @@ def get_reg_axiom_data(
     :param tgt_dataset_name: name of the target domain dataset to use
     """
     save_dir_file_path = (
-        save_dir_path
-        / f"{src_dataset_name}_{tgt_dataset_name}_k={top_k_items.shape[1]}_sparsity={tgt_sparsity}_reg_axiom.npy"
+        save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_tgt_sparsity={tgt_sparsity}_reg_axiom.h5"
     )
     if save_dir_file_path.is_file():
-        return np.load(save_dir_file_path)
+        logger.debug(f"Found precomputed user-item pairs at {save_dir_file_path}. Loading it...")
+        return load_from_hdf5(save_dir_file_path)
 
-    processed_interactions = []
+    processed_interactions = defaultdict(set)
     # find IDs of source domain items for which there exists a path with at least one target domain item
     src_exist_path_items = set(sim_matrix.nonzero()[0])
     # find IDs of target domain items for which there exists a path with at least one source domain item
@@ -59,7 +61,7 @@ def get_reg_axiom_data(
             # take the top k items recommended for this user in the source domain (assuming k to be low and the
             # recommender to be accurate, these should be items for which we have very accurate predictions in the
             # source domain)
-            user_src_top_k = top_k_items[user].cpu().numpy()
+            user_src_top_k = top_k_items[user]
             # check which of these items are connected to at least one item in the target domain. Note also that the
             # resulting items will be items with more than 300 ratings in the source domain (warm start items) cause the
             # sim matrix only contains paths for items with more than 300 ratings in the source domain
@@ -93,22 +95,69 @@ def get_reg_axiom_data(
                         # for each possible path from each of the top-k source items for the shared user, we check
                         # if the path converges into the current target item
                         for src_item_id, path_indices in zip(filtered_user_src_top_k, user_paths):
-                            if tgt_item_id in path_indices:
-                                # if the current path converges into the current target item, we generate the triplet
-                                processed_interactions.append((user, src_item_id, tgt_item_id))
+                            if tgt_item_id in path_indices and tgt_item_id not in processed_interactions[user]:
+                                # if the current path converges into the current target item, add it to the set
+                                processed_interactions[user].add(tgt_item_id)
 
-                                # if the length of interactions grows past a certain size
-                                if len(processed_interactions) > 10000:
-                                    # append to the file
-                                    np.save(save_dir_file_path, np.array(processed_interactions))
-                                    # and reset the list in order to avoid memory issues
-                                    processed_interactions = []
+    logger.debug("Saving the reg axiom data to file system")
+    save_to_hdf5(processed_interactions, save_dir_file_path)
 
-    # save any remaining interactions
-    if processed_interactions:
-        np.save(save_dir_file_path, np.array(processed_interactions))
-        del processed_interactions
-    logger.debug(f"User-item pairs generated and stored in {save_dir_file_path}")
+    return {k: np.array(list(processed_interactions[k])) for k in processed_interactions.keys()}
 
-    logger.debug("Reloading the file and returning the dense array")
-    return np.load(save_dir_file_path)
+
+def save_to_hdf5(data: dict[int, set[int]], save_file_path: Path):
+    """
+    Save the given dictionary to an HDF5 file
+
+    :param data: dictionary to save to file system
+    :param save_file_path: path to save the data to
+    """
+    with h5py.File(save_file_path, "w") as f:
+        for key, values in data.items():
+            f.create_dataset(str(key), data=np.array(list(values), dtype=np.int32), dtype=np.int32)
+
+
+def load_from_hdf5(save_file_path: Path) -> dict[int, NDArray]:
+    """
+    Load the given HDF5 file
+
+    :param save_file_path: path where the HDF5 file is stored
+    :return: a dictionary containing the loaded data
+    """
+    data = {}
+    with h5py.File(save_file_path, "r") as f:
+        for key in f.keys():
+            data[int(key)] = f[key][:]
+    return data
+
+
+def sample_neg_items(
+    sampled_sh_users: list[int], processed_interactions: dict[int, NDArray], tgt_ui_matrix: csr_matrix
+) -> list[NDArray]:
+    """
+    Sample one negative item for each user in sampled_sh_users
+
+    :param sampled_sh_users: sampled shared users
+    :param processed_interactions: user-item interactions for which the sampling for the regularization axiom has to be
+    performed
+    :param tgt_ui_matrix: target domain user-item interactions
+    :return: one negative item for each user in the sampled shared users
+    """
+    # extract for each shared user the items in the target domain which may be candidates for positive items
+    sh_users_maybe_pos_items = {u: processed_interactions[u] for u in sampled_sh_users if u in processed_interactions}
+    # extract for each shared user the items which received positive ratings
+    sh_users_pos_items = [tgt_ui_matrix[user].indices for user in sampled_sh_users]
+
+    negative_samples = []
+    # compute the range of all item ids in the dataset
+    all_items = np.arange(tgt_ui_matrix.shape[1])
+    for user_index, user_id in enumerate(sampled_sh_users):
+        # get the positive items candidates for the given user, default to empty list if there are none
+        maybe_pos = sh_users_maybe_pos_items.get(user_id, [])
+        # perform set difference between the whole range of items and the union of positive items and positive candidates
+        negative_candidates = np.setdiff1d(all_items, np.union1d(maybe_pos, sh_users_pos_items[user_index]))
+        # sample one negative from the negative candidates
+        sampled_negatives = np.random.choice(negative_candidates, replace=False)
+        negative_samples.append(sampled_negatives)
+
+    return negative_samples

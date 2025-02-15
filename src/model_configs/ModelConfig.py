@@ -19,8 +19,6 @@ class LtnRegHyperParams(MfHyperParams):
     p_forall_ax1: int
     p_forall_ax2: int
     p_sat_agg: int
-    top_k_src: int
-    neg_score: float
 
 
 @dataclass(frozen=True)
@@ -81,11 +79,9 @@ class DatasetConfig:
 
 @dataclass(frozen=True)
 class LtnRegParametersConfig(ParametersConfigMf):
-    top_k_src_range: list[int]
     p_forall_ax1_range: list[int]
     p_forall_ax2_range: list[int]
     p_sat_agg_range: list[int]
-    neg_score_range: ParameterDistribution
 
 
 @dataclass(frozen=True)
@@ -128,7 +124,7 @@ class ModelConfig:
             config_str = (
                 f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
                 f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall: {hyper.p_forall_ax1}, "
-                f"top_k_src: {hyper.top_k_src}, p_forall_ax1: {hyper.p_forall_ax1}, p_forall_ax2: {hyper.p_forall_ax2} "
+                f"p_forall_ax1: {hyper.p_forall_ax1}, p_forall_ax2: {hyper.p_forall_ax2} "
             )
         else:
             raise ValueError(f"Unknown train kind {kind}")
@@ -172,14 +168,8 @@ class ModelConfig:
                     "distribution": config.parameters.weight_decay_range.distribution,
                 },
                 "batch_size": {"values": config.parameters.batch_size_range},
-                "top_k_src": {"values": self.ltn_reg_tune_config.parameters.top_k_src_range},
                 "p_forall_ax1": {"values": self.ltn_reg_tune_config.parameters.p_forall_ax1_range},
                 "p_forall_ax2": {"values": self.ltn_reg_tune_config.parameters.p_forall_ax2_range},
                 "p_sat_agg": {"values": self.ltn_reg_tune_config.parameters.p_sat_agg_range},
-                "neg_score_value": {
-                    "min": self.ltn_reg_tune_config.parameters.neg_score_range.min,
-                    "max": self.ltn_reg_tune_config.parameters.neg_score_range.max,
-                    "distribution": self.ltn_reg_tune_config.parameters.neg_score_range.distribution,
-                },
             },
         }
