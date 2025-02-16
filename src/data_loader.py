@@ -125,7 +125,10 @@ class TrDataLoader(DataLoader):
             all_items = np.arange(self.num_items)
             self.negative_candidates = defaultdict(Tensor)
             for user in processed_interactions.keys():
-                c = np.setdiff1d(all_items, np.union1d(list(user_to_ratings[user]), processed_interactions[user]))
+                c = np.setdiff1d(
+                    all_items,
+                    np.union1d(list(user_to_ratings[user]), processed_interactions[user].detach().cpu().numpy()),
+                )
                 self.negative_candidates[user] = torch.tensor(c, dtype=torch.int32, device=device)
 
     def __iter__(self):
