@@ -47,7 +47,7 @@ class MetricConfig:
 class ParameterDistribution:
     min: float
     max: float
-    distribution: Literal["log_uniform_values"]
+    distribution: Literal["log_uniform_values", "int_uniform"]
 
 
 @dataclass(frozen=True)
@@ -79,9 +79,9 @@ class DatasetConfig:
 
 @dataclass(frozen=True)
 class LtnRegParametersConfig(ParametersConfigMf):
-    p_forall_ax1_range: list[int]
-    p_forall_ax2_range: list[int]
-    p_sat_agg_range: list[int]
+    p_forall_ax1_range: ParameterDistribution
+    p_forall_ax2_range: ParameterDistribution
+    p_sat_agg_range: ParameterDistribution
 
 
 @dataclass(frozen=True)
@@ -168,8 +168,20 @@ class ModelConfig:
                     "distribution": config.parameters.weight_decay_range.distribution,
                 },
                 "batch_size": {"values": config.parameters.batch_size_range},
-                "p_forall_ax1": {"values": self.ltn_reg_tune_config.parameters.p_forall_ax1_range},
-                "p_forall_ax2": {"values": self.ltn_reg_tune_config.parameters.p_forall_ax2_range},
-                "p_sat_agg": {"values": self.ltn_reg_tune_config.parameters.p_sat_agg_range},
+                "p_forall_ax1": {
+                    "min": config.parameters.p_forall_ax1_range.min,
+                    "max": config.parameters.p_forall_ax1_range.max,
+                    "distribution": config.parameters.p_forall_ax1_range.distribution,
+                },
+                "p_forall_ax2": {
+                    "min": config.parameters.p_forall_ax2_range.min,
+                    "max": config.parameters.p_forall_ax2_range.max,
+                    "distribution": config.parameters.p_forall_ax2_range.distribution,
+                },
+                "p_sat_agg": {
+                    "min": config.parameters.p_sat_agg_range.min,
+                    "max": config.parameters.p_sat_agg_range.max,
+                    "distribution": config.parameters.p_sat_agg_range.distribution,
+                },
             },
         }

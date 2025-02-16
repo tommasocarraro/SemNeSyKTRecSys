@@ -62,9 +62,9 @@ def get_default_tune_config_ltn_reg(
     batch_size_range=(128, 256, 512),
     learning_rate_range=(1e-5, 1e-1),
     weight_decay_range=(1e-6, 1e-1),
-    p_forall_ax1_range=(1, 2, 5, 10),
-    p_forall_ax2_range=(1, 2, 5, 10),
-    p_sat_agg_range=(1, 2, 5, 10),
+    p_forall_ax1_range=(1, 10),
+    p_forall_ax2_range=(1, 10),
+    p_sat_agg_range=(1, 10),
 ) -> LtnRegTuneConfig:
     return LtnRegTuneConfig(
         method="bayes",
@@ -78,9 +78,15 @@ def get_default_tune_config_ltn_reg(
                 min=weight_decay_range[0], max=weight_decay_range[1], distribution="log_uniform_values"
             ),
             batch_size_range=list(batch_size_range),
-            p_forall_ax1_range=list(p_forall_ax1_range),
-            p_forall_ax2_range=list(p_forall_ax2_range),
-            p_sat_agg_range=list(p_sat_agg_range),
+            p_forall_ax1_range=ParameterDistribution(
+                min=p_forall_ax1_range[0], max=p_forall_ax1_range[1], distribution="int_uniform"
+            ),
+            p_forall_ax2_range=ParameterDistribution(
+                min=p_forall_ax2_range[0], max=p_forall_ax2_range[1], distribution="int_uniform"
+            ),
+            p_sat_agg_range=ParameterDistribution(
+                min=p_sat_agg_range[0], max=p_sat_agg_range[1], distribution="int_uniform"
+            ),
         ),
         entity_name="bmxitalia",
         exp_name="amazon",
