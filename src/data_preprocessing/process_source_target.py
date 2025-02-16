@@ -104,8 +104,12 @@ def process_source_target(
     tgt_n_items = tgt_ratings["itemId"].nunique()
 
     # split the datasets into train, val, test and create the sparse interactions matrices
+    logger.debug("Splitting the source dataset into train, val and test")
     src_tr, src_val, src_te = src_dataset_config.split_strategy.split(src_ratings.to_numpy())
-    sparse_src_matrix = create_ui_matrix(DataFrame(src_tr, columns=["userId", "itemId", "rating"]))
+    logger.debug("Creating the sparse interactions matrix for the source domain")
+    sparse_src_matrix = create_ui_matrix(
+        DataFrame(src_tr, columns=["userId", "itemId", "rating"]), n_users=src_n_users, n_items=src_n_items
+    )
     src_tr, sparse_src_matrix = increase_sparsity(
         ratings=src_tr,
         ui_matrix=sparse_src_matrix,
@@ -115,8 +119,12 @@ def process_source_target(
         user_level=user_level_src,
     )
 
+    logger.debug("Splitting the target dataset into train, val and test")
     tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
-    sparse_tgt_matrix = create_ui_matrix(DataFrame(tgt_tr, columns=["userId", "itemId", "rating"]))
+    logger.debug("Creating the sparse interactions matrix for the target domain")
+    sparse_tgt_matrix = create_ui_matrix(
+        DataFrame(tgt_tr, columns=["userId", "itemId", "rating"]), n_users=tgt_n_users, n_items=tgt_n_items
+    )
     tgt_tr, sparse_tgt_matrix = increase_sparsity(
         ratings=tgt_tr,
         ui_matrix=sparse_tgt_matrix,
@@ -198,15 +206,15 @@ def save_dataset(dataset: Dataset, save_file_path: Path) -> None:
     np.save(save_file_path, dataset)  # type: ignore
 
 
-def create_ui_matrix(df: DataFrame) -> csr_matrix:
+def create_ui_matrix(df: DataFrame, n_users: int, n_items: int) -> csr_matrix:
     """
     Creates the user-item interaction matrix from the given dataframe.
 
     :param df: dataframe containing the ratings
+    :param n_users: number of users
+    :param n_items: number of items
     :return: a sparse matrix containing the user-item interactions
     """
-    n_users = df["userId"].nunique()
-    n_items = df["itemId"].nunique()
     pos_ratings = df[df["rating"] == 1]
     return csr_matrix((pos_ratings["rating"], (pos_ratings["userId"], pos_ratings["itemId"])), shape=(n_users, n_items))
 
