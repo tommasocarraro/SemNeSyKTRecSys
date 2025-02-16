@@ -116,7 +116,7 @@ def save_to_hdf5(data: dict[int, Tensor], save_file_path: Path):
     """
     with h5py.File(save_file_path, "w") as f:
         for key, values in data.items():
-            f.create_dataset(name=str(key), data=values)
+            f.create_dataset(name=str(key), data=values.detach().cpu().numpy())
 
 
 def load_from_hdf5(save_file_path: Path) -> dict[int, Tensor]:
@@ -129,5 +129,5 @@ def load_from_hdf5(save_file_path: Path) -> dict[int, Tensor]:
     data = {}
     with h5py.File(save_file_path, "r") as f:
         for key in f.keys():
-            data[int(key)] = f[key][:]
+            data[int(key)] = torch.tensor(data=f[key][:], dtype=torch.int32, device=device)
     return data
