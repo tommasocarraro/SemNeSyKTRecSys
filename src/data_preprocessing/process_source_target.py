@@ -103,11 +103,9 @@ def process_source_target(
     tgt_n_users = tgt_ratings["userId"].nunique()
     tgt_n_items = tgt_ratings["itemId"].nunique()
 
-    # creating sparse user-item matrices for source and target domains
-    sparse_src_matrix = create_ui_matrix(src_ratings)
-    sparse_tgt_matrix = create_ui_matrix(tgt_ratings)
-
+    # split the datasets into train, val, test and create the sparse interactions matrices
     src_tr, src_val, src_te = src_dataset_config.split_strategy.split(src_ratings.to_numpy())
+    sparse_src_matrix = create_ui_matrix(DataFrame(src_tr, columns=["userId", "itemId", "rating"]))
     src_tr, sparse_src_matrix = increase_sparsity(
         ratings=src_tr,
         ui_matrix=sparse_src_matrix,
@@ -116,7 +114,9 @@ def process_source_target(
         seed=seed,
         user_level=user_level_src,
     )
+
     tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
+    sparse_tgt_matrix = create_ui_matrix(DataFrame(tgt_tr, columns=["userId", "itemId", "rating"]))
     tgt_tr, sparse_tgt_matrix = increase_sparsity(
         ratings=tgt_tr,
         ui_matrix=sparse_tgt_matrix,

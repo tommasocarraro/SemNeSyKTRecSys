@@ -2,9 +2,12 @@ import argparse
 from pathlib import Path
 from typing import Literal, Optional
 
+from src.cross_domain.utils import get_reg_axiom_data
 from src.data_preprocessing.process_source_target import process_source_target
+from src.model import MatrixFactorization
 from src.model_configs import get_config
-from src.model_configs.utils import Domains_Type
+from src.model_configs.utils import Domains_Type, get_best_weights_path_mf_source
+from src.pretrain_source.inference import generate_pre_trained_src_matrix
 from src.utils import set_seed
 from loguru import logger
 from mf_usage import test_mf, train_mf, tune_mf
@@ -110,52 +113,62 @@ def main():
         max_path_length=max_path_length,
     )
 
-    if kind == "train":
-        if model_name == "mf":
+    if model_name == "mf":
+        if kind == "train":
             train_mf(dataset=dataset, config=config, which_dataset=which_dataset)
-        else:
-            train_ltn_reg(
-                dataset=dataset,
-                config=config,
-                src_dataset_name=src_dataset_name,
-                tgt_dataset_name=tgt_dataset_name,
-                src_sparsity=src_sparsity,
-                tgt_sparsity=tgt_sparsity,
-                save_dir_path=save_dir_path,
-                user_level_src=user_level_src,
-            )
-    elif kind == "tune":
-        if model_name == "mf":
+        elif kind == "tune":
             tune_mf(
                 dataset=dataset, config=config, which_dataset=which_dataset, sweep_id=sweep_id, sweep_name=sweep_name
             )
-        else:
+        elif kind == "test":
+            test_mf(dataset=dataset, config=config, which_dataset=which_dataset)
+    elif model_name == "ltn_reg":
+        mf_model_src = MatrixFactorization(
+            n_users=dataset.src_n_users,
+            n_items=dataset.src_n_items,
+            n_factors=config.mf_train_config.hyper_params.n_factors,
+        )
+
+        src_model_weights_path = get_best_weights_path_mf_source(
+            src_domain_name=src_dataset_name, src_sparsity=src_sparsity, user_level_src=user_level_src
+        )
+
+        if not src_model_weights_path or not src_model_weights_path.is_file():
+            logger.error(f"The source model weights path {src_model_weights_path} does not exist.")
+            exit(1)
+
+        top_k_items = generate_pre_trained_src_matrix(
+            mf_model=mf_model_src,
+            best_weights_path=src_model_weights_path,
+            n_shared_users=dataset.n_sh_users,
+            save_dir_path=save_dir_path,
+            src_ui_matrix=dataset.src_ui_matrix,
+        )
+
+        processed_interactions = get_reg_axiom_data(
+            src_ui_matrix=dataset.src_ui_matrix,
+            tgt_ui_matrix=dataset.tgt_ui_matrix,
+            n_sh_users=dataset.n_sh_users,
+            sim_matrix=dataset.sim_matrix,
+            top_k_items=top_k_items,
+            save_dir_path=save_dir_path,
+            src_dataset_name=src_dataset_name,
+            tgt_dataset_name=tgt_dataset_name,
+            tgt_sparsity=tgt_sparsity,
+        )
+
+        if kind == "train":
+            train_ltn_reg(dataset=dataset, config=config, processed_interactions=processed_interactions)
+        elif kind == "tune":
             tune_ltn_reg(
                 dataset=dataset,
                 config=config,
-                src_dataset_name=src_dataset_name,
-                tgt_dataset_name=tgt_dataset_name,
-                tgt_sparsity=tgt_sparsity,
+                processed_interactions=processed_interactions,
                 sweep_id=sweep_id,
                 sweep_name=sweep_name,
-                save_dir_path=save_dir_path,
-                user_level_src=user_level_src,
-                src_sparsity=src_sparsity,
             )
-    elif kind == "test":
-        if model_name == "mf":
-            test_mf(dataset=dataset, config=config, which_dataset=which_dataset)
-        else:
-            test_ltn_reg(
-                dataset=dataset,
-                config=config,
-                src_dataset_name=src_dataset_name,
-                tgt_dataset_name=tgt_dataset_name,
-                src_sparsity=src_sparsity,
-                tgt_sparsity=tgt_sparsity,
-                save_dir_path=save_dir_path,
-                user_level_src=user_level_src,
-            )
+        elif kind == "test":
+            test_ltn_reg(dataset=dataset, config=config, processed_interactions=processed_interactions)
 
 
 if __name__ == "__main__":

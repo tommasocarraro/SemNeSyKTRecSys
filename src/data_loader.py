@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
+from typing import Optional
 
 import numpy as np
 import torch
@@ -83,7 +85,15 @@ class DataLoader(ABC):
 
 
 class TrDataLoader(DataLoader):
-    def __init__(self, data: NDArray, ui_matrix: csr_matrix, batch_size=1, n_negs=3, shuffle=True):
+    def __init__(
+        self,
+        data: NDArray,
+        ui_matrix: csr_matrix,
+        batch_size=1,
+        n_negs=3,
+        shuffle=True,
+        processed_interactions: Optional[dict[int, Tensor]] = None,
+    ):
         """
         Constructor of the data loader.
 
@@ -102,6 +112,62 @@ class TrDataLoader(DataLoader):
         self.num_items = ui_matrix.shape[1]
         self.n_negs = n_negs
         self.shuffle = shuffle
+        self.processed_interactions = processed_interactions
+
+        if processed_interactions is not None:
+            self.sh_users = torch.tensor(list(processed_interactions.keys()), dtype=torch.int32, device=device)
+            self.n_sh_users = self.sh_users.size()
+            user_to_ratings: dict[int, set[int]] = defaultdict(set)
+            for user, item in zip(*ui_matrix.nonzero()):
+                if user in self.sh_users:
+                    user_to_ratings[user].add(item)
+            # compute the range of all item ids in the dataset
+            all_items = np.arange(self.num_items)
+            self.negative_candidates = defaultdict(Tensor)
+            for user in processed_interactions.keys():
+                c = np.setdiff1d(all_items, np.union1d(list(user_to_ratings[user]), processed_interactions[user]))
+                self.negative_candidates[user] = torch.tensor(c, dtype=torch.int32, device=device)
+
+    def __iter__(self):
+        n = self.data.shape[0]
+        idxlist = list(range(n))
+        if self.shuffle:
+            np.random.shuffle(idxlist)
+
+        for start_idx in range(0, n, self.batch_size):
+            end_idx = min(start_idx + self.batch_size, n)
+            batch_data = self.data[idxlist[start_idx:end_idx]]
+            users = batch_data[:, 0]
+            pos_items = batch_data[:, 1]
+            batch_ui_matrix = self.ui_matrix[users]
+
+            neg_items = self.compute_neg_items(batch_data=batch_data, batch_ui_matrix=batch_ui_matrix)
+
+            # create tensors
+            users = torch.tensor(users, dtype=torch.int32)
+            pos_items = torch.tensor(pos_items, dtype=torch.int32)
+
+            if self.processed_interactions is not None:
+                # sample shared users
+                indices = torch.randperm(len(self.sh_users))[: self.batch_size]
+                sampled_sh_users = self.sh_users[indices]
+
+                sampled_pos_items = torch.empty(size=(self.batch_size,), dtype=torch.int32)
+                sampled_neg_items = torch.empty(size=(self.batch_size,), dtype=torch.int32)
+                for user_idx, user in enumerate(sampled_sh_users):
+                    user = user.item()  # type: ignore
+                    pos = self.processed_interactions[user]
+                    index_pos = torch.randint(0, len(pos), (1,))
+                    sampled_pos_items[user_idx] = pos[index_pos]
+
+                    neg = self.negative_candidates[user]
+                    index_neg = torch.randint(0, len(neg), (1,))
+                    sampled_neg_items[user_idx] = neg[index_neg]
+                yield users.to(device), pos_items.to(device), neg_items.to(device), sampled_sh_users.to(
+                    device
+                ), sampled_pos_items.to(device), sampled_neg_items.to(device)
+            else:
+                yield users.to(device), pos_items.to(device), neg_items.to(device)
 
     def compute_neg_items(self, batch_data: NDArray, batch_ui_matrix: csr_matrix) -> Tensor:
         # sample n_negs negative items for each user in the batch

@@ -2,11 +2,14 @@ from collections import defaultdict
 from pathlib import Path
 
 import h5py
-import numpy as np
+import torch
 from loguru import logger
 from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
+from torch import Tensor
 from tqdm import tqdm
+
+from src.device import device
 
 
 def get_reg_axiom_data(
@@ -19,7 +22,7 @@ def get_reg_axiom_data(
     save_dir_path: Path,
     src_dataset_name: str,
     tgt_dataset_name: str,
-) -> dict[int, NDArray]:
+) -> dict[int, Tensor]:
     """
     This function generates user-item pairs that will be given in input to the second axiom of the LTN model, namely the
     axiom that perform logical regularization based on information transferred from the source domain to the target
@@ -46,66 +49,65 @@ def get_reg_axiom_data(
         logger.debug(f"Found precomputed user-item pairs at {save_dir_file_path}. Loading it...")
         return load_from_hdf5(save_dir_file_path)
 
-    processed_interactions = defaultdict(set)
-    # find IDs of source domain items for which there exists a path with at least one target domain item
-    src_exist_path_items = set(sim_matrix.nonzero()[0])
-    # find IDs of target domain items for which there exists a path with at least one source domain item
-    tgt_exist_path_items = set(sim_matrix.nonzero()[1])
-    tgt_exist_path_items_l = list(tgt_exist_path_items)
-    # iterate through each user in the set of shared users (the shared users are the only ones for which the information
-    # can be transferred)
-    for user in tqdm(range(n_sh_users), desc="Generating user-item pairs as input to LTN model", dynamic_ncols=True):
-        # check if the user is cold-start in the source domain
-        user_src_interacted_items = src_ui_matrix[user].nonzero()[1]
-        if len(user_src_interacted_items) > 5:
-            # take the top k items recommended for this user in the source domain (assuming k to be low and the
-            # recommender to be accurate, these should be items for which we have very accurate predictions in the
-            # source domain)
-            user_src_top_k = top_k_items[user]
-            # check which of these items are connected to at least one item in the target domain. Note also that the
-            # resulting items will be items with more than 200 ratings in the source domain (warm start items) cause the
-            # sim matrix only contains paths for items with more than 200 ratings in the source domain
-            filtered_user_src_top_k = [j for j in user_src_top_k if j in src_exist_path_items]
-            # check if this list is not empty, namely if there exists at least a source domain item that this user likes
-            # and is connected to at least one target domain item
-            # if this does not exist, then the user should not be considered as any paths will be included in the
-            # sim matrix for this user
-            if filtered_user_src_top_k:
-                # take all the items that have been positively interacted by the shared user in the target domain
-                user_tgt_interacted_items = tgt_ui_matrix[user].nonzero()[1]
-                # check if the user is a cold-start user. We want to transfer information only to cold-start users in
-                # target domain as the model should have enough data for the other users to learn enough information
-                if len(user_tgt_interacted_items) <= 5:
-                    # get all the items for which a rating is missing in the target domain for this cold-start user
-                    all_items = np.arange(tgt_ui_matrix.shape[1])
-                    # for each item, check if the item is connected with at least one source domain item
-                    no_rated_items = np.setdiff1d(all_items, user_tgt_interacted_items)
+    # create the set of all user IDs shared between the two domains
+    sh_users = set(range(n_sh_users))
 
-                    # pre-compute paths existence for all top-k items for the shared user
-                    user_src_tgt_paths = sim_matrix[filtered_user_src_top_k]
+    # compute the mappings from source domain items to target domain items through the similarity matrix
+    src_to_tgt_sim: dict[int, set[int]] = defaultdict(set)
+    for src_item, tgt_item in zip(*sim_matrix.nonzero()):
+        src_to_tgt_sim[src_item].add(tgt_item)
 
-                    # get indices of target domain items for which a path to the source domain item exists each set in
-                    # this list contains paths from a source domain item to all the connected target domain items
-                    user_paths = [set(user_paths.nonzero()[1]) for user_paths in user_src_tgt_paths]
+    # compute the mapping from source domain users to their ratings
+    user_to_ratings_src: dict[int, set[int]] = defaultdict(set)
+    for user, item in zip(*src_ui_matrix.nonzero()):
+        if user in sh_users:
+            user_to_ratings_src[user].add(item)
 
-                    for tgt_item_id in np.intersect1d(no_rated_items, tgt_exist_path_items_l):
-                        # if the connection exists, we want to find to which source domain items liked by the shared
-                        # user this item is connected
+    # compute the set of warm shared users (more than 5 ratings in the source domain)
+    warm_users_src = {user for user, ratings in user_to_ratings_src.items() if len(ratings) > 5}
+    del user_to_ratings_src
 
-                        # for each possible path from each of the top-k source items for the shared user, we check
-                        # if the path converges into the current target item
-                        for src_item_id, path_indices in zip(filtered_user_src_top_k, user_paths):
-                            if tgt_item_id in path_indices and tgt_item_id not in processed_interactions[user]:
-                                # if the current path converges into the current target item, add it to the set
-                                processed_interactions[user].add(tgt_item_id)
+    # compute the mapping from target domain users to their ratings
+    user_to_ratings_tgt: dict[int, set[int]] = defaultdict(set)
+    for user, item in zip(*tgt_ui_matrix.nonzero()):
+        if user in sh_users:
+            user_to_ratings_tgt[user].add(item)
+
+    # compute the set of cold shared users (less than 5 ratings in the target domain)
+    cold_users_tgt = {user for user, ratings in user_to_ratings_tgt.items() if len(ratings) <= 5}
+
+    # precompute set of all the target domain's item IDs
+    all_item_ids = set(range(tgt_ui_matrix.shape[1]))
+
+    # the transfer users are shared users who are cold in the target domain but warm in the source domain
+    transfer_users = list(cold_users_tgt & warm_users_src)
+
+    processed_interactions: dict[int, Tensor] = {}
+    for user in tqdm(transfer_users, desc="Generating user-item pairs as input to LTN model", dynamic_ncols=True):
+        # get ranking prediction for user
+        user_top_k = top_k_items[user]
+        # get target domain item IDs for items connected to the user's top k
+        tgt_positive_candidates: set[int] = set()
+        for src_item in user_top_k:
+            if src_item in src_to_tgt_sim:
+                tgt_positive_candidates.update(src_to_tgt_sim[src_item])
+        # get the user's positive ratings in the target domain
+        user_pos_ratings_tgt = user_to_ratings_tgt.get(user, set())
+        # get the item IDs for which the user has given no rating
+        user_no_ratings = all_item_ids - user_pos_ratings_tgt
+        # for each user store the intersection between the unrated items and the positive candidates, if it's not empty
+        negative_candidates = list(tgt_positive_candidates & user_no_ratings)
+        if len(negative_candidates) > 0:
+            processed_interactions[user] = torch.tensor(data=negative_candidates, dtype=torch.int32, device=device)
 
     logger.debug("Saving the reg axiom data to file system")
     save_to_hdf5(processed_interactions, save_dir_file_path)
+    logger.debug("Reg axiom data saved to file system")
 
-    return {k: np.array(list(processed_interactions[k])) for k in processed_interactions.keys()}
+    return processed_interactions
 
 
-def save_to_hdf5(data: dict[int, set[int]], save_file_path: Path):
+def save_to_hdf5(data: dict[int, Tensor], save_file_path: Path):
     """
     Save the given dictionary to an HDF5 file
 
@@ -114,10 +116,10 @@ def save_to_hdf5(data: dict[int, set[int]], save_file_path: Path):
     """
     with h5py.File(save_file_path, "w") as f:
         for key, values in data.items():
-            f.create_dataset(str(key), data=np.array(list(values), dtype=np.int32), dtype=np.int32)
+            f.create_dataset(name=str(key), data=values)
 
 
-def load_from_hdf5(save_file_path: Path) -> dict[int, NDArray]:
+def load_from_hdf5(save_file_path: Path) -> dict[int, Tensor]:
     """
     Load the given HDF5 file
 
@@ -129,35 +131,3 @@ def load_from_hdf5(save_file_path: Path) -> dict[int, NDArray]:
         for key in f.keys():
             data[int(key)] = f[key][:]
     return data
-
-
-def sample_neg_items(
-    sampled_sh_users: list[int], processed_interactions: dict[int, NDArray], tgt_ui_matrix: csr_matrix
-) -> list[NDArray]:
-    """
-    Sample one negative item for each user in sampled_sh_users
-
-    :param sampled_sh_users: sampled shared users
-    :param processed_interactions: user-item interactions for which the sampling for the regularization axiom has to be
-    performed
-    :param tgt_ui_matrix: target domain user-item interactions
-    :return: one negative item for each user in the sampled shared users
-    """
-    # extract for each shared user the items in the target domain which may be candidates for positive items
-    sh_users_maybe_pos_items = {u: processed_interactions[u] for u in sampled_sh_users if u in processed_interactions}
-    # extract for each shared user the items which received positive ratings
-    sh_users_pos_items = [tgt_ui_matrix[user].indices for user in sampled_sh_users]
-
-    negative_samples = []
-    # compute the range of all item ids in the dataset
-    all_items = np.arange(tgt_ui_matrix.shape[1])
-    for user_index, user_id in enumerate(sampled_sh_users):
-        # get the positive items candidates for the given user, default to empty list if there are none
-        maybe_pos = sh_users_maybe_pos_items.get(user_id, [])
-        # perform set difference between the whole range of items and the union of positive items and positive candidates
-        negative_candidates = np.setdiff1d(all_items, np.union1d(maybe_pos, sh_users_pos_items[user_index]))
-        # sample one negative from the negative candidates
-        sampled_negatives = np.random.choice(negative_candidates, replace=False)
-        negative_samples.append(sampled_negatives)
-
-    return negative_samples

@@ -1,17 +1,15 @@
-from pathlib import Path
 from typing import Any, Literal, Optional
 
 import wandb
 from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
+from torch import Tensor
 from torch.optim import AdamW
 
 from src.cross_domain.ltn_trainer import LTNRegTrainer
-from src.cross_domain.utils import get_reg_axiom_data
 from src.data_loader import TrDataLoader, ValDataLoader
 from src.metrics import PredictionMetricsType, RankingMetricsType, Valid_Metrics_Type
 from src.model import MatrixFactorization
-from src.pretrain_source.inference import generate_pre_trained_src_matrix
 
 
 def ltn_tuning_reg(
@@ -20,17 +18,9 @@ def ltn_tuning_reg(
     val_set: NDArray,
     val_batch_size: int,
     n_users: int,
-    n_sh_users: int,
     n_items: int,
-    sim_matrix: csr_matrix,
-    src_ui_matrix: csr_matrix,
     tgt_ui_matrix: csr_matrix,
-    mf_model_src: MatrixFactorization,
-    src_model_weights_path: Path,
-    src_dataset_name: str,
-    tgt_dataset_name: str,
-    tgt_sparsity: float,
-    save_dir_path: Path,
+    processed_interactions: dict[int, Tensor],
     val_metric: Valid_Metrics_Type,
     early_stopping_criterion: Literal["val_loss", "val_metric"],
     n_epochs: Optional[int] = 1000,
@@ -50,17 +40,9 @@ def ltn_tuning_reg(
     :param val_set: validation set on which the tuning is evaluated
     :param val_batch_size: batch size for validation
     :param n_users: number of users in the dataset
-    :param n_sh_users: number of users shared between the source and target domains
     :param n_items: number of items in the dataset
-    :param sim_matrix: sparse matrix representing whether paths between source and target domain items exist
-    :param src_ui_matrix: sparse matrix of user interactions from source domain
     :param tgt_ui_matrix: sparse matrix of user interactions from target domain
-    :param mf_model_src: matrix factorization model for the source domain
-    :param src_model_weights_path: path to the weights of the source model
-    :param src_dataset_name: label of the source domain, used for naming temporary files
-    :param tgt_dataset_name: label of the target domain, used for naming temporary files
-    :param tgt_sparsity: the sparsity factor of the target domain
-    :param save_dir_path: directory where to store temporary files
+    :param processed_interactions: user-item interactions for which the sampling for the regularization axiom has to be performed
     :param val_metric: validation metric that has to be used
     :param n_epochs: number of epochs for hyperparameter tuning
     :param early: number of epochs for early stopping
@@ -92,31 +74,18 @@ def ltn_tuning_reg(
             p_forall_ax2 = wandb.config.p_forall_ax2
             p_sat_agg = wandb.config.p_sat_agg
 
-            top_k_preds = generate_pre_trained_src_matrix(
-                mf_model=mf_model_src,
-                best_weights_path=src_model_weights_path,
-                n_shared_users=n_sh_users,
-                save_dir_path=save_dir_path,
-                src_ui_matrix=src_ui_matrix,
-            )
-            processed_interactions = get_reg_axiom_data(
-                src_ui_matrix=src_ui_matrix,
-                tgt_ui_matrix=tgt_ui_matrix,
-                n_sh_users=n_sh_users,
-                sim_matrix=sim_matrix,
-                top_k_items=top_k_preds,
-                save_dir_path=save_dir_path,
-                src_dataset_name=src_dataset_name,
-                tgt_dataset_name=tgt_dataset_name,
-                tgt_sparsity=tgt_sparsity,
-            )
             # set run name
             run.name = (
                 f"k={k}_lr={lr}_wd={wd}_bs={tr_batch_size}_p_forall_ax1={p_forall_ax1}_"
                 f"p_forall_ax2={p_forall_ax2}_p_sat_agg={p_sat_agg}"
             )
             # define loader, model, optimizer and trainer
-            train_loader = TrDataLoader(data=train_set, ui_matrix=tgt_ui_matrix, batch_size=tr_batch_size)
+            train_loader = TrDataLoader(
+                data=train_set,
+                ui_matrix=tgt_ui_matrix,
+                batch_size=tr_batch_size,
+                processed_interactions=processed_interactions,
+            )
             mf = MatrixFactorization(n_users, n_items, k)
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
 
@@ -126,7 +95,6 @@ def ltn_tuning_reg(
                 p_forall_ax1=p_forall_ax1,
                 p_forall_ax2=p_forall_ax2,
                 p_sat_agg=p_sat_agg,
-                processed_interactions=processed_interactions,
                 wandb_train=True,
                 tgt_ui_matrix=tgt_ui_matrix,
             )
