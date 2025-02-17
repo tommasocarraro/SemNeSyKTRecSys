@@ -62,9 +62,9 @@ def get_default_tune_config_ltn_reg(
     batch_size_range=(128, 256, 512),
     learning_rate_range=(1e-5, 1e-1),
     weight_decay_range=(1e-6, 1e-1),
-    p_forall_ax1_range=(1, 10),
-    p_forall_ax2_range=(1, 10),
-    p_sat_agg_range=(1, 10),
+    p_forall_ax1_range=(1, 30),
+    p_forall_ax2_range=(1, 30),
+    p_sat_agg_range=(1, 30),
 ) -> LtnRegTuneConfig:
     return LtnRegTuneConfig(
         method="bayes",
