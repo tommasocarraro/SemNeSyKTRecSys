@@ -15,7 +15,7 @@ from src.pretrain_source.mf_trainer import MfTrainer
 from src.pretrain_source.tuning import mf_tuning
 
 
-def _create_trainer(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
+def _get_trainer_loaders(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
     if which_dataset == "source":
         tr = dataset.src_tr
         val = dataset.src_val
@@ -36,10 +36,17 @@ def _create_trainer(dataset: Dataset, config: ModelConfig, which_dataset: Litera
     tr_loader = TrDataLoader(data=tr, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
     val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
     te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
+    te_loader_sh = ValDataLoader(
+        data=te,
+        ui_matrix=ui_matrix,
+        batch_size=hyperparams.batch_size,
+        test_only_sh_users=True,
+        n_sh_users=dataset.n_sh_users,
+    )
 
     mf = MatrixFactorization(n_users=n_users, n_items=n_items, n_factors=hyperparams.n_factors)
 
-    tr = MfTrainer(
+    trainer = MfTrainer(
         model=mf,
         optimizer=torch.optim.AdamW(
             mf.parameters(), lr=hyperparams.learning_rate, weight_decay=hyperparams.weight_decay
@@ -47,15 +54,17 @@ def _create_trainer(dataset: Dataset, config: ModelConfig, which_dataset: Litera
         loss=BPRLoss(),
     )
 
-    return tr, tr_loader, val_loader, te_loader
+    return trainer, tr_loader, val_loader, te_loader, te_loader_sh
 
 
 def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
     logger.info(f"Training the model with configuration: {config.get_train_config_str('mf')}")
 
-    tr, tr_loader, val_loader, te_loader = _create_trainer(dataset=dataset, config=config, which_dataset=which_dataset)
+    trainer, tr_loader, val_loader, te_loader, te_loader_sh = _get_trainer_loaders(
+        dataset=dataset, config=config, which_dataset=which_dataset
+    )
 
-    tr.train(
+    trainer.train(
         train_loader=tr_loader,
         val_loader=val_loader,
         val_metric=config.val_metric,
@@ -66,11 +75,11 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
         final_model_save_path=config.mf_train_config.final_model_save_path,
     )
 
-    val_metric_results, _ = tr.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
+    val_metric_results, _ = trainer.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
 
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
-    te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
+    te_metric_results, _ = trainer.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
 
 
@@ -128,10 +137,15 @@ def tune_mf(
 
 
 def test_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["source", "target"]):
-    tr, _, _, te_loader = _create_trainer(dataset=dataset, config=config, which_dataset=which_dataset)
+    trainer, _, _, te_loader, te_loader_sh = _get_trainer_loaders(
+        dataset=dataset, config=config, which_dataset=which_dataset
+    )
 
     weights_path = config.mf_train_config.final_model_save_path
-    tr.model.load_model(weights_path)
+    trainer.model.load_model(weights_path)
 
-    te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
+    te_metric_results, _ = trainer.validate(te_loader, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.5f}")
+
+    te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric} on shared users only: {te_sh_metric_results:.5f}")

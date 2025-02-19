@@ -15,51 +15,55 @@ from src.model import MatrixFactorization
 from src.model_configs import ModelConfig
 
 
-def _create_trainer(dataset: Dataset, config: ModelConfig, processed_interactions: dict[int, Tensor]):
+def _get_trainer_loaders(dataset: Dataset, config: ModelConfig, processed_interactions: dict[int, Tensor]):
+    hyperparams = config.ltn_reg_train_config.hyper_params
+
     tr_loader = TrDataLoader(
         data=dataset.tgt_tr,
         ui_matrix=dataset.tgt_ui_matrix,
-        batch_size=config.ltn_reg_train_config.hyper_params.batch_size,
+        batch_size=hyperparams.batch_size,
         processed_interactions=processed_interactions,
     )
 
-    val_loader = ValDataLoader(
-        data=dataset.tgt_val,
+    val_loader = ValDataLoader(data=dataset.tgt_val, ui_matrix=dataset.tgt_ui_matrix, batch_size=hyperparams.batch_size)
+
+    te_loader = ValDataLoader(data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=hyperparams.batch_size)
+
+    te_loader_sh = ValDataLoader(
+        data=dataset.tgt_te,
         ui_matrix=dataset.tgt_ui_matrix,
-        batch_size=config.ltn_reg_train_config.hyper_params.batch_size,
+        batch_size=hyperparams.batch_size,
+        test_only_sh_users=True,
+        n_sh_users=dataset.n_sh_users,
     )
 
     mf_model_tgt = MatrixFactorization(
-        n_users=dataset.tgt_n_users,
-        n_items=dataset.tgt_n_items,
-        n_factors=config.ltn_reg_train_config.hyper_params.n_factors,
+        n_users=dataset.tgt_n_users, n_items=dataset.tgt_n_items, n_factors=hyperparams.n_factors
     )
 
-    tr = LTNRegTrainer(
+    trainer = LTNRegTrainer(
         mf_model=mf_model_tgt,
         optimizer=torch.optim.AdamW(
-            mf_model_tgt.parameters(),
-            lr=config.ltn_reg_train_config.hyper_params.learning_rate,
-            weight_decay=config.ltn_reg_train_config.hyper_params.weight_decay,
+            mf_model_tgt.parameters(), lr=hyperparams.learning_rate, weight_decay=hyperparams.weight_decay
         ),
-        p_forall_ax1=config.ltn_reg_train_config.hyper_params.p_forall_ax1,
-        p_forall_ax2=config.ltn_reg_train_config.hyper_params.p_forall_ax2,
-        p_sat_agg=config.ltn_reg_train_config.hyper_params.p_sat_agg,
+        p_forall_ax1=hyperparams.p_forall_ax1,
+        p_forall_ax2=hyperparams.p_forall_ax2,
+        p_sat_agg=hyperparams.p_sat_agg,
         tgt_ui_matrix=dataset.tgt_ui_matrix,
     )
 
-    return tr, tr_loader, val_loader
+    return trainer, tr_loader, val_loader, te_loader, te_loader_sh
 
 
 def train_ltn_reg(dataset: Dataset, config: ModelConfig, processed_interactions: dict[int, Tensor]):
     train_config = config.ltn_reg_train_config
     logger.info(f"Training the model with configuration: {config.get_train_config_str('ltn_reg')}")
 
-    tr, tr_loader, val_loader = _create_trainer(
+    trainer, tr_loader, val_loader, te_loader, te_loader_sh = _get_trainer_loaders(
         dataset=dataset, config=config, processed_interactions=processed_interactions
     )
 
-    tr.train(
+    trainer.train(
         train_loader=tr_loader,
         val_loader=val_loader,
         val_metric=config.val_metric,
@@ -70,15 +74,14 @@ def train_ltn_reg(dataset: Dataset, config: ModelConfig, processed_interactions:
         final_model_save_path=train_config.final_model_save_path,
     )
 
-    val_metric_results, _ = tr.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
-
+    val_metric_results, _ = trainer.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
     logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
 
-    te_loader = ValDataLoader(
-        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.hyper_params.batch_size
-    )
-    te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
+    te_metric_results, _ = trainer.validate(te_loader, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.5f}")
+
+    te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric} on shared users only: {te_sh_metric_results:.5f}")
 
 
 def tune_ltn_reg(
@@ -128,13 +131,15 @@ def tune_ltn_reg(
 def test_ltn_reg(dataset: Dataset, config: ModelConfig, processed_interactions: dict[int, Tensor]):
     train_config = config.ltn_reg_train_config
 
-    tr, _, _ = _create_trainer(dataset=dataset, config=config, processed_interactions=processed_interactions)
+    trainer, _, _, te_loader, te_loader_sh = _get_trainer_loaders(
+        dataset=dataset, config=config, processed_interactions=processed_interactions
+    )
 
     weights_path = train_config.final_model_save_path
-    tr.model.load_model(weights_path)
+    trainer.model.load_model(weights_path)
 
-    te_loader = ValDataLoader(
-        data=dataset.tgt_te, ui_matrix=dataset.tgt_ui_matrix, batch_size=train_config.hyper_params.batch_size
-    )
-    te_metric_results, _ = tr.validate(te_loader, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
+    te_metric_results, _ = trainer.validate(te_loader, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.5f}")
+
+    te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric} on shared users only: {te_sh_metric_results:.5f}")
