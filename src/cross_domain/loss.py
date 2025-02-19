@@ -1,5 +1,6 @@
 import torch
 import ltn
+from loguru import logger
 
 
 class LTNLoss(torch.nn.Module):
@@ -23,4 +24,10 @@ class LTNLoss(torch.nn.Module):
         :param neg_scores: scores for the negative items computed by the Score function
         :return: averaged LTN loss
         """
-        return self.Dist(pos_scores, neg_scores)
+        try:
+            return self.Dist(pos_scores, neg_scores)
+        except ValueError as e:
+            logger.error(f"An error occurred while computing the LTN loss: {str(e)}")
+            logger.error(f"Pos_scores: {pos_scores}")
+            logger.error(f"Neg_scores: {neg_scores}")
+            exit(1)
