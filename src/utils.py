@@ -64,5 +64,4 @@ def decompress_7z(compressed_file_path: Path):
             exit(1)
 
     else:
-        logger.error(f"Trying to decompress a file which does not exist: {compressed_file_path}")
-        exit(1)
+        raise FileNotFoundError(f"Trying to decompress a file which does not exist: {compressed_file_path}")

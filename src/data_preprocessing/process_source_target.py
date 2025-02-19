@@ -28,6 +28,7 @@ def process_source_target(
     user_level_src: bool,
     user_level_tgt: bool,
     max_path_length: int,
+    model: Literal["mf", "ltn_reg"],
     tgt_n_ratings_sh: Optional[int] = None,
     save_dir_path: Optional[Path] = None,
     clear_saved_dataset: bool = False,
@@ -62,6 +63,15 @@ def process_source_target(
     # decompress source and target rating files, if needed
     src_dataset_path = decompress_7z(src_dataset_config.dataset_path)
     tgt_dataset_path = decompress_7z(tgt_dataset_config.dataset_path)
+    try:
+        paths_file_path = decompress_7z(paths_file_path)
+        no_paths = False
+    except FileNotFoundError as e:
+        if model == "mf":
+            no_paths = True
+        else:
+            logger.error(str(e))
+            exit(1)
 
     save_file_path = None
     if save_dir_path is not None:
@@ -77,6 +87,7 @@ def process_source_target(
             user_level_src=user_level_src,
             user_level_tgt=user_level_tgt,
             max_path_length=max_path_length,
+            no_paths=no_paths,
         )
 
         maybe_dataset = load_or_clear_dataset(save_file_path=save_file_path, clear_saved_dataset=clear_saved_dataset)
@@ -161,14 +172,17 @@ def process_source_target(
         )
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
-    sim_matrix = create_sim_matrix(
-        paths_file_path=paths_file_path,
-        src_i_string_to_id=src_i_string_to_id,
-        tgt_i_string_to_id=tgt_i_amzn_id_to_incr_id,
-        src_n_items=src_n_items,
-        tgt_n_items=tgt_n_items,
-        max_path_length=max_path_length,
-    )
+    if no_paths:
+        sim_matrix = None
+    else:
+        sim_matrix = create_sim_matrix(
+            paths_file_path=paths_file_path,
+            src_i_string_to_id=src_i_string_to_id,
+            tgt_i_string_to_id=tgt_i_amzn_id_to_incr_id,
+            src_n_items=src_n_items,
+            tgt_n_items=tgt_n_items,
+            max_path_length=max_path_length,
+        )
 
     dataset = Dataset(
         src_n_users=src_n_users,
@@ -249,6 +263,7 @@ def make_save_file_path(
     save_dir_path: Path,
     src_dataset_path: Path,
     tgt_dataset_path: Path,
+    no_paths: bool,
     src_sparsity: float,
     tgt_sparsity: float,
     tgt_n_ratings_sh: int,
@@ -276,10 +291,11 @@ def make_save_file_path(
     """
     makedirs(save_dir_path, exist_ok=True)
 
+    no_paths_str = "no_paths_" if no_paths else ""
     source_file_name = (
         f"src_dataset={src_dataset_path.stem}_sparsity={src_sparsity}_ul={user_level_src}_"
         f"tgt_dataset={tgt_dataset_path.stem}_sparsity={tgt_sparsity}_ul={user_level_tgt}_"
-        f"tgt_n_ratings_sh={tgt_n_ratings_sh}_"
+        f"tgt_n_ratings_sh={tgt_n_ratings_sh}_{no_paths_str}"
         f"max_path_length={max_path_length}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
     )
     return save_dir_path / source_file_name
@@ -344,9 +360,6 @@ def create_sim_matrix(
     """
     # create source_items X target_items matrix (used for the Sim predicate in the model)
     logger.debug("Creating similarity matrix between source and target items using available paths")
-
-    # decompress the file containing the paths from source to target domain
-    paths_file_path = decompress_7z(paths_file_path)
 
     sparse_matrix = lil_matrix((src_n_items, tgt_n_items))
     for obj in orjsonl.stream(paths_file_path):

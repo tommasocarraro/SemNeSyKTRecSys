@@ -50,10 +50,10 @@ seed = 0
 
 def main():
     args = parser.parse_args()
-    model_name: Literal["mf", "ltn_reg"] = args.model
+    model: Literal["mf", "ltn_reg"] = args.model
     which_dataset: Literal["source", "target"] = args.which_dataset
 
-    if which_dataset == "source" and model_name == "ltn_reg":
+    if which_dataset == "source" and model == "ltn_reg":
         logger.error("Cannot train the ltn model with source dataset")
         exit(1)
 
@@ -106,7 +106,7 @@ def main():
         seed=seed,
         user_level_src=user_level_src,
         user_level_tgt=user_level_tgt,
-        which_model=model_name,
+        which_model=model,
     )
     set_seed(seed)
 
@@ -123,9 +123,10 @@ def main():
         user_level_src=user_level_src,
         user_level_tgt=user_level_tgt,
         max_path_length=max_path_length,
+        model=model,
     )
 
-    if model_name == "mf":
+    if model == "mf":
         if kind == "train":
             train_mf(dataset=dataset, config=config, which_dataset=which_dataset)
         elif kind == "tune":
@@ -134,7 +135,7 @@ def main():
             )
         elif kind == "test":
             test_mf(dataset=dataset, config=config, which_dataset=which_dataset)
-    elif model_name == "ltn_reg":
+    elif model == "ltn_reg":
         mf_model_src = MatrixFactorization(
             n_users=dataset.src_n_users,
             n_items=dataset.src_n_items,
