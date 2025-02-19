@@ -1,5 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 
 import h5py
 import torch
@@ -16,6 +17,7 @@ def get_reg_axiom_data(
     src_ui_matrix: csr_matrix,
     tgt_ui_matrix: csr_matrix,
     tgt_sparsity: float,
+    tgt_n_ratings_sh: Optional[int],
     n_sh_users: int,
     sim_matrix: csr_matrix,
     top_k_items: NDArray,
@@ -33,6 +35,7 @@ def get_reg_axiom_data(
     learned little information.
     :param tgt_ui_matrix: sparse user-item matrix containing positive interactions in the target domain
     :param tgt_sparsity: sparsity factor of the target domain
+    :param tgt_n_ratings_sh: how many ratings to keep for the shared users on the target domain
     :param n_sh_users: number of shared users across domains
     :param sim_matrix: similarity matrix containing a 1 if there exists a path between the source and target item,
     0 otherwise
@@ -42,8 +45,14 @@ def get_reg_axiom_data(
     :param src_dataset_name: name of the source domain dataset to use
     :param tgt_dataset_name: name of the target domain dataset to use
     """
+    if tgt_n_ratings_sh is not None:
+        tgt_n_ratings_sh_str = f"_tgt_n_ratings_sh={tgt_n_ratings_sh}"
+    else:
+        tgt_n_ratings_sh_str = ""
+
     save_dir_file_path = (
-        save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}_tgt_sparsity={tgt_sparsity}_reg_axiom.h5"
+        save_dir_path
+        / f"{src_dataset_name}_{tgt_dataset_name}_tgt_sparsity={tgt_sparsity}{tgt_n_ratings_sh_str}_reg_axiom.h5"
     )
     if save_dir_file_path.is_file():
         logger.debug(f"Found precomputed user-item pairs at {save_dir_file_path}. Loading it...")

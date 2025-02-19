@@ -167,6 +167,7 @@ def main():
             src_dataset_name=src_dataset_name,
             tgt_dataset_name=tgt_dataset_name,
             tgt_sparsity=tgt_sparsity,
+            tgt_n_ratings_sh=tgt_n_ratings_sh,
         )
 
         if kind == "train":
