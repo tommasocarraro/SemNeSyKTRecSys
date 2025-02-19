@@ -9,6 +9,7 @@ import pandas as pd
 from loguru import logger
 from numpy.typing import NDArray
 from pandas import DataFrame
+from pandas.core.groupby import DataFrameGroupBy
 from scipy.sparse import csr_matrix, lil_matrix
 from tqdm import tqdm
 
@@ -27,6 +28,7 @@ def process_source_target(
     user_level_src: bool,
     user_level_tgt: bool,
     max_path_length: int,
+    tgt_n_ratings_sh: Optional[int] = None,
     save_dir_path: Optional[Path] = None,
     clear_saved_dataset: bool = False,
     seed: Optional[int] = None,
@@ -44,6 +46,7 @@ def process_source_target(
     :param paths_file_path: paths between entities in the two different domain
     :param src_sparsity: source domain sparsity factor
     :param tgt_sparsity: target domain sparsity factor
+    :param tgt_n_ratings_sh: how many ratings to keep for the shared users on the target domain
     :param user_level_src: whether to sample sparsity% of each user's ratings or globally for the source domain
     :param user_level_tgt: whether to sample sparsity% of each user's ratings or globally for the target domain
     :param max_path_length: maximum path length to consider from the paths file
@@ -51,6 +54,10 @@ def process_source_target(
     :param clear_saved_dataset: whether to clear the saved dataset if it exists
     :param seed: seed for sampling the dataset when increasing sparsity
     """
+    if tgt_sparsity < 1.0 and tgt_n_ratings_sh < 1.0:
+        logger.error("Both tgt_sparsity and tgt_n_ratings_sh are lower than 1.0. Case not handled.")
+        exit(1)
+
     logger.info("Reading datasets from file system")
     # decompress source and target rating files, if needed
     src_dataset_path = decompress_7z(src_dataset_config.dataset_path)
@@ -64,6 +71,7 @@ def process_source_target(
             tgt_dataset_path=tgt_dataset_path,
             src_split_strategy=src_dataset_config.split_strategy,
             tgt_split_strategy=src_dataset_config.split_strategy,
+            tgt_n_ratings_sh=tgt_n_ratings_sh,
             src_sparsity=src_sparsity,
             tgt_sparsity=tgt_sparsity,
             user_level_src=user_level_src,
@@ -111,7 +119,7 @@ def process_source_target(
         DataFrame(src_tr, columns=["userId", "itemId", "rating"]), n_users=src_n_users, n_items=src_n_items
     )
     src_tr, sparse_src_matrix = increase_sparsity(
-        ratings=src_tr,
+        ratings=DataFrame(src_tr, columns=["userId", "itemId", "rating"]),
         ui_matrix=sparse_src_matrix,
         sparsity=src_sparsity,
         label="source",
@@ -125,14 +133,25 @@ def process_source_target(
     sparse_tgt_matrix = create_ui_matrix(
         DataFrame(tgt_tr, columns=["userId", "itemId", "rating"]), n_users=tgt_n_users, n_items=tgt_n_items
     )
-    tgt_tr, sparse_tgt_matrix = increase_sparsity(
-        ratings=tgt_tr,
-        ui_matrix=sparse_tgt_matrix,
-        sparsity=tgt_sparsity,
-        label="target",
-        seed=seed,
-        user_level=user_level_tgt,
-    )
+
+    tgt_tr_df = DataFrame(tgt_tr, columns=["userId", "itemId", "rating"])
+    if tgt_sparsity < 1.0:
+        tgt_tr, sparse_tgt_matrix = increase_sparsity(
+            ratings=tgt_tr_df,
+            ui_matrix=sparse_tgt_matrix,
+            sparsity=tgt_sparsity,
+            label="target",
+            seed=seed,
+            user_level=user_level_tgt,
+        )
+    elif tgt_n_ratings_sh < 1.0:
+        tgt_tr, sparse_tgt_matrix = increase_sparsity_sh(
+            ratings=tgt_tr_df,
+            ui_matrix=sparse_tgt_matrix,
+            tgt_n_ratings_sh=tgt_n_ratings_sh,
+            sh_u_ids=sh_u_ids,
+            seed=seed,
+        )
 
     # create source_items X target_items matrix (used for the Sim predicate in the model)
     sim_matrix = create_sim_matrix(
@@ -225,6 +244,7 @@ def make_save_file_path(
     tgt_dataset_path: Path,
     src_sparsity: float,
     tgt_sparsity: float,
+    tgt_n_ratings_sh: int,
     src_split_strategy: SplitStrategy,
     user_level_src: bool,
     tgt_split_strategy: SplitStrategy,
@@ -239,6 +259,7 @@ def make_save_file_path(
     :param tgt_dataset_path: path to the target dataset
     :param src_sparsity: the sparsity of the source dataset
     :param tgt_sparsity: the sparsity of the target dataset
+    :param tgt_n_ratings_sh: how many ratings to keep for the shared users on the target domain
     :param src_split_strategy: strategy used to split the source dataset
     :param user_level_src: whether to sample sparsity% of each user's ratings or globally for the source domain
     :param tgt_split_strategy: strategy used to split the target dataset
@@ -251,6 +272,7 @@ def make_save_file_path(
     source_file_name = (
         f"src_dataset={src_dataset_path.stem}_sparsity={src_sparsity}_ul={user_level_src}_"
         f"tgt_dataset={tgt_dataset_path.stem}_sparsity={tgt_sparsity}_ul={user_level_tgt}_"
+        f"tgt_n_ratings_sh={tgt_n_ratings_sh}_"
         f"max_path_length={max_path_length}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
     )
     return save_dir_path / source_file_name
@@ -324,7 +346,7 @@ def create_sim_matrix(
 
 
 def increase_sparsity(
-    ratings: NDArray,
+    ratings: DataFrame,
     ui_matrix: csr_matrix,
     sparsity: float,
     label: Literal["source", "target"],
@@ -343,7 +365,6 @@ def increase_sparsity(
     :param user_level: whether to sample sparsity% of each user's ratings or globally
 
     :return: the new ratings array and ui_matrix containing the sampled ratings
-
     """
     if not (0.0 < sparsity <= 1.0):
         logger.error("sparsity must be between 0 and 1, excluding 0.")
@@ -351,10 +372,7 @@ def increase_sparsity(
 
     # if the sparsity is 1.0 then do nothing
     if sparsity == 1.0:
-        return ratings, ui_matrix
-
-    # reconvert the numpy array to a dataframe
-    df = DataFrame(ratings, columns=["userId", "itemId", "rating"])
+        return ratings.to_numpy(), ui_matrix
 
     # sample the required percentage of ratings for each user
     # if after the sampling the user is left with no ratings, the original group of ratings is retained
@@ -369,11 +387,47 @@ def increase_sparsity(
         )
         # inject the tqdm methods to pandas
         tqdm.pandas(desc=desc)
-        df = df.groupby("userId").progress_apply(sample_ratings).reset_index(drop=True)
+        ratings = ratings.groupby("userId").progress_apply(sample_ratings).reset_index(drop=True)
     else:
-        df = df.sample(frac=sparsity, random_state=seed).reset_index(drop=True)
+        ratings = ratings.sample(frac=sparsity, random_state=seed).reset_index(drop=True)
 
     mask = np.zeros(ui_matrix.shape, dtype=bool)
-    mask[df["userId"].to_numpy(), df["itemId"].to_numpy()] = True
+    mask[ratings["userId"].to_numpy(), ratings["itemId"].to_numpy()] = True
     new_ui_matrix = ui_matrix.multiply(mask).tocsr()
-    return df.to_numpy(), new_ui_matrix
+    return ratings.to_numpy(), new_ui_matrix
+
+
+def increase_sparsity_sh(
+    ratings: DataFrame, ui_matrix: csr_matrix, tgt_n_ratings_sh: int, sh_u_ids: list[int], seed: int
+) -> tuple[NDArray, csr_matrix]:
+    """
+    Artificially increases the sparsity of the ratings dataframe by the given sparsity factor. I.e., if sparsity is 0.4,
+    then 40% of each user's ratings will be retained in the dataset. The ratings are sampled randomly.
+
+    :param ratings: numpy array containing the quadruples of the ratings
+    :param ui_matrix: sparse user-item interactions matrix
+    :param tgt_n_ratings_sh: how many ratings to keep for the shared users on the target domain
+    :param sh_u_ids: the list of shared user ids
+    :param seed: seed to use for sampling
+
+    :return: the new ratings array and ui_matrix containing the sampled ratings
+    """
+    desc = (
+        f"Artificially increasing data sparsity for the shared users on the target domain."
+        f"Selecting {tgt_n_ratings_sh} random ratings for each user"
+    )
+    tqdm.pandas(desc=desc, leave=False)
+
+    sh_u_ids_set = set(sh_u_ids)
+
+    def sample_ratings(x: DataFrameGroupBy):
+        if x.name in sh_u_ids_set:
+            return x.sample(n=tgt_n_ratings_sh, random_state=seed)
+        return x
+
+    ratings = ratings.groupby("userId").progress_apply(sample_ratings).reset_index(drop=True)
+
+    mask = np.zeros(ui_matrix.shape, dtype=bool)
+    mask[ratings["userId"].to_numpy(), ratings["itemId"].to_numpy()] = True
+    new_ui_matrix = ui_matrix.multiply(mask).tocsr()
+    return ratings.to_numpy(), new_ui_matrix

@@ -31,6 +31,12 @@ parser.add_argument(
 )
 parser.add_argument("--tgt_sparsity", help="sparsity factor of target dataset", type=float, required=False, default=1.0)
 parser.add_argument(
+    "--tgt_n_ratings_sh",
+    help="number of ratings to keep for the shared users on the target domain",
+    type=int,
+    required=False,
+)
+parser.add_argument(
     "--user-level-tgt", help="whether to split the target dataset at the user level or globally", action="store_true"
 )
 parser.add_argument("--max_path_length", type=int, help="maximum path length", required=True)
@@ -64,6 +70,7 @@ def main():
     clear_dataset: bool = args.clear_dataset
     src_sparsity: float = args.src_sparsity
     tgt_sparsity: float = args.tgt_sparsity
+    tgt_n_ratings_sh: Optional[int] = args.tgt_n_ratings_sh
     sweep_id: Optional[str] = args.sweep_id
     sweep_name: Optional[str] = args.sweep_name
     user_level_src: bool = args.user_level_src
@@ -84,6 +91,10 @@ def main():
 
     if not args.tune and (sweep_id is not None or sweep_name is not None):
         logger.error("Sweep ID and sweep name should only be set when tuning")
+        exit(1)
+
+    if tgt_n_ratings_sh is not None and tgt_sparsity < 1.0:
+        logger.error("Setting target sparsity alongside the number of ratings for shared users is unsupported")
         exit(1)
 
     config = get_config(
@@ -107,6 +118,7 @@ def main():
         clear_saved_dataset=clear_dataset,
         src_sparsity=src_sparsity,
         tgt_sparsity=tgt_sparsity,
+        tgt_n_ratings_sh=tgt_n_ratings_sh,
         seed=seed,
         user_level_src=user_level_src,
         user_level_tgt=user_level_tgt,
