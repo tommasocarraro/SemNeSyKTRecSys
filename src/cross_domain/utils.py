@@ -57,7 +57,7 @@ def get_reg_axiom_data(
     for src_item, tgt_item in zip(*sim_matrix.nonzero()):
         src_to_tgt_sim[src_item].add(tgt_item)
 
-    # compute the mapping from source domain users to their ratings
+    # compute the mapping from source domain shared users to their ratings
     user_to_ratings_src: dict[int, set[int]] = defaultdict(set)
     for user, item in zip(*src_ui_matrix.nonzero()):
         if user in sh_users:
@@ -67,8 +67,8 @@ def get_reg_axiom_data(
     warm_users_src = {user for user, ratings in user_to_ratings_src.items() if len(ratings) > 5}
     del user_to_ratings_src
 
-    # compute the mapping from target domain users to their ratings
-    user_to_ratings_tgt: dict[int, set[int]] = defaultdict(set)
+    # compute the mapping from target domain shared users to their ratings
+    user_to_ratings_tgt: dict[int, set[int]] = {user: set() for user in sh_users}
     for user, item in zip(*tgt_ui_matrix.nonzero()):
         if user in sh_users:
             user_to_ratings_tgt[user].add(item)

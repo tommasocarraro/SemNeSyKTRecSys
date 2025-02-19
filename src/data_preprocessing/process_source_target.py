@@ -88,18 +88,25 @@ def process_source_target(
     src_ratings, tgt_ratings = load_dataframes(src_dataset_path=src_dataset_path, tgt_dataset_path=tgt_dataset_path)
 
     logger.debug("Applying transformations to the datasets")
-    # reindex the users and items
-    sh_users = set(src_ratings["userId"]) & set(tgt_ratings["userId"])
-    sh_u_ids = list(range(len(sh_users)))
-    sh_users_string_to_id = dict(zip(sorted(sh_users), sh_u_ids))
+
+    # reindex the users and items so they get incremental IDs, the shared users get the first IDs
+    sh_users_amzn_ids: set[str] = set(src_ratings["userId"]) & set(tgt_ratings["userId"])
+    sh_u_inc_ids = list(range(len(sh_users_amzn_ids)))
+    sh_users_amzn_id_to_incr_id = dict(zip(sorted(sh_users_amzn_ids), sh_u_inc_ids))
     reindex_users(
-        ratings=src_ratings, sh_users=sh_users, sh_u_ids=sh_u_ids, sh_users_string_to_id=sh_users_string_to_id
+        ratings=src_ratings,
+        sh_users_amzn_ids=sh_users_amzn_ids,
+        sh_u_inc_ids=sh_u_inc_ids,
+        sh_users_amzn_id_to_incr_id=sh_users_amzn_id_to_incr_id,
     )
     src_i_string_to_id = reindex_items(ratings=src_ratings)
     reindex_users(
-        ratings=tgt_ratings, sh_users=sh_users, sh_u_ids=sh_u_ids, sh_users_string_to_id=sh_users_string_to_id
+        ratings=tgt_ratings,
+        sh_users_amzn_ids=sh_users_amzn_ids,
+        sh_u_inc_ids=sh_u_inc_ids,
+        sh_users_amzn_id_to_incr_id=sh_users_amzn_id_to_incr_id,
     )
-    tgt_i_string_to_id = reindex_items(ratings=tgt_ratings)
+    tgt_i_amzn_id_to_incr_id = reindex_items(ratings=tgt_ratings)
 
     # convert ratings to implicit feedback
     src_ratings["rating"] = (src_ratings["rating"] >= 4).astype(int)
@@ -149,7 +156,7 @@ def process_source_target(
             ratings=tgt_tr_df,
             ui_matrix=sparse_tgt_matrix,
             tgt_n_ratings_sh=tgt_n_ratings_sh,
-            sh_u_ids=sh_u_ids,
+            sh_u_ids=sh_u_inc_ids,
             seed=seed,
         )
 
@@ -157,7 +164,7 @@ def process_source_target(
     sim_matrix = create_sim_matrix(
         paths_file_path=paths_file_path,
         src_i_string_to_id=src_i_string_to_id,
-        tgt_i_string_to_id=tgt_i_string_to_id,
+        tgt_i_string_to_id=tgt_i_amzn_id_to_incr_id,
         src_n_items=src_n_items,
         tgt_n_items=tgt_n_items,
         max_path_length=max_path_length,
@@ -168,7 +175,7 @@ def process_source_target(
         src_n_items=src_n_items,
         tgt_n_users=tgt_n_users,
         tgt_n_items=tgt_n_items,
-        n_sh_users=len(sh_users),
+        n_sh_users=len(sh_users_amzn_ids),
         src_ui_matrix=sparse_src_matrix,
         tgt_ui_matrix=sparse_tgt_matrix,
         src_tr=src_tr,
@@ -278,21 +285,26 @@ def make_save_file_path(
     return save_dir_path / source_file_name
 
 
-def reindex_users(ratings: DataFrame, sh_users: set[int], sh_u_ids: list[int], sh_users_string_to_id: dict[str, int]):
+def reindex_users(
+    ratings: DataFrame,
+    sh_users_amzn_ids: set[str],
+    sh_u_inc_ids: list[int],
+    sh_users_amzn_id_to_incr_id: dict[str, int],
+):
     """
     Re-indexes the users on the ratings dataframe in order to obtain incremental integer identifiers. Furthermore, the
     users shared between source and target domains are relocated to the first rows.
 
     :param ratings: the ratings dataframe
-    :param sh_users: the set of shared users
-    :param sh_u_ids: the list of shared user ids
-    :param sh_users_string_to_id: the mapping from user_id string to integer identifier
+    :param sh_users_amzn_ids: the set of shared users
+    :param sh_u_inc_ids: the list of shared user ids
+    :param sh_users_amzn_id_to_incr_id: the mapping from user_id string to integer identifier
     """
     # get ids of non-shared users in source and target domains
-    users = set(ratings["userId"]) - sh_users
-    u_ids = [(i + len(sh_u_ids)) for i in range(len(users))]
+    users = set(ratings["userId"]) - sh_users_amzn_ids
+    u_ids = [(i + len(sh_u_inc_ids)) for i in range(len(users))]
     u_string_to_id = dict(zip(sorted(users), u_ids))
-    u_string_to_id.update(sh_users_string_to_id)
+    u_string_to_id.update(sh_users_amzn_id_to_incr_id)
     ratings["userId"] = ratings["userId"].map(u_string_to_id)
 
 
@@ -413,7 +425,7 @@ def increase_sparsity_sh(
     :return: the new ratings array and ui_matrix containing the sampled ratings
     """
     desc = (
-        f"Artificially increasing data sparsity for the shared users on the target domain."
+        f"Artificially increasing data sparsity for the shared users on the target domain. "
         f"Selecting {tgt_n_ratings_sh} random ratings for each user"
     )
     tqdm.pandas(desc=desc, leave=False)
