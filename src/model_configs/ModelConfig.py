@@ -123,8 +123,8 @@ class ModelConfig:
             hyper = config.hyper_params
             config_str = (
                 f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
-                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall: {hyper.p_forall_ax1}, "
-                f"p_forall_ax1: {hyper.p_forall_ax1}, p_forall_ax2: {hyper.p_forall_ax2} "
+                f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall_ax: {hyper.p_forall_ax1}, "
+                f"p_forall_ax2: {hyper.p_forall_ax2}, p_sat_agg: {hyper.p_sat_agg} "
             )
         else:
             raise ValueError(f"Unknown train kind {kind}")

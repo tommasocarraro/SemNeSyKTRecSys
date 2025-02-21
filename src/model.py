@@ -68,6 +68,10 @@ class MatrixFactorization(torch.nn.Module):
         pred = pred.squeeze()
         if self.normalize:
             pred = torch.sigmoid(pred)
+        if torch.isnan(pred).any():
+            logger.info(u_idx)
+            logger.info(i_idx)
+            logger.info(pred)
         return pred
 
     def save_model(self, path: Path):
