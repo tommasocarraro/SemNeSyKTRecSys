@@ -67,8 +67,13 @@ class Trainer(ABC):
             wandb.watch(self.model, log="all")
 
         for epoch in range(n_epochs):
-            # training step
-            train_loss, log_dict = self.train_epoch(train_loader, epoch)
+            try:
+                # training step
+                train_loss, log_dict = self.train_epoch(train_loader, epoch)
+            except RuntimeError as e:
+                logger.error(str(e))
+                logger.error("Stopping training due to an error")
+                break
             # validation step
             val_score, val_loss_dict = self.validate(val_loader, val_metric, use_val_loss=True)
             # merge log dictionaries

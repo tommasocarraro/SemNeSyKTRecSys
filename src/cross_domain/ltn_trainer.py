@@ -1,5 +1,6 @@
 import ltn
 import numpy as np
+import torch
 from scipy.sparse import csr_matrix
 from torch.optim import Optimizer
 from tqdm import tqdm
@@ -131,6 +132,7 @@ class LTNRegTrainer(Trainer):
             loss = 1.0 - train_sat
             loss.backward()
 
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0, error_if_nonfinite=True)
             self.optimizer.step()
 
             train_loss += loss.item()

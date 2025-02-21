@@ -27,7 +27,7 @@ class MatrixFactorization(torch.nn.Module):
         :param n_items: number of items in the dataset
         :param n_factors: size of embeddings for users and items
         :param normalize: whether the output has to be normalized in [0.,1.] using sigmoid. This is used for the LTN
-        model.
+        model in classification tasks.
         """
         super(MatrixFactorization, self).__init__()
         self.n_users = n_users
@@ -69,9 +69,7 @@ class MatrixFactorization(torch.nn.Module):
         if self.normalize:
             pred = torch.sigmoid(pred)
         if torch.isnan(pred).any():
-            logger.info(u_idx)
-            logger.info(i_idx)
-            logger.info(pred)
+            raise RuntimeError("NaN detected in score computation")
         return pred
 
     def save_model(self, path: Path):
