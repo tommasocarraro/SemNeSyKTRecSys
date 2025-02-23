@@ -27,7 +27,7 @@ dataset_path_to_name = {path: name for name, path in dataset_name_to_path.items(
 dataset_pair_to_paths_file = {
     "books": {"movies": Path("./data/kg_paths/books-movies.jsonl.7z.001")},
     "movies": {"music": Path("./data/kg_paths/movies-music.jsonl.7z.001")},
-    "music": {"movies": Path("./data/kg_paths/music-movies.jsonl.7z.001")},
+    "music": {"movies": Path("./data/kg_paths/music-movies.jsonl.7z")},
 }
 
 
