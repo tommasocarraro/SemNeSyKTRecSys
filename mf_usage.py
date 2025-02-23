@@ -5,6 +5,8 @@ import dotenv
 import torch
 import wandb
 from loguru import logger
+from pandas import DataFrame
+from tqdm import tqdm
 
 from src.data_loader import TrDataLoader, ValDataLoader
 from src.data_preprocessing.Dataset import Dataset
@@ -77,10 +79,13 @@ def train_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sour
 
     val_metric_results, _ = trainer.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
 
-    logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
+    logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.5f}")
 
     te_metric_results, _ = trainer.validate(te_loader, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.4f}")
+    logger.info(f"Test {config.val_metric.name}: {te_metric_results:.5f}")
+
+    te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=config.val_metric)
+    logger.info(f"Test {config.val_metric.name} on shared users only: {te_sh_metric_results:.5f}")
 
 
 def tune_mf(
@@ -148,4 +153,4 @@ def test_mf(dataset: Dataset, config: ModelConfig, which_dataset: Literal["sourc
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.5f}")
 
     te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric} on shared users only: {te_sh_metric_results:.5f}")
+    logger.info(f"Test {config.val_metric.name} on shared users only: {te_sh_metric_results:.5f}")

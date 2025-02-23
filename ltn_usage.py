@@ -75,13 +75,13 @@ def train_ltn_reg(dataset: Dataset, config: ModelConfig, processed_interactions:
     )
 
     val_metric_results, _ = trainer.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
-    logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.4f}")
+    logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.5f}")
 
     te_metric_results, _ = trainer.validate(te_loader, val_metric=config.val_metric)
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.5f}")
 
     te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric} on shared users only: {te_sh_metric_results:.5f}")
+    logger.info(f"Test {config.val_metric.name} on shared users only: {te_sh_metric_results:.5f}")
 
 
 def tune_ltn_reg(
@@ -142,4 +142,4 @@ def test_ltn_reg(dataset: Dataset, config: ModelConfig, processed_interactions: 
     logger.info(f"Test {config.val_metric.name}: {te_metric_results:.5f}")
 
     te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=config.val_metric)
-    logger.info(f"Test {config.val_metric} on shared users only: {te_sh_metric_results:.5f}")
+    logger.info(f"Test {config.val_metric.name} on shared users only: {te_sh_metric_results:.5f}")

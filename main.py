@@ -118,7 +118,7 @@ def main():
         clear_saved_dataset=clear_dataset,
         src_sparsity=src_sparsity,
         tgt_sparsity=tgt_sparsity,
-        tgt_n_ratings_sh=tgt_n_ratings_sh,
+        tgt_sparsity_sh=tgt_n_ratings_sh,
         seed=seed,
         user_level_src=user_level_src,
         user_level_tgt=user_level_tgt,
