@@ -272,6 +272,7 @@ def make_save_file_path(
     tgt_split_strategy: SplitStrategy,
     user_level_tgt: bool,
     max_path_length: int,
+    seed: int,
 ) -> Path:
     """
     Constructs the path where the dataset should be stored on file system by numpy
@@ -279,6 +280,7 @@ def make_save_file_path(
     :param save_dir_path: path of the directory where the dataset should be stored
     :param src_dataset_path: path of the raw csv dataset
     :param tgt_dataset_path: path to the target dataset
+    :param no_paths: whether the dataset will be preprocessed without the paths
     :param src_sparsity: the sparsity of the source dataset
     :param tgt_sparsity: the sparsity of the target dataset
     :param tgt_n_ratings_sh: how many ratings to keep for the shared users on the target domain
@@ -287,6 +289,7 @@ def make_save_file_path(
     :param tgt_split_strategy: strategy used to split the target dataset
     :param user_level_tgt: whether to sample sparsity% of each user's ratings or globally for the target domain
     :param max_path_length: maximum path length to consider from the paths file
+    :param seed: random seed
     :return: Location of the processed dataset
     """
     makedirs(save_dir_path, exist_ok=True)
@@ -295,8 +298,8 @@ def make_save_file_path(
     source_file_name = (
         f"src_dataset={src_dataset_path.stem}_sparsity={src_sparsity}_ul={user_level_src}_"
         f"tgt_dataset={tgt_dataset_path.stem}_sparsity={tgt_sparsity}_ul={user_level_tgt}_"
-        f"tgt_n_ratings_sh={tgt_n_ratings_sh}_{no_paths_str}"
-        f"max_path_length={max_path_length}_{hash(src_split_strategy)}_{hash(tgt_split_strategy)}.npy"
+        f"tgt_n_ratings_sh={tgt_n_ratings_sh}_{no_paths_str}_max_path_length={max_path_length}_"
+        f"{hash(src_split_strategy)}_{hash(tgt_split_strategy)}_seed={seed}.npy"
     )
     return save_dir_path / source_file_name
 
