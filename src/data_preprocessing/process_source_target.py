@@ -146,13 +146,20 @@ def process_source_target(
         user_level=user_level_src,
     )
 
-    # remove ratings for shared users
-    tgt_ratings = increase_sparsity_sh(
-        ratings=tgt_ratings, sh_u_ids=sh_u_inc_ids, seed=seed, tgt_sparsity_sh=tgt_sparsity_sh
-    )
-
     logger.debug("Splitting the target dataset into train, val and test")
     tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
+
+    tgt_tr_df = DataFrame(tgt_tr, columns=["userId", "itemId", "rating"])
+    tgt_val_df = DataFrame(tgt_val, columns=["userId", "itemId", "rating"])
+
+    # remove ratings for shared users
+    tgt_tr = increase_sparsity_sh(
+        ratings=tgt_tr_df, sh_u_ids=sh_u_inc_ids, seed=seed, tgt_sparsity_sh=tgt_sparsity_sh, split="train"
+    )
+    tgt_val = increase_sparsity_sh(
+        ratings=tgt_val_df, sh_u_ids=sh_u_inc_ids, seed=seed, tgt_sparsity_sh=tgt_sparsity_sh, split="val"
+    )
+
     logger.debug("Creating the sparse interactions matrix for the target domain")
     sparse_tgt_matrix = create_ui_matrix(
         DataFrame(tgt_tr, columns=["userId", "itemId", "rating"]), n_users=tgt_n_users, n_items=tgt_n_items
@@ -422,7 +429,9 @@ def increase_sparsity(
     return ratings.to_numpy(), new_ui_matrix
 
 
-def increase_sparsity_sh(ratings: DataFrame, tgt_sparsity_sh: int, sh_u_ids: list[int], seed: int) -> DataFrame:
+def increase_sparsity_sh(
+    ratings: DataFrame, tgt_sparsity_sh: int, sh_u_ids: list[int], seed: int, split: Literal["train", "val"]
+) -> NDArray:
     """
     Artificially increases the sparsity of the ratings dataframe by the given sparsity factor. I.e., if sparsity is 0.4,
     then 40% of each user's ratings will be retained in the dataset. The ratings are sampled randomly.
@@ -431,11 +440,11 @@ def increase_sparsity_sh(ratings: DataFrame, tgt_sparsity_sh: int, sh_u_ids: lis
     :param tgt_sparsity_sh: the sparsity factor to use
     :param sh_u_ids: the list of shared user ids
     :param seed: seed to use for sampling
-
+    :param split: whether the ratings are from the training or validation set
     :return: the new ratings array and ui_matrix containing the sampled ratings
     """
     desc = (
-        f"Artificially increasing data sparsity for the shared users on the target domain. "
+        f"Artificially increasing data sparsity for the shared users on the {split} split for target domain. "
         f"Selecting {tgt_sparsity_sh}% random ratings for each user"
     )
     tqdm.pandas(desc=desc, leave=False)
@@ -448,4 +457,4 @@ def increase_sparsity_sh(ratings: DataFrame, tgt_sparsity_sh: int, sh_u_ids: lis
         return x
 
     ratings = ratings.groupby("userId").progress_apply(sample_ratings).reset_index(drop=True)
-    return ratings
+    return ratings.to_numpy()
