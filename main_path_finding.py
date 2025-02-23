@@ -29,8 +29,8 @@ if __name__ == "__main__":
 
     # list of domain pairs for which we want to find paths
     domain_pairs = [
-        # {"source": "movies", "target": "music", "pop_threshold": 200},
-        # {"source": "books", "target": "movies", "pop_threshold": 200},
+        {"source": "movies", "target": "music", "pop_threshold": 200},
+        {"source": "books", "target": "movies", "pop_threshold": 200},
         {"source": "music", "target": "movies", "pop_threshold": 200},
     ]
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
             database_name=database_name,
             file_paths=file_paths,
             max_hops=4,
-            n_threads=60,
+            n_threads=int(os.cpu_count() * 0.8),
             pop_threshold=pair_dict["pop_threshold"],
         )
 
