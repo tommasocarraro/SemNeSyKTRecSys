@@ -1,18 +1,9 @@
-import os
-from os.path import join
 from pathlib import Path
 from typing import Literal
 
-from loguru import logger
-
-from src.model_configs.ModelConfig import (
-    LtnRegParametersConfig,
-    LtnRegTuneConfig,
-    MetricConfig,
-    MfTuneConfig,
-    ParameterDistribution,
-    ParametersConfigMf,
-)
+from src.model_configs.CommonConfigs import MetricConfig, ParameterDistribution
+from src.model_configs.ltn.ModelConfigLtn import ParametersConfigLtn, TuneConfigLtn
+from src.model_configs.mf.ModelConfigMf import ParametersConfig, TuneConfigMf
 
 Domains_Type = Literal["books", "movies", "music"]
 
@@ -36,11 +27,11 @@ def get_default_tune_config_mf(
     batch_size_range=(128, 256, 512),
     learning_rate_range=(1e-5, 1e-1),
     weight_decay_range=(1e-6, 1e-1),
-) -> MfTuneConfig:
-    return MfTuneConfig(
+) -> TuneConfigMf:
+    return TuneConfigMf(
         method="bayes",
         metric=MetricConfig(goal="maximize", name="Best val metric"),
-        parameters=ParametersConfigMf(
+        parameters=ParametersConfig(
             n_factors_range=list(n_factors_range),
             learning_rate_range=ParameterDistribution(
                 min=learning_rate_range[0], max=learning_rate_range[1], distribution="log_uniform_values"
@@ -65,11 +56,11 @@ def get_default_tune_config_ltn_reg(
     p_forall_ax1_range=(1, 30),
     p_forall_ax2_range=(1, 30),
     p_sat_agg_range=(1, 30),
-) -> LtnRegTuneConfig:
-    return LtnRegTuneConfig(
+) -> TuneConfigLtn:
+    return TuneConfigLtn(
         method="bayes",
         metric=MetricConfig(goal="maximize", name="Best val metric"),
-        parameters=LtnRegParametersConfig(
+        parameters=ParametersConfigLtn(
             n_factors_range=list(n_factors_range),
             learning_rate_range=ParameterDistribution(
                 min=learning_rate_range[0], max=learning_rate_range[1], distribution="log_uniform_values"
@@ -92,60 +83,4 @@ def get_default_tune_config_ltn_reg(
         exp_name="amazon",
         bayesian_run_count=50,
         sweep_id=None,
-    )
-
-
-def get_best_weights_path(
-    src_domain_name: Domains_Type,
-    tgt_domain_name: Domains_Type,
-    src_sparsity: float,
-    user_level_src: bool,
-    tgt_sparsity: float,
-    user_level_tgt: bool,
-    model: Literal["mf", "ltn_reg"],
-    which_dataset: Literal["source", "target"],
-) -> Path:
-    return Path(
-        join(
-            "source_models",
-            f"best_{model}_{src_domain_name}@{src_sparsity}_ul={user_level_src}_{tgt_domain_name}@{tgt_sparsity}"
-            f"_ul={user_level_tgt}_{which_dataset}.pth",
-        )
-    )
-
-
-def get_best_weights_path_mf_source(src_domain_name: Domains_Type, src_sparsity: float, user_level_src: bool):
-    models_folder = Path("source_models")
-    for file_name in os.listdir(models_folder):
-        if (
-            file_name.startswith(f"best_mf_{src_domain_name}@{src_sparsity}_ul={user_level_src}")
-            and file_name.endswith("source.pth")
-        ) or (
-            file_name.startswith("best_mf_")
-            and file_name.endswith(f"{src_domain_name}@{src_sparsity}_ul={user_level_src}_target.pth")
-        ):
-            return models_folder / Path(file_name)
-    logger.error(
-        f"Could not find a MF model for source domain: {src_domain_name} with sparsity: {src_sparsity}"
-        + (" at user level" if user_level_src else "")
-    )
-    exit(1)
-
-
-def get_checkpoint_weights_path(
-    src_domain_name: Domains_Type,
-    tgt_domain_name: Domains_Type,
-    src_sparsity: float,
-    user_level_src: bool,
-    tgt_sparsity: float,
-    user_level_tgt: bool,
-    model: Literal["mf", "ltn_reg"],
-    which_dataset: Literal["source", "target"],
-) -> Path:
-    return Path(
-        join(
-            "source_models",
-            f"checkpoint_{model}_{src_domain_name}@{src_sparsity}_ul={user_level_src}_{tgt_domain_name}@{tgt_sparsity}"
-            f"_ul={user_level_tgt}_{which_dataset}.pth",
-        )
     )

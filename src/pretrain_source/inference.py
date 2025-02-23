@@ -18,6 +18,7 @@ def generate_pre_trained_src_matrix(
     src_ui_matrix: csr_matrix,
     n_shared_users: int,
     save_dir_path: Path,
+    retrained_model: bool,
 ) -> NDArray:
     """
     This function takes the pre-trained MF model in the source domain and generates a ranking of source domain items for
@@ -34,7 +35,7 @@ def generate_pre_trained_src_matrix(
     model_name = best_weights_path.stem
     save_file_path = save_dir_path / f"{model_name}_top_200_preds.npy"
 
-    if save_file_path.is_file():
+    if save_file_path.is_file() and not retrained_model:
         logger.debug(f"Found precomputed interactions matrix for the source domain at {save_file_path}. Loading it..")
         return np.load(save_file_path, allow_pickle=True)
 

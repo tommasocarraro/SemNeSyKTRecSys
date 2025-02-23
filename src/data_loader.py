@@ -185,15 +185,7 @@ class TrDataLoader(DataLoader):
 
 class ValDataLoader(DataLoader):
     def __init__(
-        self,
-        data: NDArray,
-        ui_matrix: csr_matrix,
-        n_sh_users: Optional[int] = None,
-        batch_size=1,
-        sampled_n_negs=150,
-        n_negs=100,
-        shuffle=True,
-        test_only_sh_users=False,
+        self, data: NDArray, ui_matrix: csr_matrix, batch_size=1, sampled_n_negs=150, n_negs=100, shuffle=True
     ):
         """
         Constructor of the data loader.
@@ -202,18 +194,8 @@ class ValDataLoader(DataLoader):
         chances to do not sample positive items.
         :param n_negs: number of negative items that are keep from the sampled ones to construct the negative set to
         compute ranking metrics.
-        :param test_only_sh_users: whether to only consider shared users during validation
         """
         self.data = data[data[:, 2] > 0]
-
-        if test_only_sh_users:
-            if n_sh_users is None:
-                logger.error("Trying to validate using only shared users without passing the number of shared users")
-                exit(1)
-            sh_users = np.array(range(n_sh_users))
-            mask = np.isin(data[:, 0], sh_users)
-            self.data = data[mask]
-
         self.ui_matrix = ui_matrix
         self.batch_size = batch_size
         self.shuffle = shuffle

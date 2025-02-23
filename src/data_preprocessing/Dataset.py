@@ -5,7 +5,7 @@ from scipy.sparse import csr_matrix
 
 
 @dataclass
-class Dataset:
+class DatasetLtn:
     """
     Class which defines the structure of the object returned by process_source_target
     """
@@ -22,5 +22,23 @@ class Dataset:
     src_te: NDArray
     tgt_tr: NDArray
     tgt_val: NDArray
+    sh_users: set[int]
     tgt_te: NDArray
+    tgt_te_sh: NDArray
     sim_matrix: csr_matrix
+
+
+@dataclass
+class DatasetMf:
+    """
+    Class which defines the structure of the object returned by process_source_target
+    """
+
+    n_users: int
+    n_items: int
+    sh_users: set[int]
+    ui_matrix: csr_matrix
+    tr: NDArray
+    val: NDArray
+    te: NDArray
+    te_sh: NDArray
