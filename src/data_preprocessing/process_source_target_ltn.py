@@ -162,6 +162,8 @@ def process_source_target_ltn(
         tgt_te_sh=tgt_te_sh,
         sim_matrix=sim_matrix,
         sh_users=set(sh_u_inc_ids),
+        src_dataset_name=src_dataset_config.dataset_name,
+        tgt_dataset_name=tgt_dataset_config.dataset_name,
     )
 
     if save_dir_path is not None and save_file_path is not None:

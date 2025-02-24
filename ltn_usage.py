@@ -86,6 +86,7 @@ def train_ltn_reg(dataset: DatasetLtn, config: ModelConfigLtn, processed_interac
         te_loader_sh=te_loader_sh,
         val_metric=config.val_metric,
         model_name="LTN REG",
+        dataset_name=f"{dataset.src_dataset_name}->{dataset.tgt_dataset_name}",
     )
 
 
@@ -145,4 +146,5 @@ def test_ltn_reg(dataset: DatasetLtn, config: ModelConfigLtn, processed_interact
         weights_path=config.train_config.final_model_save_path,
         val_metric=config.val_metric,
         model_name="LTN Reg",
+        dataset_name=f"{dataset.src_dataset_name}->{dataset.tgt_dataset_name}",
     )

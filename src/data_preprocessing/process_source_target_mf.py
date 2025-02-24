@@ -89,6 +89,8 @@ def process_source_target_mf(
         val=val,
         te=te,
         te_sh=te_sh,
+        train_dataset_name=train_dataset_config.dataset_name,
+        other_dataset_name=other_dataset_config.dataset_name,
     )
 
     if save_dir_path is not None and save_file_path is not None:

@@ -71,6 +71,7 @@ def train_mf(dataset: DatasetMf, config: ModelConfigMf):
         te_loader_sh=te_loader_sh,
         val_metric=config.val_metric,
         model_name="BPR-MF",
+        dataset_name=f"{dataset.train_dataset_name}, shared users with {dataset.other_dataset_name}",
     )
 
 
@@ -124,4 +125,5 @@ def test_mf(dataset: DatasetMf, config: ModelConfigMf):
         weights_path=config.train_config.final_model_save_path,
         val_metric=config.val_metric,
         model_name="BPR-MF",
+        dataset_name=f"{dataset.train_dataset_name}, shared users with {dataset.other_dataset_name}",
     )

@@ -7,6 +7,7 @@ from src.data_preprocessing.Split_Strategy import SplitStrategy
 
 @dataclass(frozen=True)
 class DatasetConfig:
+    dataset_name: str
     dataset_path: Path
     split_strategy: SplitStrategy
     sparsity_sh: float

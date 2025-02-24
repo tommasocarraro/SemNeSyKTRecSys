@@ -20,11 +20,13 @@ def get_config_mf(
             dataset_path=dataset_name_to_path[train_dataset_name],
             split_strategy=LeaveOneOut(seed=seed),
             sparsity_sh=sparsity_sh,
+            dataset_name=train_dataset_name,
         ),
         other_dataset_config=DatasetConfig(
             dataset_path=dataset_name_to_path[other_dataset_name],
             split_strategy=LeaveOneOut(seed=seed),
             sparsity_sh=sparsity_sh,
+            dataset_name=other_dataset_name,
         ),
         early_stopping_criterion="val_metric",
         val_metric=RankingMetricsType.NDCG10,

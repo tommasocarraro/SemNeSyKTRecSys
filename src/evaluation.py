@@ -13,12 +13,13 @@ def evaluate_model(
     te_loader_sh: ValDataLoader,
     val_metric: Valid_Metrics_Type,
     model_name: str,
+    dataset_name: str,
     weights_path: Optional[Path] = None,
 ):
     if weights_path is not None:
         trainer.model.load_model(weights_path)
 
-    logger.info(f"Evaluating {model_name} model")
+    logger.info(f"Evaluating {model_name} model on {dataset_name}")
     te_metric_results, _ = trainer.validate(te_loader, val_metric=val_metric)
     logger.info(f"Test {val_metric.name}: {te_metric_results:.5f}")
 

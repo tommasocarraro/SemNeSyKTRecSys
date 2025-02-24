@@ -29,11 +29,13 @@ def get_config_ltn(
             dataset_path=dataset_name_to_path[src_dataset_name],
             split_strategy=LeaveOneOut(seed=seed),
             sparsity_sh=sparsity_sh,
+            dataset_name=src_dataset_name,
         ),
         tgt_dataset_config=DatasetConfig(
             dataset_path=dataset_name_to_path[tgt_dataset_name],
             split_strategy=LeaveOneOut(seed=seed),
             sparsity_sh=sparsity_sh,
+            dataset_name=tgt_dataset_name,
         ),
         paths_file_path=dataset_pair_to_paths_file[src_dataset_name][tgt_dataset_name],
         early_stopping_criterion="val_metric",
