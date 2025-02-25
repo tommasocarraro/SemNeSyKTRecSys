@@ -22,9 +22,7 @@ def ltn_tuning_reg(
     tgt_ui_matrix: csr_matrix,
     processed_interactions: dict[int, Tensor],
     val_metric: Valid_Metrics_Type,
-    early_stopping_criterion: Literal["val_loss", "val_metric"],
     n_epochs: Optional[int] = 1000,
-    early: Optional[int] = 5,
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
     bayesian_run_count: Optional[int] = 10,
@@ -45,8 +43,6 @@ def ltn_tuning_reg(
     :param processed_interactions: user-item interactions for which the sampling for the regularization axiom has to be performed
     :param val_metric: validation metric that has to be used
     :param n_epochs: number of epochs for hyperparameter tuning
-    :param early: number of epochs for early stopping
-    :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
     :param entity_name: name of entity which owns the wandb project
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param bayesian_run_count: number of runs of Bayesian optimization
@@ -99,15 +95,7 @@ def ltn_tuning_reg(
                 tgt_ui_matrix=tgt_ui_matrix,
             )
             # perform training
-            trainer.train(
-                train_loader=train_loader,
-                val_loader=val_loader,
-                val_metric=val_metric,
-                n_epochs=n_epochs,
-                early=early,
-                verbose=1,
-                early_stopping_criterion=early_stopping_criterion,
-            )
+            trainer.train(train_loader=train_loader, val_loader=val_loader, val_metric=val_metric, n_epochs=n_epochs)
 
     if sweep_name is not None:
         tune_config["name"] = sweep_name

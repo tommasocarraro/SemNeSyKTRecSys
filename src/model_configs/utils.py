@@ -1,11 +1,8 @@
 from pathlib import Path
-from typing import Literal
 
 from src.model_configs.CommonConfigs import MetricConfig, ParameterDistribution
 from src.model_configs.ltn.ModelConfigLtn import ParametersConfigLtn, TuneConfigLtn
 from src.model_configs.mf.ModelConfigMf import ParametersConfig, TuneConfigMf
-
-Domains_Type = Literal["books", "movies", "music"]
 
 dataset_name_to_path = {
     "movies": Path("./data/ratings/reviews_Movies_and_TV_5.csv.7z"),
@@ -28,6 +25,9 @@ def get_default_tune_config_mf(
     learning_rate_range=(1e-5, 1e-1),
     weight_decay_range=(1e-6, 1e-1),
 ) -> TuneConfigMf:
+    """
+    Returns the default tuning configuration for MF model
+    """
     return TuneConfigMf(
         method="bayes",
         metric=MetricConfig(goal="maximize", name="Best val metric"),
@@ -48,15 +48,18 @@ def get_default_tune_config_mf(
     )
 
 
-def get_default_tune_config_ltn_reg(
+def get_default_tune_config_ltn(
     n_factors_range=(1, 5, 10, 25, 50, 100, 150, 200),
     batch_size_range=(128, 256, 512),
     learning_rate_range=(1e-5, 1e-1),
     weight_decay_range=(1e-6, 1e-1),
-    p_forall_ax1_range=(1, 30),
-    p_forall_ax2_range=(1, 30),
-    p_sat_agg_range=(1, 30),
+    p_forall_ax1_range=(1, 10),
+    p_forall_ax2_range=(1, 10),
+    p_sat_agg_range=(1, 10),
 ) -> TuneConfigLtn:
+    """
+    Returns the default tuning configuration for LTN model
+    """
     return TuneConfigLtn(
         method="bayes",
         metric=MetricConfig(goal="maximize", name="Best val metric"),

@@ -4,7 +4,8 @@ from typing import Optional
 
 from .ModelConfigMf import DatasetConfig, ModelConfigMf, TrainConfigMf
 from .hyperparams_mf import get_mf_hyperparams
-from ..utils import Domains_Type, dataset_name_to_path, get_default_tune_config_mf
+from ..utils import dataset_name_to_path, get_default_tune_config_mf
+from ...data_preprocessing.Dataset import Domains_Type
 from ...data_preprocessing.Split_Strategy import LeaveOneOut
 from ...metrics import RankingMetricsType
 
@@ -12,6 +13,14 @@ from ...metrics import RankingMetricsType
 def get_config_mf(
     train_dataset_name: Domains_Type, other_dataset_name: Domains_Type, sparsity_sh: float, seed: Optional[int] = None
 ) -> ModelConfigMf:
+    """
+    Retrieves the model configuration for MF
+
+    :param train_dataset_name: The name of the train dataset
+    :param other_dataset_name: The name of the other dataset
+    :param sparsity_sh: Target domain sparsity factor for shared users
+    :param seed: Random seed for reproducibility
+    """
     paths_dict = make_mf_model_paths(
         train_dataset_name=train_dataset_name, other_dataset_name=other_dataset_name, sparsity_sh=sparsity_sh, seed=seed
     )
@@ -43,8 +52,18 @@ def get_config_mf(
 def make_mf_model_paths(
     train_dataset_name: Domains_Type, other_dataset_name: Domains_Type, sparsity_sh: float, seed: Optional[int] = None
 ) -> dict[str, Path]:
+    """
+    Makes the models' paths used by MF model
+
+    :param train_dataset_name: The name of the train dataset
+    :param other_dataset_name: The name of the other dataset
+    :param sparsity_sh: Target domain sparsity factor for shared users
+    :param seed: Random seed for reproducibility
+    :return: A dictionary containing the models' paths
+    """
+
     base_path_str = os.path.join(
-        "single_domain_models",
+        "models",
         f"train_dataset={train_dataset_name}_other_dataset={other_dataset_name}_sparsity_sh={sparsity_sh}_seed={seed}",
     )
     checkpoint_path = Path(base_path_str + "_checkpoint.pth")

@@ -23,7 +23,6 @@ def get_reg_axiom_data(
     save_dir_path: Path,
     src_dataset_name: str,
     tgt_dataset_name: str,
-    retrained_model: bool,
 ) -> dict[int, Tensor]:
     """
     This function generates user-item pairs that will be given in input to the second axiom of the LTN model, namely the
@@ -34,7 +33,7 @@ def get_reg_axiom_data(
     determine the cold-start users in the source domain. Knowledge cannot be transferred from these users as the model
     learned little information.
     :param tgt_ui_matrix: sparse user-item matrix containing positive interactions in the target domain
-    :param sparsity_sh: TODO
+    :param sparsity_sh: target domain sparsity factor for shared users
     :param n_sh_users: number of shared users across domains
     :param sim_matrix: similarity matrix containing a 1 if there exists a path between the source and target item,
     0 otherwise
@@ -50,14 +49,14 @@ def get_reg_axiom_data(
         tgt_n_ratings_sh_str = ""
 
     save_dir_file_path = save_dir_path / f"{src_dataset_name}_{tgt_dataset_name}{tgt_n_ratings_sh_str}_reg_axiom.h5"
-    if save_dir_file_path.is_file() and not retrained_model:
+    if save_dir_file_path.is_file():
         logger.debug(f"Found precomputed user-item pairs at {save_dir_file_path}. Loading it...")
         return load_from_hdf5(save_dir_file_path)
 
     # create the set of all user IDs shared between the two domains
     sh_users = set(range(n_sh_users))
 
-    # compute the mappings from source domain items to target domain items through the similarity matrix
+    # compute the mapping from source domain items to target domain items through the similarity matrix
     src_to_tgt_sim: dict[int, set[int]] = defaultdict(set)
     for src_item, tgt_item in zip(*sim_matrix.nonzero()):
         src_to_tgt_sim[src_item].add(tgt_item)
@@ -68,8 +67,8 @@ def get_reg_axiom_data(
         if user in sh_users:
             user_to_ratings_src[user].add(item)
 
-    # compute the set of warm shared users (more than 5 ratings in the source domain)
-    warm_users_src = {user for user, ratings in user_to_ratings_src.items() if len(ratings) > 5}
+    # compute the set of warm shared users (more than 15 ratings in the source domain)
+    warm_users_src = {user for user, ratings in user_to_ratings_src.items() if len(ratings) > 15}
     del user_to_ratings_src
 
     # compute the mapping from target domain shared users to their ratings
@@ -89,9 +88,9 @@ def get_reg_axiom_data(
 
     processed_interactions: dict[int, Tensor] = {}
     for user in tqdm(transfer_users, desc="Generating user-item pairs as input to LTN model", dynamic_ncols=True):
-        # get ranking prediction for user
+        # get top k ranking prediction for user in source domain
         user_top_k = top_k_items[user]
-        # get target domain item IDs for items connected to the user's top k
+        # get target domain item IDs for items connected to the user's top k from the source domain
         tgt_positive_candidates: set[int] = set()
         for src_item in user_top_k:
             if src_item in src_to_tgt_sim:
@@ -101,9 +100,9 @@ def get_reg_axiom_data(
         # get the item IDs for which the user has given no rating
         user_no_ratings = all_item_ids - user_pos_ratings_tgt
         # for each user store the intersection between the unrated items and the positive candidates, if it's not empty
-        negative_candidates = list(tgt_positive_candidates & user_no_ratings)
-        if len(negative_candidates) > 0:
-            processed_interactions[user] = torch.tensor(data=negative_candidates, dtype=torch.int32, device=device)
+        positive_candidates = list(tgt_positive_candidates & user_no_ratings)
+        if len(positive_candidates) > 0:
+            processed_interactions[user] = torch.tensor(data=positive_candidates, dtype=torch.int32, device=device)
 
     logger.debug("Saving the reg axiom data to file system")
     save_to_hdf5(processed_interactions, save_dir_file_path)

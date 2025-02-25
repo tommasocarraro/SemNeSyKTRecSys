@@ -7,7 +7,7 @@ import wandb
 from loguru import logger
 
 from src.data_loader import TrDataLoader, ValDataLoader
-from src.data_preprocessing.Dataset import DatasetMf
+from src.data_preprocessing.Dataset import DatasetComparison
 from src.evaluation import evaluate_model
 from src.model import MatrixFactorization
 from src.model_configs.mf.ModelConfigMf import ModelConfigMf
@@ -16,23 +16,27 @@ from src.pretrain_source.mf_trainer import MfTrainer
 from src.pretrain_source.tuning import mf_tuning
 
 
-def _get_trainer_loaders(dataset: DatasetMf, config: ModelConfigMf):
-    tr = dataset.tr
-    val = dataset.val
+def _get_trainer_loaders(dataset: DatasetComparison, config: ModelConfigMf):
+    """
+    Creates the data loaders and the trainer for the MF model
+
+    :param dataset: Dataset object
+    :param config: Model configuration
+    :return: Trainer, train loader, validation loader, test loader, test loader with shared users ratings only
+    """
+    tr = dataset.tr_no_sh
+    val = dataset.val_no_sh
     te = dataset.te
-    te_sh = dataset.te_sh
-    ui_matrix = dataset.ui_matrix
-    n_users = dataset.n_users
-    n_items = dataset.n_items
+    te_sh = dataset.te_only_sh
 
     hyperparams = config.train_config.hyper_params
 
-    tr_loader = TrDataLoader(data=tr, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
-    val_loader = ValDataLoader(data=val, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
-    te_loader = ValDataLoader(data=te, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
-    te_loader_sh = ValDataLoader(data=te_sh, ui_matrix=ui_matrix, batch_size=hyperparams.batch_size)
+    tr_loader = TrDataLoader(data=tr, ui_matrix=dataset.ui_matrix_no_sh, batch_size=hyperparams.batch_size)
+    val_loader = ValDataLoader(data=val, ui_matrix=dataset.ui_matrix_no_sh, batch_size=hyperparams.batch_size)
+    te_loader = ValDataLoader(data=te, ui_matrix=dataset.ui_matrix, batch_size=hyperparams.batch_size)
+    te_loader_sh = ValDataLoader(data=te_sh, ui_matrix=dataset.ui_matrix, batch_size=hyperparams.batch_size)
 
-    mf = MatrixFactorization(n_users=n_users, n_items=n_items, n_factors=hyperparams.n_factors)
+    mf = MatrixFactorization(n_users=dataset.n_users, n_items=dataset.n_items, n_factors=hyperparams.n_factors)
 
     trainer = MfTrainer(
         model=mf,
@@ -45,8 +49,14 @@ def _get_trainer_loaders(dataset: DatasetMf, config: ModelConfigMf):
     return trainer, tr_loader, val_loader, te_loader, te_loader_sh
 
 
-def train_mf(dataset: DatasetMf, config: ModelConfigMf):
-    logger.info(f"Training the model with configuration: {config.get_train_config_str()}")
+def train_mf(dataset: DatasetComparison, config: ModelConfigMf):
+    """
+    Trains the MF model
+
+    :param dataset: Dataset object
+    :param config: Model configuration
+    """
+    logger.info(f"Training the target MF model with configuration: {config.get_train_config_str()}")
 
     trainer, tr_loader, val_loader, te_loader, te_loader_sh = _get_trainer_loaders(dataset=dataset, config=config)
 
@@ -54,28 +64,33 @@ def train_mf(dataset: DatasetMf, config: ModelConfigMf):
         train_loader=tr_loader,
         val_loader=val_loader,
         val_metric=config.val_metric,
-        early=config.early_stopping_patience,
-        verbose=1,
-        early_stopping_criterion=config.early_stopping_criterion,
         checkpoint_save_path=config.train_config.checkpoint_save_path,
         final_model_save_path=config.train_config.final_model_save_path,
     )
 
     val_metric_results, _ = trainer.validate(val_loader=val_loader, val_metric=config.val_metric, use_val_loss=False)
 
-    logger.info(f"Training complete. Final validation {config.val_metric.name}: {val_metric_results:.5f}")
+    logger.info(f"Training complete. Final validation {config.val_metric.value}: {val_metric_results:.5f}")
 
     evaluate_model(
         trainer=trainer,
         te_loader=te_loader,
         te_loader_sh=te_loader_sh,
         val_metric=config.val_metric,
-        model_name="BPR-MF",
-        dataset_name=f"{dataset.train_dataset_name}, shared users with {dataset.other_dataset_name}",
+        log_string=f"Evaluating BPR-MF on {dataset.train_dataset_name} dataset, shared users with "
+        f"{dataset.other_dataset_name} dataset and {dataset.sparsity_sh * 100}% of shared users ratings",
     )
 
 
-def tune_mf(dataset: DatasetMf, config: ModelConfigMf, sweep_id: Optional[str], sweep_name: Optional[str]):
+def tune_mf(dataset: DatasetComparison, config: ModelConfigMf, sweep_id: Optional[str], sweep_name: Optional[str]):
+    """
+    Tunes the MF model
+
+    :param dataset: Dataset object
+    :param config: Model configuration
+    :param sweep_id: Sweep ID
+    :param sweep_name: Sweep name
+    """
     if config.mf_tune_config is None:
         raise ValueError("Missing tuning configuration")
 
@@ -89,24 +104,16 @@ def tune_mf(dataset: DatasetMf, config: ModelConfigMf, sweep_id: Optional[str], 
         exit(1)
     wandb.login(key=wandb_api_key)
 
-    tr = dataset.tr
-    val = dataset.val
-    ui_matrix = dataset.ui_matrix
-    n_users = dataset.n_users
-    n_items = dataset.n_items
-
     mf_tuning(
         tune_config=config.get_wandb_dict_mf(),
-        train_set=tr,
-        val_set=val,
+        train_set=dataset.tr_no_sh,
+        val_set=dataset.val_no_sh,
         val_batch_size=config.train_config.hyper_params.batch_size,
-        n_users=n_users,
-        n_items=n_items,
-        ui_matrix=ui_matrix,
+        n_users=dataset.n_users,
+        n_items=dataset.n_items,
+        ui_matrix=dataset.ui_matrix_no_sh,
         metric=config.val_metric,
         n_epochs=config.epochs,
-        early=config.early_stopping_patience,
-        early_stopping_criterion=config.early_stopping_criterion,
         entity_name=config.mf_tune_config.entity_name,
         exp_name=config.mf_tune_config.exp_name,
         bayesian_run_count=config.mf_tune_config.bayesian_run_count,
@@ -115,7 +122,13 @@ def tune_mf(dataset: DatasetMf, config: ModelConfigMf, sweep_id: Optional[str], 
     )
 
 
-def test_mf(dataset: DatasetMf, config: ModelConfigMf):
+def test_mf(dataset: DatasetComparison, config: ModelConfigMf):
+    """
+    Tests the MF model
+
+    :param dataset: Dataset object
+    :param config: Model configuration
+    """
     trainer, _, _, te_loader, te_loader_sh = _get_trainer_loaders(dataset=dataset, config=config)
 
     evaluate_model(
@@ -124,6 +137,6 @@ def test_mf(dataset: DatasetMf, config: ModelConfigMf):
         te_loader_sh=te_loader_sh,
         weights_path=config.train_config.final_model_save_path,
         val_metric=config.val_metric,
-        model_name="BPR-MF",
-        dataset_name=f"{dataset.train_dataset_name}, shared users with {dataset.other_dataset_name}",
+        log_string=f"Evaluating BPR-MF on {dataset.train_dataset_name} dataset, shared users with "
+        f"{dataset.other_dataset_name} dataset and {dataset.sparsity_sh * 100}% of shared users ratings",
     )

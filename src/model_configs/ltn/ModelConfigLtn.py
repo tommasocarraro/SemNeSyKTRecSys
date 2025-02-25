@@ -2,14 +2,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from src.data_preprocessing.Split_Strategy import SplitStrategy
 from src.metrics import Valid_Metrics_Type
 from src.model_configs.CommonConfigs import DatasetConfig, MetricConfig, ParameterDistribution
-from src.model_configs.mf.ModelConfigMf import HyperParamsMf
+from src.model_configs.mf.ModelConfigMf import HyperParamsMf, ModelConfigMf
 
 
 @dataclass(frozen=True)
 class HyperParamsLtn(HyperParamsMf):
+    """
+    Hyperparameters for LTN model
+    """
+
     p_forall_ax1: int
     p_forall_ax2: int
     p_sat_agg: int
@@ -17,14 +20,21 @@ class HyperParamsLtn(HyperParamsMf):
 
 @dataclass(frozen=True)
 class TrainConfigLtn:
+    """
+    Training configuration for LTN model
+    """
+
     checkpoint_save_path: Optional[Path]
     final_model_save_path: Optional[Path]
-    hyper_params_source: HyperParamsMf
-    hyper_params_target: HyperParamsLtn
+    hyper_params: HyperParamsLtn
 
 
 @dataclass(frozen=True)
 class ParametersConfigLtn:
+    """
+    Hyperparameters' search spaces used in tuning
+    """
+
     n_factors_range: list[int]
     learning_rate_range: ParameterDistribution
     weight_decay_range: ParameterDistribution
@@ -36,6 +46,10 @@ class ParametersConfigLtn:
 
 @dataclass(frozen=True)
 class TuneConfigLtn:
+    """
+    Wandb tuning configuration for LTN model
+    """
+
     method: Literal["bayes"]
     metric: MetricConfig
     parameters: ParametersConfigLtn
@@ -47,19 +61,27 @@ class TuneConfigLtn:
 
 @dataclass(frozen=True)
 class ModelConfigLtn:
+    """
+    Data class which defines the LTN model configuration
+    """
+
     src_dataset_config: DatasetConfig
+    src_model_config: ModelConfigMf
     tgt_dataset_config: DatasetConfig
     paths_file_path: Path
     early_stopping_criterion: Literal["val_loss", "val_metric"]
     val_metric: Valid_Metrics_Type
-    train_config: TrainConfigLtn
+    tgt_train_config: TrainConfigLtn
     epochs: int = 1000
     early_stopping_patience: int = 5
     seed: Optional[int] = None
     ltn_reg_tune_config: Optional[TuneConfigLtn] = None
 
     def get_train_config_str(self) -> str:
-        hyper = self.train_config.hyper_params_target
+        """
+        Gets the string representation of the training configuration
+        """
+        hyper = self.tgt_train_config.hyper_params
         config_str = (
             f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
             f"weight_decay: {hyper.weight_decay}, batch_size: {hyper.batch_size}, p_forall_ax: {hyper.p_forall_ax1}, "
@@ -67,7 +89,10 @@ class ModelConfigLtn:
         )
         return config_str
 
-    def get_wandb_dict_ltn_reg(self):
+    def get_wandb_dict_ltn(self):
+        """
+        Returns the dictionary used for initializing a Wandb sweep
+        """
         config = self.ltn_reg_tune_config
         return {
             "method": "bayes",

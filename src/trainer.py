@@ -20,6 +20,10 @@ from src.utils import set_seed
 
 
 class Trainer(ABC):
+    """
+    Abstract class which defines the trainer interface.
+    """
+
     model: MatrixFactorization
     optimizer: Optimizer
     loss: Union[
@@ -38,9 +42,8 @@ class Trainer(ABC):
         checkpoint_save_path: Optional[Path] = None,
         final_model_save_path: Optional[Path] = None,
         n_epochs: int = 500,
-        early: Optional[int] = None,
-        early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_loss",
-        verbose: int = 10,
+        early: Optional[int] = 5,
+        early_stopping_criterion: Literal["val_loss", "val_metric"] = "val_metric",
     ):
         """
         Method for the train of the model.
@@ -53,7 +56,6 @@ class Trainer(ABC):
         :param n_epochs: number of epochs of training, default to 500
         :param early: patience for early stopping, default to None
         :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
-        :param verbose: number of epochs to wait for printing training details
         """
         logger.debug(f"Starting training on {device}")
         early_loss_based = True if early_stopping_criterion == "val_loss" else False
@@ -79,17 +81,16 @@ class Trainer(ABC):
             # merge log dictionaries
             log_dict.update(val_loss_dict)
             # print epoch data
-            if (epoch + 1) % verbose == 0:
-                log_record = f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric.value} {val_score:.3f}"
-                # add log_dict to log_record
-                log_record += " - " + " - ".join([f"{k} {v:.3f}" for k, v in log_dict.items() if k != "train_loss"])
-                # print epoch report
-                logger.info(log_record)
-                if self.wandb_train:
-                    # log validation metric value
-                    wandb.log({"Val metric": val_score})
-                    # log training information
-                    wandb.log(log_dict)
+            log_record = f"Epoch {epoch + 1} - Train loss {train_loss:.3f} - Val {val_metric.value} {val_score:.3f}"
+            # add log_dict to log_record
+            log_record += " - " + " - ".join([f"{k} {v:.3f}" for k, v in log_dict.items() if k != "train_loss"])
+            # print epoch report
+            logger.info(log_record)
+            if self.wandb_train:
+                # log validation metric value
+                wandb.log({"Val metric": val_score})
+                # log training information
+                wandb.log(log_dict)
             # stop the training if vanishing or exploding gradients are detected
             if np.isnan(train_loss):
                 logger.info("Training interrupted due to exploding or vanishing gradients")
@@ -156,7 +157,7 @@ class Trainer(ABC):
         :return: predictions and targets
         """
         preds = []
-        for batch_idx, (users, pos_items, neg_items) in enumerate(loader):
+        for users, pos_items, neg_items in loader:
             pos_preds = self.predict(users, pos_items).cpu().numpy()
             neg_preds = (
                 self.predict(users.repeat_interleave(neg_items.shape[1]), neg_items.flatten())
@@ -278,7 +279,6 @@ class Trainer(ABC):
                 n_epochs=n_epochs,
                 early=early,
                 early_stopping_criterion=early_stopping_criterion,
-                verbose=verbose,
             )
             val_score, _ = self.validate(val_loader, val_metric, use_val_loss=True)
             val_results.append(val_score)

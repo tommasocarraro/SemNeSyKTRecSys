@@ -114,6 +114,7 @@ class TrDataLoader(DataLoader):
         self.shuffle = shuffle
         self.processed_interactions = processed_interactions
 
+        # compute negative candidates for each user
         if processed_interactions is not None:
             self.sh_users = torch.tensor(list(processed_interactions.keys()), dtype=torch.int32, device=device)
             self.n_sh_users = self.sh_users.size()

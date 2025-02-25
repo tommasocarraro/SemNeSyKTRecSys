@@ -2,13 +2,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from src.data_preprocessing.Split_Strategy import SplitStrategy
 from src.metrics import Valid_Metrics_Type
 from src.model_configs.CommonConfigs import DatasetConfig, MetricConfig, ParameterDistribution
 
 
 @dataclass(frozen=True)
 class HyperParamsMf:
+    """
+    Hyperparameters for MF model
+    """
+
     n_factors: int
     learning_rate: float
     weight_decay: float
@@ -17,6 +20,10 @@ class HyperParamsMf:
 
 @dataclass(frozen=True)
 class TrainConfigMf:
+    """
+    Training configuration for MF model
+    """
+
     checkpoint_save_path: Optional[Path]
     final_model_save_path: Optional[Path]
     hyper_params: HyperParamsMf
@@ -24,6 +31,10 @@ class TrainConfigMf:
 
 @dataclass(frozen=True)
 class ParametersConfig:
+    """
+    Hyperparameters' search spaces used in tuning
+    """
+
     n_factors_range: list[int]
     learning_rate_range: ParameterDistribution
     weight_decay_range: ParameterDistribution
@@ -32,6 +43,10 @@ class ParametersConfig:
 
 @dataclass(frozen=True)
 class TuneConfigMf:
+    """
+    Wandb tuning configuration for MF model
+    """
+
     method: Literal["bayes"]
     metric: MetricConfig
     parameters: ParametersConfig
@@ -43,6 +58,10 @@ class TuneConfigMf:
 
 @dataclass(frozen=True)
 class ModelConfigMf:
+    """
+    Data class which defines the MF model configuration
+    """
+
     train_dataset_config: DatasetConfig
     other_dataset_config: DatasetConfig
     early_stopping_criterion: Literal["val_loss", "val_metric"]
@@ -54,6 +73,9 @@ class ModelConfigMf:
     mf_tune_config: Optional[TuneConfigMf] = None
 
     def get_train_config_str(self) -> str:
+        """
+        Gets the string representation of the training configuration
+        """
         hyper = self.train_config.hyper_params
         config_str = (
             f"n_factors: {hyper.n_factors}, learning_rate: {hyper.learning_rate}, "
@@ -62,6 +84,9 @@ class ModelConfigMf:
         return config_str
 
     def get_wandb_dict_mf(self):
+        """
+        Returns the dictionary used for initializing a Wandb sweep
+        """
         return {
             "method": self.mf_tune_config.method,
             "metric": {"goal": self.mf_tune_config.metric.goal, "name": self.mf_tune_config.metric.name},

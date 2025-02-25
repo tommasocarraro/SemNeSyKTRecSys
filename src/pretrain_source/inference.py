@@ -18,7 +18,6 @@ def generate_pre_trained_src_matrix(
     src_ui_matrix: csr_matrix,
     n_shared_users: int,
     save_dir_path: Path,
-    retrained_model: bool,
 ) -> NDArray:
     """
     This function takes the pre-trained MF model in the source domain and generates a ranking of source domain items for
@@ -33,9 +32,9 @@ def generate_pre_trained_src_matrix(
     :return: a tensor containing the top upper_bound predictions per user
     """
     model_name = best_weights_path.stem
-    save_file_path = save_dir_path / f"{model_name}_top_200_preds.npy"
+    save_file_path = save_dir_path / f"{model_name}_top_preds.npy"
 
-    if save_file_path.is_file() and not retrained_model:
+    if save_file_path.is_file():
         logger.debug(f"Found precomputed interactions matrix for the source domain at {save_file_path}. Loading it..")
         return np.load(save_file_path, allow_pickle=True)
 
@@ -65,7 +64,7 @@ def generate_pre_trained_src_matrix(
         # set the range of values for k within [n_ratings, n_ratings * 5], which is a heuristic based on the fact that
         # we want at least n_ratings results for the user and at most a sizeable amount of rankings proportional to n_ratings
         min_k = n_ratings
-        max_k = n_ratings * 5
+        max_k = n_ratings * 2
         k_range = np.arange(min_k, max_k + 1)
         # obtain the whole list of ratings provided by the user
         ground_truth = sparse_ratings.toarray()

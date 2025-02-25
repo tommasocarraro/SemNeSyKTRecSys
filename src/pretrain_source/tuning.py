@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 import wandb
 from numpy.typing import NDArray
@@ -21,9 +21,7 @@ def mf_tuning(
     n_items: int,
     ui_matrix: csr_matrix,
     metric: Valid_Metrics_Type,
-    early_stopping_criterion: Literal["val_loss", "val_metric"],
     n_epochs: Optional[int] = 1000,
-    early: Optional[int] = 5,
     entity_name: Optional[str] = None,
     exp_name: Optional[str] = None,
     bayesian_run_count: Optional[int] = 10,
@@ -43,8 +41,6 @@ def mf_tuning(
     :param ui_matrix: sparse matrix of user interactions
     :param metric: validation metric that has to be used
     :param n_epochs: number of epochs for hyperparameter tuning
-    :param early: number of epochs for early stopping
-    :param early_stopping_criterion: whether to use the loss function or the validation metric as early stopping criterion
     :param entity_name: name of entity which owns the wandb project
     :param exp_name: name of experiment. It is used to log data to the corresponding WandB project
     :param bayesian_run_count: number of runs of Bayesian optimization
@@ -77,15 +73,7 @@ def mf_tuning(
             optimizer = AdamW(mf.parameters(), lr=lr, weight_decay=wd)
             trainer = MfTrainer(mf, optimizer, loss=BPRLoss(), wandb_train=True)
             # perform training
-            trainer.train(
-                train_loader,
-                val_loader,
-                metric,
-                n_epochs=n_epochs,
-                early=early,
-                verbose=1,
-                early_stopping_criterion=early_stopping_criterion,
-            )
+            trainer.train(train_loader, val_loader, metric, n_epochs=n_epochs)
 
     if sweep_name is not None:
         tune_config["name"] = sweep_name
