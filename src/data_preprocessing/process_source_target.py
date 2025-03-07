@@ -108,9 +108,6 @@ def process_source_target(
     # split the datasets into train, val, test and create the sparse interactions matrices
     logger.debug("Splitting the source dataset into train, val and test")
     src_tr, src_val, src_te = src_dataset_config.split_strategy.split(src_ratings.to_numpy())
-    src_tr_no_sh = increase_sparsity_sh(
-        ratings=src_tr, sparsity_sh=sparsity_sh, sh_u_incr_ids=set(sh_u_inc_ids), seed=seed
-    )
     src_te_sh = remove_not_sh(ratings=src_te, sh_u_ids=set(sh_u_inc_ids))
     logger.debug("Splitting the target dataset into train, val and test")
     tgt_tr, tgt_val, tgt_te = tgt_dataset_config.split_strategy.split(tgt_ratings.to_numpy())
@@ -119,9 +116,6 @@ def process_source_target(
     logger.debug("Creating the sparse interactions matrix for the source domain")
     sparse_src_matrix = create_ui_matrix(
         DataFrame(src_tr, columns=["userId", "itemId", "rating"]), n_users=src_n_users, n_items=src_n_items
-    )
-    sparse_src_matrix_no_sh = create_ui_matrix(
-        DataFrame(src_tr_no_sh, columns=["userId", "itemId", "rating"]), n_users=src_n_users, n_items=src_n_items
     )
 
     # remove ratings for shared users
