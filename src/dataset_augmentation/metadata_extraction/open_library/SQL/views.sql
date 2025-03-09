@@ -18,4 +18,5 @@ SELECT
   a.name_query
 FROM
   editions e
-  JOIN authors a ON a.key = ANY(e.authors);
+  JOIN authors a ON a.key = ANY (e.authors);
+
