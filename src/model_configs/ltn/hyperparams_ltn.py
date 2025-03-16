@@ -19,12 +19,12 @@ hyperparams_dict = {
         "movies": {
             0.0: (
                 HyperParamsLtn(
-                    n_factors=1,
-                    learning_rate=0.01,
-                    weight_decay=0.01,
-                    batch_size=512,
-                    p_forall_ax1=2,
-                    p_forall_ax2=2,
+                    n_factors=200,
+                    learning_rate=0.0002130905867345901,
+                    weight_decay=0.09268847060983204,
+                    batch_size=256,
+                    p_forall_ax1=7,
+                    p_forall_ax2=4,
                     p_sat_agg=2,
                 ),
                 books_pretrain_hyperparams,
@@ -35,13 +35,13 @@ hyperparams_dict = {
         "music": {
             0.0: (
                 HyperParamsLtn(
-                    n_factors=1,
-                    learning_rate=0.01,
-                    weight_decay=0.01,
-                    batch_size=512,
-                    p_forall_ax1=2,
+                    n_factors=100,
+                    learning_rate=0.0002602637241164413,
+                    weight_decay=0.09013018758156369,
+                    batch_size=256,
+                    p_forall_ax1=9,
                     p_forall_ax2=2,
-                    p_sat_agg=2,
+                    p_sat_agg=8,
                 ),
                 movies_pretrain_hyperparams,
             )
@@ -51,13 +51,13 @@ hyperparams_dict = {
         "movies": {
             0.0: (
                 HyperParamsLtn(
-                    n_factors=1,
-                    learning_rate=0.01,
-                    weight_decay=0.01,
-                    batch_size=512,
-                    p_forall_ax1=2,
-                    p_forall_ax2=2,
-                    p_sat_agg=2,
+                    n_factors=100,
+                    learning_rate=0.00025117050087226933,
+                    weight_decay=0.06085961843322602,
+                    batch_size=256,
+                    p_forall_ax1=6,
+                    p_forall_ax2=1,
+                    p_sat_agg=8,
                 ),
                 music_pretrain_hyperparams,
             )
