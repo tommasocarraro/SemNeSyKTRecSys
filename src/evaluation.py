@@ -35,3 +35,5 @@ def evaluate_model(
 
     te_sh_metric_results, _ = trainer.validate(te_loader_sh, val_metric=val_metric)
     logger.info(f"Test {val_metric.value} on shared users only: {te_sh_metric_results:.5f}")
+
+    return te_metric_results, te_sh_metric_results

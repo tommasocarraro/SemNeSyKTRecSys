@@ -131,7 +131,7 @@ def test_mf(dataset: DatasetComparison, config: ModelConfigMf):
     """
     trainer, _, _, te_loader, te_loader_sh = _get_trainer_loaders(dataset=dataset, config=config)
 
-    evaluate_model(
+    return evaluate_model(
         trainer=trainer,
         te_loader=te_loader,
         te_loader_sh=te_loader_sh,

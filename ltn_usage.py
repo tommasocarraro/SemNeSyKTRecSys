@@ -165,7 +165,7 @@ def test_ltn(dataset: DatasetTarget, config: ModelConfigLtn, processed_interacti
         dataset=dataset, config=config, processed_interactions=processed_interactions
     )
 
-    evaluate_model(
+    return evaluate_model(
         trainer=trainer,
         te_loader=te_loader,
         te_loader_sh=te_loader_sh,
