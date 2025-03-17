@@ -96,7 +96,7 @@ def make_ltn_model_paths(
     checkpoint_path = Path(base_path_str + "_checkpoint.pth")
     final_model_path = Path(base_path_str + "_final_model.pth")
     src_model_paths = make_mf_model_paths(
-        train_dataset_name=src_dataset_name, other_dataset_name=tgt_dataset_name, sparsity_sh=1.0, seed=seed
+        train_dataset_name=src_dataset_name, other_dataset_name=tgt_dataset_name, sparsity_sh=1.0
     )
     return {
         "tgt_checkpoint": checkpoint_path,

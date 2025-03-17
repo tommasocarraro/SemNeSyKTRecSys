@@ -62,9 +62,11 @@ def make_mf_model_paths(
     :return: A dictionary containing the models' paths
     """
 
+    seed_str = f"_seed_{seed}" if seed is not None else ""
+
     base_path_str = os.path.join(
         "models",
-        f"train_dataset={train_dataset_name}_other_dataset={other_dataset_name}_sparsity_sh={sparsity_sh}_seed={seed}",
+        f"train_dataset={train_dataset_name}_other_dataset={other_dataset_name}_sparsity_sh={sparsity_sh}{seed_str}",
     )
     checkpoint_path = Path(base_path_str + "_checkpoint.pth")
     final_model_path = Path(base_path_str + "_final_model.pth")
